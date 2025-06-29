@@ -1127,30 +1127,99 @@ Map.addLayer(glacierImage.selfMask(), {palette: ['red']}, 'Saskatchewan Glacier 
 
 // Add default broadband albedo layer for 2020 summer as example
 print('Adding default glacier albedo layer for 2020 summer...');
+
+// DEBUG: Step-by-step processing to identify where the issue occurs
+print('=== DEBUGGING GLACIER ALBEDO PROCESSING ===');
+
+// Step 1: Check raw MODIS data
+var rawModis = ee.ImageCollection('MODIS/061/MOD09GA')
+  .filterDate('2020-06-01', '2020-09-30')
+  .filterBounds(glacierBounds);
+
+rawModis.size().evaluate(function(size) {
+  print('Step 1 - Raw MODIS images found:', size);
+});
+
+// Step 2: Test quality filtering on first image
+var firstImage = rawModis.first();
+var qualityFiltered = qualityFilter(firstImage);
+
+// Step 3: Test glacier mask creation
+var glacierMask = createGlacierMask(qualityFiltered, glacierOutlines);
+
+// Step 4: Test processing pipeline on single image
+var processedSingle = processModisImage(firstImage, glacierOutlines);
+
+// Debug: Check if processed image has albedo band
+processedSingle.bandNames().evaluate(function(bands) {
+  print('Step 4 - Bands in processed image:', bands);
+});
+
+// Step 5: Test collection processing
 var defaultAlbedo2020 = retrieveGlacierAlbedo(glacierBounds, '2020-06-01', '2020-09-30', glacierOutlines);
 
-// Debug: Check collection size
 defaultAlbedo2020.size().evaluate(function(size) {
-  print('Raw MODIS images found for 2020 summer:', size);
+  print('Step 5 - Total processed images:', size);
 });
 
-// Filter for valid albedo data and add mean layer
+// Step 6: Filter for valid albedo data
 var validDefault = defaultAlbedo2020.filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
 
-// Debug: Check valid collection size
 validDefault.size().evaluate(function(validSize) {
-  print('Valid albedo images for 2020 summer:', validSize);
+  print('Step 6 - Valid albedo images:', validSize);
+  
+  if (validSize > 0) {
+    // Test single valid image
+    var testImage = validDefault.first();
+    testImage.select('broadband_albedo').reduceRegion({
+      reducer: ee.Reducer.minMax(),
+      geometry: glacierBounds,
+      scale: 500,
+      maxPixels: 1e6
+    }).evaluate(function(stats) {
+      print('Step 6 - Albedo value range in first valid image:', stats);
+    });
+  }
 });
 
-// Add layer with debugging
-var meanDefaultAlbedo = validDefault.select('broadband_albedo').mean();
-
-// Add debugging layer to check if albedo data exists
-Map.addLayer(meanDefaultAlbedo.mask(meanDefaultAlbedo.gt(0)), {
-  min: 0.1, 
-  max: 0.9, 
-  palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
-}, 'Mean Broadband Albedo (2020 Summer)');
+// Step 7: Create mean and test layer
+if (validDefault.size().gt(0)) {
+  var meanDefaultAlbedo = validDefault.select('broadband_albedo').mean();
+  
+  // Test the mean albedo values
+  meanDefaultAlbedo.reduceRegion({
+    reducer: ee.Reducer.minMax().combine({
+      reducer2: ee.Reducer.count(),
+      sharedInputs: true
+    }),
+    geometry: glacierBounds,
+    scale: 500,
+    maxPixels: 1e6,
+    bestEffort: true
+  }).evaluate(function(meanStats) {
+    print('Step 7 - Mean albedo statistics:', meanStats);
+  });
+  
+  // Add to map with more permissive masking
+  Map.addLayer(meanDefaultAlbedo, {
+    min: 0.0, 
+    max: 1.0, 
+    palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
+  }, 'Mean Broadband Albedo (2020 Summer)');
+  
+  // Also add a simple version without masking for comparison
+  Map.addLayer(glacierMask, {palette: ['white']}, 'Glacier Mask (Debug)');
+  
+} else {
+  print('ERROR: No valid albedo images found - check processing pipeline');
+  
+  // Create a simple test layer with raw MODIS data
+  print('=== CREATING SIMPLE TEST LAYER ===');
+  var simpleTest = rawModis.first().select('sur_refl_b01').multiply(0.0001);
+  Map.addLayer(simpleTest.updateMask(glacierImage.gt(0)), {
+    min: 0, max: 0.5, palette: ['black', 'red']
+  }, 'Simple Test Layer (Band 1)');
+}
 
 // Initial status
 statusLabel.setValue('Interface ready. Default 2020 summer albedo shown. Select dates and click Apply for other periods.');
