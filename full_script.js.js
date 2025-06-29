@@ -355,19 +355,19 @@ function processModisImage(image, glacierOutlines) {
   // Create glacier mask
   var glacierMask = createGlacierMask(filtered, glacierOutlines);
   
-  // Step 0: Snow/ice classification using NDSI
-  var classified = classifySnowIce(filtered);
-  
   // Step 1: Topography correction
-  var topocorrected = topographyCorrection(classified);
+  var topocorrected = topographyCorrection(filtered);
   
-  // Step 2: Surface-specific anisotropic correction
+  // Step 2: Snow/ice classification using NDSI on topographically corrected bands
+  var classified = classifySnowIce(topocorrected);
+  
+  // Step 3: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
-  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
-  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
   
   // Combine narrowband albedo based on snow/ice classification
-  var snowMask = topocorrected.select('snow_mask');
+  var snowMask = classified.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -384,9 +384,9 @@ function processModisImage(image, glacierOutlines) {
   });
   
   // Add combined narrowband albedo to image
-  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
   
-  // Step 3: Broadband albedo calculation using NDSI-based classification
+  // Step 4: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   
   // Apply glacier mask to final results
