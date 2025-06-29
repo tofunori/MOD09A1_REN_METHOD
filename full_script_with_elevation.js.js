@@ -827,6 +827,18 @@ var applyButton = ui.Button({
 });
 panel.add(applyButton);
 
+// Export Daily Observations button (original functionality)
+var exportDailyBtn = ui.Button({
+  label: 'Export Daily Observations',
+  style: {
+    backgroundColor: '#34a853',
+    color: 'white',
+    margin: '5px 0px',
+    width: '280px'
+  }
+});
+panel.add(exportDailyBtn);
+
 // NEW: Export by Elevation button
 var exportElevationBtn = ui.Button({
   label: 'Export by Elevation (50m)',
@@ -1016,6 +1028,27 @@ applyButton.onClick(function() {
   processSelectedDateRangeWithElevation();
 });
 
+// Export Daily Observations button event handler (original functionality)
+exportDailyBtn.onClick(function() {
+  if (currentAlbedoCollection === null) {
+    statusLabel.setValue('Error: No data processed. Click Apply first.');
+    statusLabel.style().set('color', 'red');
+    return;
+  }
+  
+  var startDate = startDateBox.getValue();
+  var endDate = endDateBox.getValue();
+  var description = 'saskatchewan_glacier_albedo_' + startDate.replace(/-/g, '') + '_' + endDate.replace(/-/g, '');
+  
+  statusLabel.setValue('Exporting daily observations...');
+  statusLabel.style().set('color', 'orange');
+  
+  exportDailyObservations(currentAlbedoCollection, glacierBounds, description);
+  
+  statusLabel.setValue('Export initiated: ' + description + '.csv');
+  statusLabel.style().set('color', 'green');
+});
+
 // Export by Elevation button event handler
 exportElevationBtn.onClick(function() {
   if (currentAlbedoCollection === null) {
@@ -1061,8 +1094,10 @@ statusLabel.setValue('Interface ready with elevation analysis. Select dates and 
 statusLabel.style().set('color', 'green');
 
 print('=== GLACIER ALBEDO WITH ELEVATION ANALYSIS READY ===');
+print('Available exports:');
+print('- Daily Observations: One row per day with glacier-wide statistics (compatible with original script)');
+print('- Elevation Analysis: Albedo by 50m elevation bands (Ren et al. 2023 methodology)');
 print('New features:');
-print('- 50m elevation bands analysis (Ren et al. 2023)');
-print('- Export by elevation button');
-print('- Elevation visualization layer');
-print('- Compatible with existing functionality');
+print('- DEM 30m resolution with albedo resampling (Stratégie 1)');
+print('- tileScale parameters to prevent timeouts'); 
+print('- All original functionality preserved + elevation analysis');
