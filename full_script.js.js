@@ -83,8 +83,9 @@ function topographyCorrection(image) {
   var solarZenithCorrected = cosSolarZenithCorrected.acos();
   
   // Apply topographic correction to reflectance
-  // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0) - Eq. 3c
-  var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos());
+  // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0)
+  var correctionFactor = cosSolarZenithCorrected.multiply(sensorZenithRad.cos())
+    .divide(solarZenithRad.cos().multiply(cosSensorZenithCorrected));
   
   // Clip extreme values to avoid unrealistic corrections
   correctionFactor = correctionFactor.clamp(0.1, 10.0);
@@ -381,19 +382,19 @@ function processModisImage(image, glacierOutlines) {
   // Create glacier mask
   var glacierMask = createGlacierMask(filtered, glacierOutlines);
   
-  // Step 1: Topography correction (applied first to raw reflectances)
-  var topocorrected = topographyCorrection(filtered);
+  // Step 0: Snow/ice classification using NDSI
+  var classified = classifySnowIce(filtered);
   
-  // Step 2: Snow/ice classification using NDSI (calculated on topographically corrected reflectances)
-  var classified = classifySnowIce(topocorrected);
+  // Step 1: Topography correction
+  var topocorrected = topographyCorrection(classified);
   
-  // Step 3: Surface-specific anisotropic correction
+  // Step 2: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
-  var snowNarrowband = anisotropicCorrection(classified, 'snow');
-  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
+  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
   
   // Combine narrowband albedo based on snow/ice classification
-  var snowMask = classified.select('snow_mask');
+  var snowMask = topocorrected.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -410,9 +411,9 @@ function processModisImage(image, glacierOutlines) {
   });
   
   // Add combined narrowband albedo to image
-  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
   
-  // Step 4: Broadband albedo calculation using NDSI-based classification
+  // Step 3: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   
   // Apply glacier mask to final results
@@ -1364,12 +1365,12 @@ function createGlacierMask90(image, glacierOutlines) {
 function processModisImage90(image, glacierOutlines) {
   var filtered = qualityFilter(image);
   var glacierMask = createGlacierMask90(filtered, glacierOutlines); // Use 90% mask
-  var topocorrected = topographyCorrection(filtered);
-  var classified = classifySnowIce(topocorrected);
-  var snowNarrowband = anisotropicCorrection(classified, 'snow');
-  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  var classified = classifySnowIce(filtered);
+  var topocorrected = topographyCorrection(classified);
+  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
+  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
   
-  var snowMask = classified.select('snow_mask');
+  var snowMask = topocorrected.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -1385,7 +1386,7 @@ function processModisImage90(image, glacierOutlines) {
     return iceBand.where(snowMask, snowBand).rename(band);
   });
   
-  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   var maskedAlbedo = broadband.updateMask(glacierMask);
   
@@ -1551,12 +1552,12 @@ function processModisImageSimple(image, glacierOutlines, threshold) {
     glacierMask = createGlacierMask(filtered, glacierOutlines);
   }
   
-  var topocorrected = topographyCorrection(filtered);
-  var classified = classifySnowIce(topocorrected);
-  var snowNarrowband = anisotropicCorrection(classified, 'snow');
-  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  var classified = classifySnowIce(filtered);
+  var topocorrected = topographyCorrection(classified);
+  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
+  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
   
-  var snowMask = classified.select('snow_mask');
+  var snowMask = topocorrected.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -1569,7 +1570,7 @@ function processModisImageSimple(image, glacierOutlines, threshold) {
     return iceBand.where(snowMask, snowBand).rename(band);
   });
   
-  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   var maskedAlbedo = broadband.updateMask(glacierMask);
   
