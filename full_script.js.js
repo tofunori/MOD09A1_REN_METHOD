@@ -153,17 +153,21 @@ function anisotropicCorrection(image, surfaceType) {
   }
   
   // Apply band-specific anisotropic correction: α_i = r - f̃
-  var bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-               'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+  // Create band list excluding B4 for snow processing per Ren et al. Table 4
+  var bands, bandNums;
+  if (surfaceType === 'snow') {
+    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+             'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+    bandNums = ['b1', 'b2', 'b3', 'b5', 'b7'];
+  } else {
+    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+             'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+    bandNums = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'];
+  }
   
   var narrowbandAlbedo = bands.map(function(band, index) {
-    var bandNum = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'][index];
+    var bandNum = bandNums[index];
     var coeff = brdfCoefficients[bandNum];
-    
-    // Skip Band 4 for snow (no coefficients in Table 4)
-    if (surfaceType === 'snow' && bandNum === 'b4') {
-      return null; // Will be filtered out later
-    }
     
     // Calculate anisotropy factor f̃ using EXACT mathematical formulation
     // From the table: different formulations for P1 (snow) and P2 (ice)
@@ -199,8 +203,6 @@ function anisotropicCorrection(image, surfaceType) {
     
     // Apply exact Ren et al. (2021) formula: α_i = r - f̃
     return image.select(band).subtract(anisotropyFactor).rename('narrowband_' + bandNum);
-  }).filter(function(band) {
-    return band !== null; // Remove null entries (Band 4 for snow)
   });
   
   return image.addBands(ee.Image.cat(narrowbandAlbedo));
