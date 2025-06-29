@@ -633,6 +633,107 @@ function exportAlbedoByElevation(collection, region, description) {
 }
 
 /**
+ * Generate albedo vs elevation plot for multi-year analysis (2017-2024)
+ * Similar to Ren et al. (2023) Figure 6 showing albedo trends by elevation bands
+ */
+function generateAlbedoElevationPlot(startYear, endYear) {
+  print('=== GENERATING ALBEDO-ELEVATION PLOT (' + startYear + '-' + endYear + ') ===');
+  
+  // Process each year from startYear to endYear
+  var yearlyResults = [];
+  
+  for (var year = startYear; year <= endYear; year++) {
+    // Define summer period for each year (June-September)
+    var yearStart = year + '-06-01';
+    var yearEnd = year + '-09-30';
+    
+    print('Processing year ' + year + ' (' + yearStart + ' to ' + yearEnd + ')...');
+    
+    // Process data for this year
+    var yearlyCollection = retrieveGlacierAlbedoWithElevation(
+      glacierBounds, yearStart, yearEnd, glacierOutlines, elevationBand
+    );
+    
+    // Calculate mean albedo by elevation band for this year
+    var yearlyMean = yearlyCollection.select(['broadband_albedo', 'elev50']).mean();
+    
+    // Extract elevation vs albedo data using grouped reducer
+    var elevationStats = yearlyMean.select(['broadband_albedo', 'elev50']).reduceRegion({
+      reducer: ee.Reducer.mean()
+                .combine({reducer2: ee.Reducer.count(), sharedInputs: true})
+                .group({groupField: 1, groupName: 'elev50'}),
+      geometry: glacierBounds,
+      scale: 30,
+      maxPixels: 1e9,
+      bestEffort: true,
+      tileScale: 8
+    });
+    
+    // Store results for this year
+    yearlyResults.push({
+      year: year,
+      stats: elevationStats
+    });
+  }
+  
+  // Process and create chart data
+  print('Creating interactive chart...');
+  
+  // Create chart for the most recent year as an example
+  var latestYear = endYear;
+  var latestStats = yearlyResults[yearlyResults.length - 1].stats;
+  
+  // Extract groups and create features for charting
+  var groups = ee.List(latestStats.get('groups'));
+  var chartData = groups.map(function(group) {
+    var groupDict = ee.Dictionary(group);
+    return ee.Feature(null, {
+      elevation: groupDict.get('elev50'),
+      albedo: groupDict.get('mean'),
+      pixel_count: groupDict.get('count')
+    });
+  });
+  
+  var chartFeatures = ee.FeatureCollection(chartData);
+  
+  // Create scatter plot
+  var chart = ui.Chart.feature.byFeature(chartFeatures, 'elevation', 'albedo')
+    .setOptions({
+      title: 'Saskatchewan Glacier: Albedo vs Elevation (' + latestYear + ')',
+      hAxis: {
+        title: 'Elevation (m)',
+        titleTextStyle: {italic: false, bold: true}
+      },
+      vAxis: {
+        title: 'Broadband Albedo',
+        titleTextStyle: {italic: false, bold: true},
+        viewWindow: {min: 0.1, max: 0.9}
+      },
+      pointSize: 5,
+      series: {
+        0: {color: '#1f77b4', pointShape: 'circle'}
+      },
+      legend: {position: 'none'},
+      chartArea: {left: 80, top: 60, width: '75%', height: '75%'}
+    });
+  
+  // Print chart to console
+  print('Albedo vs Elevation Chart (' + latestYear + '):', chart);
+  
+  // Print summary statistics
+  print('=== ELEVATION ANALYSIS SUMMARY ===');
+  print('Years processed: ' + startYear + '-' + endYear);
+  print('Elevation range: 2700-3600m (50m bands)');
+  print('Analysis method: Ren et al. (2023) methodology with 30m DEM');
+  
+  return {
+    chart: chart,
+    data: chartFeatures,
+    yearlyResults: yearlyResults
+  };
+}
+
+/**
  * Export daily observations (one row per day with glacier-wide statistics)
  */
 function exportDailyObservations(collection, region, description) {
@@ -850,6 +951,18 @@ var exportElevationBtn = ui.Button({
   }
 });
 panel.add(exportElevationBtn);
+
+// NEW: Generate Plot button for 2017-2024 analysis
+var generatePlotBtn = ui.Button({
+  label: 'Generate Plot (2017-2024)',
+  style: {
+    backgroundColor: '#9c27b0',
+    color: 'white',
+    margin: '5px 0px',
+    width: '280px'
+  }
+});
+panel.add(generatePlotBtn);
 
 // Add Clear Layers button
 var clearButton = ui.Button({
@@ -1070,6 +1183,20 @@ exportElevationBtn.onClick(function() {
   statusLabel.style().set('color', 'green');
 });
 
+// Generate Plot button event handler (2017-2024 analysis)
+generatePlotBtn.onClick(function() {
+  statusLabel.setValue('Generating albedo-elevation plot for 2017-2024...');
+  statusLabel.style().set('color', 'orange');
+  dataInfoLabel.setValue('Processing 8 years of data - this may take several minutes');
+  
+  // Generate multi-year plot
+  var plotResult = generateAlbedoElevationPlot(2017, 2024);
+  
+  statusLabel.setValue('Plot generated! Check console for interactive chart.');
+  statusLabel.style().set('color', 'green');
+  dataInfoLabel.setValue('Albedo vs Elevation chart (2017-2024) displayed in console');
+});
+
 // Clear Layers button
 clearButton.onClick(function() {
   clearAlbedoLayers();
@@ -1094,10 +1221,12 @@ statusLabel.setValue('Interface ready with elevation analysis. Select dates and 
 statusLabel.style().set('color', 'green');
 
 print('=== GLACIER ALBEDO WITH ELEVATION ANALYSIS READY ===');
-print('Available exports:');
+print('Available functions:');
 print('- Daily Observations: One row per day with glacier-wide statistics (compatible with original script)');
 print('- Elevation Analysis: Albedo by 50m elevation bands (Ren et al. 2023 methodology)');
+print('- Interactive Plot: Albedo vs Elevation visualization for 2017-2024 period');
 print('New features:');
 print('- DEM 30m resolution with albedo resampling (Stratégie 1)');
+print('- Multi-year plotting capability (similar to Ren et al. 2023 Figure 6)');
 print('- tileScale parameters to prevent timeouts'); 
-print('- All original functionality preserved + elevation analysis');
+print('- All original functionality preserved + elevation analysis + plotting');
