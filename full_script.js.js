@@ -79,8 +79,8 @@ function topographyCorrection(image) {
   
   // Apply topographic correction to reflectance
   // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0)
-  var correctionFactor = cosSolarZenithCorrected.multiply(sensorZenithRad.cos())
-    .divide(solarZenithRad.cos().multiply(cosSensorZenithCorrected));
+  var correctionFactor = cosSolarZenithCorrected
+    .divide(solarZenithRad.cos());
   
   // Clip extreme values to avoid unrealistic corrections
   correctionFactor = correctionFactor.clamp(0.1, 10.0);
@@ -212,9 +212,15 @@ function anisotropicCorrection(image, surfaceType) {
  * Following Ren et al. (2021) methodology with NDSI thresholds
  */
 function classifySnowIce(image) {
-  // Get surface reflectance bands for MODIS NDSI calculation
+  // Get topographically corrected surface reflectance bands for MODIS NDSI calculation
   // MODIS Band 4 (545-565nm, Green) and Band 6 (1628-1652nm, SWIR1)
-  var green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
+  var green = ee.Algorithms.If(
+    image.bandNames().contains('sur_refl_b04_topo'),
+    image.select('sur_refl_b04_topo'), // Use topo-corrected if available
+    image.select('sur_refl_b04').multiply(0.0001) // Fallback to raw
+  );
+  green = ee.Image(green);
+  
   var swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
@@ -275,24 +281,33 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * Simplified quality filtering for debugging
+ * Enhanced quality filtering following Ren et al. methodology (without aerosol filtering)
  */
 function qualityFilter(image) {
-  // Use state_1km QA band for basic masking
   var qa = image.select('state_1km');
   
   // Cloud state (bits 0-1): 00=clear, 01=cloudy, 10=mixed, 11=not set
-  // Only accept clear sky (00), reject cloudy (01), mixed (10), and not set (11)
-  var clearSky = qa.bitwiseAnd(0x3).eq(0);
+  var clearSky = qa.bitwiseAnd(0x3).eq(0);        // bits 0-1
+  
+  // Internal cloud flag (bit 10): 0=no cloud, 1=cloud
+  var clearInternal = qa.bitwiseAnd(1<<10).eq(0); // bit 10
+  
+  // Shadow flag (bit 2): 0=no shadow, 1=shadow
+  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);     // bit 2
+  
+  // Saturation flags (bits 13-15): 000=no saturation
+  var notSaturated = qa.bitwiseAnd(0xE000).eq(0); // bits 13-15
+  // Note: Aerosol flags (bits 6-7) intentionally NOT included per user request
   
   // Solar zenith angle constraint
-  var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(70);
+  var szaOK = image.select('SolarZenith').multiply(0.01).lt(70);
   
-  // Simple quality mask - just clear sky and reasonable solar angle
-  var qualityMask = clearSky.and(lowSolarZenith);
+  var mask = clearSky.and(clearInternal)
+                     .and(shadowFree)
+                     .and(notSaturated)
+                     .and(szaOK);
   
-  return image.updateMask(qualityMask);
+  return image.updateMask(mask);
 }
 
 /**
@@ -300,23 +315,24 @@ function qualityFilter(image) {
  */
 function createGlacierMask(image, glacierOutlines) {
   if (glacierOutlines) {
-    // Create high-resolution glacier map with proper bounds
+    // Get MODIS projection for proper alignment
+    var modisProj = image.select('sur_refl_b01').projection();
+    
+    // Create high-resolution glacier map in MODIS projection from start
     var glacierBounds = glacierOutlines.geometry().bounds();
-    var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
-      .clip(glacierBounds)
-      .setDefaultProjection({
-        crs: 'EPSG:4326',
-        scale: 30
-      });
+    var glacierHighRes = ee.Image(0)
+          .paint(glacierOutlines, 1)
+          .unmask(0)
+          .reproject({crs: modisProj, scale: 30}); // 30m scale in MODIS projection
     
     // Calculate glacier fractional abundance in each MODIS pixel (500m)
-    var glacierFraction = glacierMap
+    var glacierFraction = glacierHighRes
       .reduceResolution({
         reducer: ee.Reducer.mean(),
         maxPixels: 1000
       })
       .reproject({
-        crs: image.select('sur_refl_b01').projection(),
+        crs: modisProj,
         scale: 500
       });
     
@@ -344,19 +360,19 @@ function processModisImage(image, glacierOutlines) {
   // Create glacier mask
   var glacierMask = createGlacierMask(filtered, glacierOutlines);
   
-  // Step 0: Snow/ice classification using NDSI
-  var classified = classifySnowIce(filtered);
+  // Step 1: Topography correction on raw reflectances
+  var topocorrected = topographyCorrection(filtered);
   
-  // Step 1: Topography correction
-  var topocorrected = topographyCorrection(classified);
+  // Step 2: Snow/ice classification using topographically corrected reflectances
+  var classified = classifySnowIce(topocorrected);
   
-  // Step 2: Surface-specific anisotropic correction
+  // Step 3: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
-  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
-  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
   
   // Combine narrowband albedo based on snow/ice classification
-  var snowMask = topocorrected.select('snow_mask');
+  var snowMask = classified.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -373,9 +389,9 @@ function processModisImage(image, glacierOutlines) {
   });
   
   // Add combined narrowband albedo to image
-  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
   
-  // Step 3: Broadband albedo calculation using NDSI-based classification
+  // Step 4: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   
   // Apply glacier mask to final results
