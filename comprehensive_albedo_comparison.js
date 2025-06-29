@@ -297,23 +297,24 @@ function qualityFilterMOD10A1(image) {
 }
 
 /**
- * Process MOD10A1 snow data - CORRECTED BAND NAME
- * NOTE: Using NDSI_Snow_Cover instead of Snow_Albedo_Daily_Tile
- * NDSI_Snow_Cover is the primary snow band in MOD10A1 Collection 6.1
+ * Process MOD10A1 snow data - ULTRA SIMPLIFIED VERSION
+ * DIAGNOSTIC: Remove all masking to get maximum data
  */
 function processMOD10A1(image, glacierOutlines) {
-  var filtered = qualityFilterMOD10A1(image);
-  var glacierMask = createGlacierMask(glacierOutlines);
+  // NO FILTERING - just get the raw data
   
-  // Extract NDSI snow cover data (primary snow band in MOD10A1)
-  var snowCover = filtered.select('NDSI_Snow_Cover')
-    .clamp(0, 100).multiply(0.01); // Convert NDSI to 0-1 range
+  // Try multiple possible band names to find what works
+  var bandNames = image.bandNames();
+  print('MOD10A1 available bands:', bandNames);
   
-  // Simple masking - no additional constraints
-  var maskedAlbedo = snowCover.updateMask(glacierMask)
-    .rename('broadband_albedo_mod10a1');
+  // Extract NDSI snow cover data with NO MASKING
+  var snowCover = image.select('NDSI_Snow_Cover')
+    .clamp(0, 100).multiply(0.01); // Convert to 0-1 range
   
-  return filtered.addBands(maskedAlbedo).copyProperties(image, ['system:time_start']);
+  // NO GLACIER MASKING - just rename
+  var albedo = snowCover.rename('broadband_albedo_mod10a1');
+  
+  return image.addBands(albedo).copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -329,19 +330,23 @@ function qualityFilterMCD43A3(image) {
 }
 
 /**
- * Process MCD43A3 BRDF/Albedo - ULTRA SIMPLIFIED
+ * Process MCD43A3 BRDF/Albedo - ULTRA SIMPLIFIED VERSION
+ * DIAGNOSTIC: Remove all masking to get maximum data
  */
 function processMCD43A3(image, glacierOutlines) {
-  var filtered = qualityFilterMCD43A3(image);
-  var glacierMask = createGlacierMask(glacierOutlines);
+  // NO FILTERING - just get the raw data
   
-  // Use shortwave broadband albedo directly - no complex processing
-  var blackSkySW = filtered.select('Albedo_BSA_shortwave').multiply(0.001);
+  // Try multiple possible band names to find what works
+  var bandNames = image.bandNames();
+  print('MCD43A3 available bands:', bandNames);
   
-  var broadbandAlbedo = blackSkySW.updateMask(glacierMask)
-    .rename('broadband_albedo_mcd43a3');
+  // Use shortwave broadband albedo directly with NO MASKING
+  var blackSkySW = image.select('Albedo_BSA_shortwave').multiply(0.001);
   
-  return filtered.addBands(broadbandAlbedo).copyProperties(image, ['system:time_start']);
+  // NO GLACIER MASKING - just rename
+  var broadbandAlbedo = blackSkySW.rename('broadband_albedo_mcd43a3');
+  
+  return image.addBands(broadbandAlbedo).copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -516,21 +521,29 @@ function exportComparisonStats(results, region, description) {
     });
   }).filter(ee.Filter.notNull(['albedo']));
   
-  // MOD10A1 Method - export all observations  
-  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 5000, // Large scale to ensure memory efficiency
-      maxPixels: 1e4, // Very conservative to avoid memory issues
-      bestEffort: true,
-      tileScale: 16
-    });
+  // MOD10A1 Method - export all observations with VERY lenient processing
+  var mod10Stats = results.mod10a1.map(function(image) {
+    // Check if the band exists before processing
+    var bandNames = image.bandNames();
+    var hasBand = bandNames.contains('broadband_albedo_mod10a1');
+    
+    var stats = ee.Algorithms.If(
+      hasBand,
+      image.select('broadband_albedo_mod10a1').reduceRegion({
+        reducer: ee.Reducer.mean(),
+        geometry: region,
+        scale: 10000, // Even larger scale for robustness
+        maxPixels: 1e3, // Very small pixel limit
+        bestEffort: true,
+        tileScale: 16
+      }),
+      ee.Dictionary({'broadband_albedo_mod10a1': null})
+    );
     
     var date = ee.Date(image.get('system:time_start'));
     
     return ee.Feature(null, {
-      'albedo': stats.get('broadband_albedo_mod10a1'),
+      'albedo': ee.Dictionary(stats).get('broadband_albedo_mod10a1'),
       'date': date.format('YYYY-MM-dd'),
       'year': date.get('year'),
       'month': date.get('month'),
@@ -540,21 +553,29 @@ function exportComparisonStats(results, region, description) {
     });
   }).filter(ee.Filter.notNull(['albedo']));
   
-  // MCD43A3 Method - export all observations
-  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 5000, // Large scale to ensure memory efficiency
-      maxPixels: 1e4, // Very conservative to avoid memory issues
-      bestEffort: true,
-      tileScale: 16
-    });
+  // MCD43A3 Method - export all observations with VERY lenient processing
+  var mcd43Stats = results.mcd43a3.map(function(image) {
+    // Check if the band exists before processing
+    var bandNames = image.bandNames();
+    var hasBand = bandNames.contains('broadband_albedo_mcd43a3');
+    
+    var stats = ee.Algorithms.If(
+      hasBand,
+      image.select('broadband_albedo_mcd43a3').reduceRegion({
+        reducer: ee.Reducer.mean(),
+        geometry: region,
+        scale: 10000, // Even larger scale for robustness
+        maxPixels: 1e3, // Very small pixel limit
+        bestEffort: true,
+        tileScale: 16
+      }),
+      ee.Dictionary({'broadband_albedo_mcd43a3': null})
+    );
     
     var date = ee.Date(image.get('system:time_start'));
     
     return ee.Feature(null, {
-      'albedo': stats.get('broadband_albedo_mcd43a3'),
+      'albedo': ee.Dictionary(stats).get('broadband_albedo_mcd43a3'),
       'date': date.format('YYYY-MM-dd'),
       'year': date.get('year'),
       'month': date.get('month'),
