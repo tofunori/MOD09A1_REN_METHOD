@@ -211,12 +211,23 @@ function anisotropicCorrection(image, surfaceType) {
 /**
  * Classify glacier surface as snow or ice using NDSI threshold
  * Following Ren et al. (2021) methodology with NDSI thresholds
+ * Uses topographically corrected reflectances when available (per Ren et al.)
  */
 function classifySnowIce(image) {
-  // Get surface reflectance bands for MODIS NDSI calculation
-  // MODIS Band 4 (545-565nm, Green) and Band 6 (1628-1652nm, SWIR1)
-  var green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
-  var swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
+  // Check if topographically corrected bands are available (Ren et al. recommendation)
+  var bandNames = image.bandNames();
+  var hasTopoCorrection = bandNames.contains('sur_refl_b04_topo');
+  
+  var green, swir;
+  if (hasTopoCorrection) {
+    // Use topographically corrected reflectances (already scaled by 0.0001)
+    green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green) - topo corrected
+    swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1) - raw (no topo correction available)
+  } else {
+    // Fallback to raw reflectances (for backwards compatibility)
+    green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
+    swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
+  }
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('NDSI');
@@ -350,19 +361,19 @@ function processModisImage(image, glacierOutlines) {
   // Create glacier mask
   var glacierMask = createGlacierMask(filtered, glacierOutlines);
   
-  // Step 0: Snow/ice classification using NDSI
-  var classified = classifySnowIce(filtered);
+  // Step 1: Topography correction (BEFORE NDSI per Ren et al. methodology)
+  var topocorrected = topographyCorrection(filtered);
   
-  // Step 1: Topography correction
-  var topocorrected = topographyCorrection(classified);
+  // Step 2: Snow/ice classification using NDSI on topographically corrected reflectances
+  var classified = classifySnowIce(topocorrected);
   
-  // Step 2: Surface-specific anisotropic correction
+  // Step 3: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
-  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
-  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
   
   // Combine narrowband albedo based on snow/ice classification
-  var snowMask = topocorrected.select('snow_mask');
+  var snowMask = classified.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -379,9 +390,9 @@ function processModisImage(image, glacierOutlines) {
   });
   
   // Add combined narrowband albedo to image
-  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
   
-  // Step 3: Broadband albedo calculation using NDSI-based classification
+  // Step 4: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   
   // Apply glacier mask to final results
