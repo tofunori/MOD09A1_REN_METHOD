@@ -425,17 +425,28 @@ function createGlacierMask(image, glacierOutlines) {
 }
 
 /**
+ * Filter collection to melt season only (June 1 - September 30)
+ */
+function filterMeltSeason(collection) {
+  return collection.filter(ee.Filter.calendarRange(6, 9, 'month'));
+}
+
+/**
  * Main comparison function - processes all three methods
  */
 function compareAlbedoMethods(geometry, startDate, endDate, glacierOutlines) {
   print('Starting comprehensive albedo method comparison...');
   print('Date range: ' + startDate + ' to ' + endDate);
+  print('Filtering for MELT SEASON ONLY (June 1 - September 30)');
   
   // Method 1: MOD09A1 Ren Method
   print('Processing Method 1: MOD09A1 Ren Method...');
   var mod09Collection = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(geometry);
+  
+  // Filter to melt season only
+  mod09Collection = filterMeltSeason(mod09Collection);
   
   var renResults = mod09Collection.map(function(image) {
     return processRenMethod(image, glacierOutlines);
@@ -447,6 +458,9 @@ function compareAlbedoMethods(geometry, startDate, endDate, glacierOutlines) {
     .filterDate(startDate, endDate)
     .filterBounds(geometry);
   
+  // Filter to melt season only
+  mod10Collection = filterMeltSeason(mod10Collection);
+  
   var mod10Results = mod10Collection.map(function(image) {
     return processMOD10A1(image, glacierOutlines);
   });
@@ -456,6 +470,9 @@ function compareAlbedoMethods(geometry, startDate, endDate, glacierOutlines) {
   var mcd43Collection = ee.ImageCollection('MODIS/061/MCD43A3')
     .filterDate(startDate, endDate)
     .filterBounds(geometry);
+  
+  // Filter to melt season only
+  mcd43Collection = filterMeltSeason(mcd43Collection);
   
   var mcd43Results = mcd43Collection.map(function(image) {
     return processMCD43A3(image, glacierOutlines);
@@ -580,7 +597,7 @@ function createComparisonChart(results, region) {
   })
   .setChartType('LineChart')
   .setOptions({
-    title: 'Glacier Albedo Comparison: Three MODIS Methods',
+    title: 'Glacier Albedo Comparison (Melt Season Jun-Sep): Three MODIS Methods',
     titleTextStyle: {fontSize: 16, bold: true},
     hAxis: {
       title: 'Date',
@@ -729,7 +746,7 @@ var title = ui.Label({
 panel.add(title);
 
 var description = ui.Label({
-  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo',
+  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON FOCUS: Jun 1 - Sep 30 only',
   style: {
     fontSize: '12px',
     margin: '0px 0px 10px 0px'
@@ -740,15 +757,15 @@ panel.add(description);
 // Date selection
 var startDateLabel = ui.Label('Start Date (YYYY-MM-DD):');
 var startDateBox = ui.Textbox({
-  placeholder: '2017-01-01',
-  value: '2017-01-01',
+  placeholder: '2017-06-01',
+  value: '2017-06-01',
   style: {width: '150px'}
 });
 
 var endDateLabel = ui.Label('End Date (YYYY-MM-DD):');
 var endDateBox = ui.Textbox({
-  placeholder: '2024-12-31',
-  value: '2024-12-31',
+  placeholder: '2024-09-30',
+  value: '2024-09-30',
   style: {width: '150px'}
 });
 
@@ -766,30 +783,30 @@ var presetsPanel = ui.Panel({
   style: {margin: '5px 0px'}
 });
 
-var fullPeriodBtn = ui.Button({
-  label: '2017-2024 Full',
-  style: {margin: '2px', fontSize: '10px'}
-});
-
-var meltSeasonsBtn = ui.Button({
+var fullMeltBtn = ui.Button({
   label: '2017-2024 Melt',
-  style: {margin: '2px', fontSize: '10px'}
+  style: {margin: '2px', fontSize: '10px', backgroundColor: '#4285f4', color: 'white'}
 });
 
-var recent5YearsBtn = ui.Button({
-  label: '2020-2024',
+var recent5MeltBtn = ui.Button({
+  label: '2020-2024 Melt',
   style: {margin: '2px', fontSize: '10px'}
 });
 
 var summer2024Btn = ui.Button({
-  label: '2024 Summer',
+  label: '2024 Melt Only',
   style: {margin: '2px', fontSize: '10px'}
 });
 
-presetsPanel.add(fullPeriodBtn);
-presetsPanel.add(meltSeasonsBtn);
-presetsPanel.add(recent5YearsBtn);
+var summer2023Btn = ui.Button({
+  label: '2023 Melt Only',
+  style: {margin: '2px', fontSize: '10px'}
+});
+
+presetsPanel.add(fullMeltBtn);
+presetsPanel.add(recent5MeltBtn);
 presetsPanel.add(summer2024Btn);
+presetsPanel.add(summer2023Btn);
 panel.add(presetsPanel);
 
 // Method selection checkboxes
@@ -844,7 +861,7 @@ panel.add(clearButton);
 
 // Status label
 var statusLabel = ui.Label({
-  value: 'Ready for 2017-2024 analysis! Use presets or modify dates.',
+  value: 'Ready for 2017-2024 MELT SEASON analysis (Jun-Sep only)!',
   style: {
     fontSize: '11px',
     color: 'blue',
@@ -917,31 +934,31 @@ processButton.onClick(function() {
 });
 
 // Preset button event handlers
-fullPeriodBtn.onClick(function() {
-  startDateBox.setValue('2017-01-01');
-  endDateBox.setValue('2024-12-31');
-  statusLabel.setValue('Full period 2017-2024 selected. Click Run Analysis.');
-  statusLabel.style().set('color', 'blue');
-});
-
-meltSeasonsBtn.onClick(function() {
+fullMeltBtn.onClick(function() {
   startDateBox.setValue('2017-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Melt seasons 2017-2024 selected (Jun-Sep only). Click Run Analysis.');
+  statusLabel.setValue('Full melt seasons 2017-2024 selected (Jun-Sep only). Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
-recent5YearsBtn.onClick(function() {
-  startDateBox.setValue('2020-01-01');
-  endDateBox.setValue('2024-12-31');
-  statusLabel.setValue('Recent 5 years 2020-2024 selected. Click Run Analysis.');
+recent5MeltBtn.onClick(function() {
+  startDateBox.setValue('2020-06-01');
+  endDateBox.setValue('2024-09-30');
+  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (Jun-Sep only). Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
 summer2024Btn.onClick(function() {
   startDateBox.setValue('2024-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Summer 2024 selected. Click Run Analysis.');
+  statusLabel.setValue('2024 melt season selected (Jun-Sep only). Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
+});
+
+summer2023Btn.onClick(function() {
+  startDateBox.setValue('2023-06-01');
+  endDateBox.setValue('2023-09-30');
+  statusLabel.setValue('2023 melt season selected (Jun-Sep only). Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
