@@ -44,6 +44,20 @@ var snowCoefficients = {
   constant: -0.0093
 };
 
+// Global band constants for consistency and maintenance
+var REFL_BANDS = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
+                  'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b07'];
+var TOPO_BANDS_ALL = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+                      'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+var TOPO_BANDS_SNOW = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+                       'sur_refl_b05_topo', 'sur_refl_b07_topo']; // B4 excluded for snow
+var NARROWBAND_ALL = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
+                      'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
+var NARROWBAND_SNOW = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3',
+                       'narrowband_b5', 'narrowband_b7']; // B4 excluded for snow
+var BAND_NUMS_ALL = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'];
+var BAND_NUMS_SNOW = ['b1', 'b2', 'b3', 'b5', 'b7']; // B4 excluded for snow
+
 /**
  * Apply topography correction to MODIS surface reflectance
  * Following exact methodology from Ren et al. (2021) Equations 3a and 3b
@@ -85,8 +99,7 @@ function topographyCorrection(image) {
   correctionFactor = correctionFactor.clamp(0.2, 5.0);
   
   // Apply correction to surface reflectance bands
-  var bands = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
-               'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b07'];
+  var bands = REFL_BANDS;
   
   var correctedBands = bands.map(function(band) {
     return image.select(band).multiply(0.0001) // Scale factor
@@ -111,8 +124,10 @@ function anisotropicCorrection(image, surfaceType) {
   // Use topographically corrected angles (θvc and θsc from Equations 3a and 3b)
   var solarZenithCorrected = image.select('SolarZenith_corrected').multiply(Math.PI/180);
   var sensorZenithCorrected = image.select('SensorZenith_corrected').multiply(Math.PI/180);
-  var relativeAzimuth = image.select('SolarAzimuth').subtract(image.select('SensorAzimuth'))
-    .multiply(0.01).multiply(Math.PI/180).abs();
+  // Calculate relative azimuth with proper modulo 2π for angular continuity
+  var azimuthDiff = image.select('SolarAzimuth').subtract(image.select('SensorAzimuth'))
+    .multiply(0.01).multiply(Math.PI/180);
+  var relativeAzimuth = azimuthDiff.subtract(azimuthDiff.divide(2*Math.PI).round().multiply(2*Math.PI)).abs();
   
   // EXACT BRDF coefficients from Ren et al. (2021) Table 4
   // Wavelength mapping: Band 1(620-670nm)→677nm, Band 2(841-876nm)→873nm, etc.
@@ -147,7 +162,7 @@ function anisotropicCorrection(image, surfaceType) {
       b4: {c1: -0.02920, c2: -0.00810, c3: 0.00462, theta_c: 0.52360},
       // MODIS Band 5 (1230-1250nm) → 1219nm coefficients - CORRECTED
       b5: {c1: -0.02388, c2: 0.00656, c3: 0.00227, theta_c: 0.58473},
-      // MODIS Band 7 (2105-2155nm) → 1271nm coefficients (correct for ice)
+      // MODIS Band 7 (2105-2155nm) → 2130nm coefficients (correct for ice)
       b7: {c1: -0.02081, c2: 0.00683, c3: 0.00390, theta_c: 0.575}
     };
   }
@@ -156,13 +171,11 @@ function anisotropicCorrection(image, surfaceType) {
   // Create band list excluding B4 for snow processing per Ren et al. Table 4
   var bands, bandNums;
   if (surfaceType === 'snow') {
-    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-             'sur_refl_b05_topo', 'sur_refl_b07_topo'];
-    bandNums = ['b1', 'b2', 'b3', 'b5', 'b7'];
+    bands = TOPO_BANDS_SNOW;
+    bandNums = BAND_NUMS_SNOW;
   } else {
-    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-             'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
-    bandNums = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'];
+    bands = TOPO_BANDS_ALL;
+    bandNums = BAND_NUMS_ALL;
   }
   
   var narrowbandAlbedo = bands.map(function(band, index) {
@@ -386,8 +399,7 @@ function processModisImage(image, glacierOutlines) {
   
   // Combine narrowband albedo based on snow/ice classification
   var snowMask = classified.select('snow_mask');
-  var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
-               'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
+  var bands = NARROWBAND_ALL;
   
   var combinedNarrowband = bands.map(function(band) {
     // For Band 4: snow processing doesn't include it, so use ice-only for all pixels
@@ -1067,8 +1079,7 @@ function processModisImage90(image, glacierOutlines) {
   var iceNarrowband = anisotropicCorrection(classified, 'ice');
   
   var snowMask = classified.select('snow_mask');
-  var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
-               'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
+  var bands = NARROWBAND_ALL;
   
   var combinedNarrowband = bands.map(function(band) {
     // For Band 4: snow processing doesn't include it, so use ice-only for all pixels
