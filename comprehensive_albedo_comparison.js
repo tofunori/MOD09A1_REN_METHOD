@@ -297,18 +297,20 @@ function qualityFilterMOD10A1(image) {
 }
 
 /**
- * Process MOD10A1 snow albedo - ULTRA SIMPLIFIED
+ * Process MOD10A1 snow data - CORRECTED BAND NAME
+ * NOTE: Using NDSI_Snow_Cover instead of Snow_Albedo_Daily_Tile
+ * NDSI_Snow_Cover is the primary snow band in MOD10A1 Collection 6.1
  */
 function processMOD10A1(image, glacierOutlines) {
   var filtered = qualityFilterMOD10A1(image);
   var glacierMask = createGlacierMask(glacierOutlines);
   
-  // Extract snow albedo - NO ADDITIONAL SCALING
-  var snowAlbedo = filtered.select('Snow_Albedo_Daily_Tile')
-    .clamp(0, 100).multiply(0.01); // Convert to 0-1 range
+  // Extract NDSI snow cover data (primary snow band in MOD10A1)
+  var snowCover = filtered.select('NDSI_Snow_Cover')
+    .clamp(0, 100).multiply(0.01); // Convert NDSI to 0-1 range
   
   // Simple masking - no additional constraints
-  var maskedAlbedo = snowAlbedo.updateMask(glacierMask)
+  var maskedAlbedo = snowCover.updateMask(glacierMask)
     .rename('broadband_albedo_mod10a1');
   
   return filtered.addBands(maskedAlbedo).copyProperties(image, ['system:time_start']);
