@@ -366,7 +366,7 @@ function createGlacierMask(image, glacierOutlines) {
     return mask50.and(glacierBoundsMask);
   } else {
     // Simple fallback - use the glacier image directly
-    return glacierImage.gt(0.50);
+    return glacierImage.selfMask().gt(0.50);
   }
 }
 
@@ -1256,20 +1256,28 @@ var meltSeasonYears = ee.List([2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]);
 
 print('Processing melt season data for all years...');
 
-// Process all melt seasons using Earth Engine mapping
-var allMeltSeasonCollections = meltSeasonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
+// Process each melt season individually and combine
+var meltSeasonYearsJS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+var allMeltSeasonData = [];
+
+meltSeasonYearsJS.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
   
-  return ee.ImageCollection('MODIS/061/MOD09GA')
-    .filterDate(startDate, endDate)
-    .filterBounds(glacierBounds)
-    .map(function(image) { return processModisImage(image, glacierOutlines); });
+  var yearMeltSeason = retrieveGlacierAlbedo(glacierBounds, startDate, endDate, glacierOutlines);
+  allMeltSeasonData.push(yearMeltSeason);
 });
 
-// Flatten all collections into one
-var combinedMeltSeasons = ee.ImageCollection(allMeltSeasonCollections.flatten());
+// Combine all melt season collections
+var allImageLists = allMeltSeasonData.map(function(collection) {
+  return collection.toList(1000); // Convert each collection to list
+});
+
+// Convert JavaScript array to Earth Engine List and flatten
+var eeListOfLists = ee.List(allImageLists);
+var flattenedImages = eeListOfLists.flatten();
+
+var combinedMeltSeasons = ee.ImageCollection.fromImages(flattenedImages);
 
 print('Total melt season images (2017-2024):', combinedMeltSeasons.size());
 
@@ -1280,20 +1288,31 @@ var validMeltSeasonCollection = combinedMeltSeasons.filter(
 
 print('Valid melt season albedo images:', validMeltSeasonCollection.size());
 
-// Process melt season data with 90% threshold using Earth Engine mapping
-var allMeltSeasonCollections90 = meltSeasonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
+// Process melt season data with 90% threshold
+var allMeltSeasonData90 = [];
+
+meltSeasonYearsJS.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
   
-  return ee.ImageCollection('MODIS/061/MOD09GA')
+  var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImage90(image, glacierOutlines); });
+  
+  allMeltSeasonData90.push(collection90);
 });
 
-// Flatten all 90% collections into one
-var combinedMeltSeasons90 = ee.ImageCollection(allMeltSeasonCollections90.flatten());
+// Combine all 90% threshold collections
+var allImageLists90 = allMeltSeasonData90.map(function(collection) {
+  return collection.toList(1000); // Convert each collection to list
+});
+
+// Convert JavaScript array to Earth Engine List and flatten
+var eeListOfLists90 = ee.List(allImageLists90);
+var flattenedImages90 = eeListOfLists90.flatten();
+
+var combinedMeltSeasons90 = ee.ImageCollection.fromImages(flattenedImages90);
 
 // Filter for valid albedo data only (90% threshold)
 var validMeltSeasonCollection90 = combinedMeltSeasons90.filter(
@@ -1337,7 +1356,7 @@ function createGlacierMask90(image, glacierOutlines) {
     
     return mask90.and(glacierBoundsMask);
   } else {
-    return glacierImage.gt(0.90);
+    return glacierImage.selfMask().gt(0.90);
   }
 }
 
@@ -1378,13 +1397,15 @@ var comparisonYears = ee.List([2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]);
 
 print('Processing annual comparison data...');
 
-// Process all years with 50% threshold
-var albedoStats50 = ee.FeatureCollection(comparisonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
+// Process comparison data for selected years
+var comparisonYearsJS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+var albedoStats50 = [];
+
+comparisonYearsJS.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
   
-  // Process with 50% threshold
+  // Process with 50% threshold (current default)
   var collection50 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
@@ -1409,14 +1430,17 @@ var albedoStats50 = ee.FeatureCollection(comparisonYears.map(function(year) {
     bestEffort: true
   });
   
-  return ee.Feature(null, stats50.set('year', year).set('threshold', '50%'));
-}));
+  // Store stats with year information
+  var yearStats50 = ee.Feature(null, stats50.set('year', year).set('threshold', '50%'));
+  albedoStats50.push(yearStats50);
+});
 
 // Process all years with 90% threshold
-var albedoStats90 = ee.FeatureCollection(comparisonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
+var albedoStats90 = [];
+
+comparisonYearsJS.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
   
   // Process with 90% threshold
   var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
@@ -1443,39 +1467,25 @@ var albedoStats90 = ee.FeatureCollection(comparisonYears.map(function(year) {
     bestEffort: true
   });
   
-  return ee.Feature(null, stats90.set('year', year).set('threshold', '90%'));
-}));
+  var yearStats90 = ee.Feature(null, stats90.set('year', year).set('threshold', '90%'));
+  albedoStats90.push(yearStats90);
+});
 
 // Combine statistics for analysis
-var allStats = albedoStats50.merge(albedoStats90);
+var allStats = ee.FeatureCollection(albedoStats50.concat(albedoStats90));
 
 // Print comparison statistics for each year
 print('=== ANNUAL COMPARISON STATISTICS ===');
 
-// Extract real albedo data from processed statistics for chart display
-var chartData50 = albedoStats50.map(function(feature) {
-  return ee.Feature(null, {
-    'year': feature.get('year'),
-    'threshold': '50%',
-    'albedo': feature.get('broadband_albedo_mean')
-  });
-});
+// Create separate feature collections for each threshold for proper chart display
+var stats50Collection = ee.FeatureCollection(albedoStats50);
+var stats90Collection = ee.FeatureCollection(albedoStats90);
 
-var chartData90 = albedoStats90.map(function(feature) {
-  return ee.Feature(null, {
-    'year': feature.get('year'), 
-    'threshold': '90%',
-    'albedo': feature.get('broadband_albedo_mean')
-  });
-});
-
-var chartDataCombined = chartData50.merge(chartData90);
-
-// Create time series chart with simplified approach
+// Create time series chart with two distinct lines
 var chart = ui.Chart.feature.groups({
-  features: chartDataCombined,
+  features: allStats,
   xProperty: 'year',
-  yProperty: 'albedo', 
+  yProperty: 'broadband_albedo_mean',
   seriesProperty: 'threshold'
 })
 .setChartType('LineChart')
@@ -1511,8 +1521,6 @@ var chart = ui.Chart.feature.groups({
 });
 
 print('=== TIME SERIES COMPARISON CHART ===');
-print('Chart displays real processed albedo data from annual statistics.');
-print('Data includes both 50% and 90% glacier abundance thresholds (2017-2024).');
 print(chart);
 
 // Create scatter plot with ALL individual observations (2017-2024)
@@ -1568,34 +1576,40 @@ function processModisImageSimple(image, glacierOutlines, threshold) {
   return maskedAlbedo.copyProperties(image, ['system:time_start']);
 }
 
-// Process scatter plot data using Earth Engine mapping (no JavaScript loops)
-var scatterCollections50 = meltSeasonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
+// Process all melt season data for scatter plot (both thresholds)
+var scatterData50 = [];
+var scatterData90 = [];
+
+meltSeasonYearsJS.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
   
-  return ee.ImageCollection('MODIS/061/MOD09GA')
+  // Process with 50% threshold
+  var collection50 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImageSimple(image, glacierOutlines, 50); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
-});
-
-var scatterCollections90 = meltSeasonYears.map(function(year) {
-  year = ee.Number(year);
-  var startDate = ee.Date.fromYMD(year, 6, 1);
-  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  return ee.ImageCollection('MODIS/061/MOD09GA')
+  // Process with 90% threshold  
+  var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImageSimple(image, glacierOutlines, 90); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
+  
+  scatterData50.push(collection50);
+  scatterData90.push(collection90);
 });
 
 // Flatten all collections into single collections
-var allScatterData50 = ee.ImageCollection(scatterCollections50.flatten());
-var allScatterData90 = ee.ImageCollection(scatterCollections90.flatten());
+var allScatterData50 = ee.ImageCollection.fromImages(
+  ee.List(scatterData50.map(function(col) { return col.toList(1000); })).flatten()
+);
+
+var allScatterData90 = ee.ImageCollection.fromImages(
+  ee.List(scatterData90.map(function(col) { return col.toList(1000); })).flatten()
+);
 
 // Calculate daily mean albedo for each observation (reduce to glacier-wide means)
 var dailyMeans50 = allScatterData50.map(function(image) {
