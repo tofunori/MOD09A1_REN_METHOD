@@ -532,14 +532,18 @@ function calculateCorrelation(collection1, band1, collection2, band2, region) {
 }
 
 /**
- * Create seasonal average chart comparing all methods
- * Shows average albedo by day-of-year across all years
+ * Create seasonal average chart comparing all methods (memory optimized)
+ * Shows average albedo by week across all years
  */
 function createComparisonChart(results, region) {
-  // Process each method to calculate seasonal averages
+  print('Creating seasonal comparison chart (weekly averages)...');
+  
+  // Process each method separately to avoid memory issues
   var renSeasonalStats = createSeasonalAverage(results.ren, 'broadband_albedo_ren', region, 'Ren Method');
   var mod10SeasonalStats = createSeasonalAverage(results.mod10a1, 'broadband_albedo_mod10a1', region, 'MOD10A1');
   var mcd43SeasonalStats = createSeasonalAverage(results.mcd43a3, 'broadband_albedo_mcd43a3', region, 'MCD43A3');
+  
+  print('Seasonal statistics calculated for all methods');
   
   // Combine all seasonal statistics
   var combinedSeasonalStats = renSeasonalStats.merge(mod10SeasonalStats).merge(mcd43SeasonalStats);
@@ -552,14 +556,14 @@ function createComparisonChart(results, region) {
   })
   .setChartType('LineChart')
   .setOptions({
-    title: 'Albedo Saisonnier Moyen (2017-2024): Comparaison des Trois Méthodes MODIS',
+    title: 'Albédo Saisonnier Moyen par Semaine (2017-2024): Trois Méthodes MODIS',
     titleTextStyle: {fontSize: 16, bold: true},
     hAxis: {
-      title: 'Jour de l\'Année (Saison de Fonte)',
+      title: 'Semaine de la Saison de Fonte (Moyennes Hebdomadaires)',
       titleTextStyle: {fontSize: 14},
       format: '###',
       ticks: [152, 166, 182, 197, 213, 228, 244, 259, 274], // Jun 1, Jun 15, Jul 1, Jul 15, Aug 1, Aug 15, Sep 1, Sep 15, Sep 30
-      gridlines: {count: 9}
+      gridlines: {count: 18}
     },
     vAxis: {
       title: 'Albédo Large Bande Moyen',
@@ -590,45 +594,49 @@ function createComparisonChart(results, region) {
 }
 
 /**
- * Create seasonal average statistics for a collection
- * Groups by day-of-year and calculates multi-year averages
+ * Create seasonal average statistics for a collection (memory optimized)
+ * Groups by week instead of day to reduce memory usage
  */
 function createSeasonalAverage(collection, bandName, region, methodName) {
-  // Calculate daily statistics with day-of-year
-  var dailyStats = collection.select(bandName).map(function(image) {
+  // Use weekly averaging to reduce memory usage
+  var weeklyStats = collection.select(bandName).map(function(image) {
     var stats = image.reduceRegion({
       reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 500,
-      maxPixels: 1e9
+      scale: 1000, // Increased scale to reduce memory
+      maxPixels: 1e6, // Reduced maxPixels
+      bestEffort: true
     });
     
     var date = ee.Date(image.get('system:time_start'));
     var dayOfYear = date.getRelative('day', 'year');
+    var weekOfSeason = dayOfYear.subtract(152).divide(7).floor(); // Week since June 1
     
     return ee.Feature(null, {
       'albedo': stats.get(bandName),
-      'day_of_year': dayOfYear,
-      'date': date.format('YYYY-MM-dd')
+      'week_of_season': weekOfSeason,
+      'day_of_year': dayOfYear
     });
   }).filter(ee.Filter.notNull(['albedo']));
   
-  // Group by day-of-year and calculate averages across all years
-  var daysOfYear = ee.List.sequence(152, 274, 1); // June 1 (152) to September 30 (274)
+  // Group by week (0-17 weeks from June 1 to September 30)
+  var weeksOfSeason = ee.List.sequence(0, 17, 1);
   
-  var seasonalAverages = daysOfYear.map(function(dayOfYear) {
-    var dayData = dailyStats.filter(ee.Filter.eq('day_of_year', dayOfYear));
+  var seasonalAverages = weeksOfSeason.map(function(weekNum) {
+    var weekData = weeklyStats.filter(ee.Filter.eq('week_of_season', weekNum));
     
-    var meanAlbedo = dayData.aggregate_mean('albedo');
-    var stdAlbedo = dayData.aggregate_total_sd('albedo');
-    var count = dayData.size();
+    var meanAlbedo = weekData.aggregate_mean('albedo');
+    var count = weekData.size();
+    
+    // Convert week back to approximate day of year for plotting
+    var dayOfYear = ee.Number(weekNum).multiply(7).add(152);
     
     return ee.Feature(null, {
       'day_of_year': dayOfYear,
       'albedo_mean': meanAlbedo,
-      'albedo_std': stdAlbedo,
       'count': count,
-      'method': methodName
+      'method': methodName,
+      'week': weekNum
     });
   });
   
@@ -750,7 +758,7 @@ var title = ui.Label({
 panel.add(title);
 
 var description = ui.Label({
-  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON FOCUS: Jun 1 - Sep 30 only',
+  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (Weekly averages)\n⚠️ Memory optimized: Use shorter periods for large datasets',
   style: {
     fontSize: '12px',
     margin: '0px 0px 10px 0px'
@@ -761,8 +769,8 @@ panel.add(description);
 // Date selection
 var startDateLabel = ui.Label('Start Date (YYYY-MM-DD):');
 var startDateBox = ui.Textbox({
-  placeholder: '2017-06-01',
-  value: '2017-06-01',
+  placeholder: '2020-06-01',
+  value: '2020-06-01',
   style: {width: '150px'}
 });
 
@@ -787,14 +795,14 @@ var presetsPanel = ui.Panel({
   style: {margin: '5px 0px'}
 });
 
-var fullMeltBtn = ui.Button({
-  label: '2017-2024 Melt',
+var recent5MeltBtn = ui.Button({
+  label: '2020-2024 Melt',
   style: {margin: '2px', fontSize: '10px', backgroundColor: '#4285f4', color: 'white'}
 });
 
-var recent5MeltBtn = ui.Button({
-  label: '2020-2024 Melt',
-  style: {margin: '2px', fontSize: '10px'}
+var fullMeltBtn = ui.Button({
+  label: '2017-2024 Full',
+  style: {margin: '2px', fontSize: '9px', backgroundColor: '#ff9800', color: 'white'}
 });
 
 var summer2024Btn = ui.Button({
@@ -807,8 +815,8 @@ var summer2023Btn = ui.Button({
   style: {margin: '2px', fontSize: '10px'}
 });
 
-presetsPanel.add(fullMeltBtn);
 presetsPanel.add(recent5MeltBtn);
+presetsPanel.add(fullMeltBtn);
 presetsPanel.add(summer2024Btn);
 presetsPanel.add(summer2023Btn);
 panel.add(presetsPanel);
@@ -865,7 +873,7 @@ panel.add(clearButton);
 
 // Status label
 var statusLabel = ui.Label({
-  value: 'Ready for 2017-2024 MELT SEASON analysis (Jun-Sep only)!',
+  value: 'Ready! Default: 2020-2024 melt seasons (memory optimized)',
   style: {
     fontSize: '11px',
     color: 'blue',
@@ -938,18 +946,18 @@ processButton.onClick(function() {
 });
 
 // Preset button event handlers
-fullMeltBtn.onClick(function() {
-  startDateBox.setValue('2017-06-01');
-  endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Full melt seasons 2017-2024 selected (Jun-Sep only). Click Run Analysis.');
-  statusLabel.style().set('color', 'blue');
-});
-
 recent5MeltBtn.onClick(function() {
   startDateBox.setValue('2020-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (Jun-Sep only). Click Run Analysis.');
+  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (RECOMMENDED). Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
+});
+
+fullMeltBtn.onClick(function() {
+  startDateBox.setValue('2017-06-01');
+  endDateBox.setValue('2024-09-30');
+  statusLabel.setValue('Full 8-year period selected (HIGH MEMORY - may timeout). Click Run Analysis.');
+  statusLabel.style().set('color', 'orange');
 });
 
 summer2024Btn.onClick(function() {
