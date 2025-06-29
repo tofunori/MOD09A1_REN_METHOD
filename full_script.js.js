@@ -202,7 +202,8 @@ function anisotropicCorrection(image, surfaceType) {
     }
     
     // Apply exact Ren et al. (2021) formula: α_i = r - f̃
-    return image.select(band).subtract(anisotropyFactor).rename('narrowband_' + bandNum);
+    // Clamp to [0,1] to prevent physically impossible values from rare anisotropy corrections
+    return image.select(band).subtract(anisotropyFactor).clamp(0, 1).rename('narrowband_' + bandNum);
   });
   
   return image.addBands(ee.Image.cat(narrowbandAlbedo));
