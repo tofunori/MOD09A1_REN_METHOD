@@ -532,38 +532,39 @@ function calculateCorrelation(collection1, band1, collection2, band2, region) {
 }
 
 /**
- * Create seasonal average chart comparing all methods (memory optimized)
- * Shows average albedo by week across all years
+ * Create monthly average chart comparing all methods
+ * Shows average albedo by month (June-September) across all years
  */
 function createComparisonChart(results, region) {
-  print('Creating seasonal comparison chart (weekly averages)...');
+  print('Creating monthly comparison chart (June-September averages)...');
   
   // Process each method separately to avoid memory issues
-  var renSeasonalStats = createSeasonalAverage(results.ren, 'broadband_albedo_ren', region, 'Ren Method');
-  var mod10SeasonalStats = createSeasonalAverage(results.mod10a1, 'broadband_albedo_mod10a1', region, 'MOD10A1');
-  var mcd43SeasonalStats = createSeasonalAverage(results.mcd43a3, 'broadband_albedo_mcd43a3', region, 'MCD43A3');
+  var renMonthlyStats = createSeasonalAverage(results.ren, 'broadband_albedo_ren', region, 'Ren Method');
+  var mod10MonthlyStats = createSeasonalAverage(results.mod10a1, 'broadband_albedo_mod10a1', region, 'MOD10A1');
+  var mcd43MonthlyStats = createSeasonalAverage(results.mcd43a3, 'broadband_albedo_mcd43a3', region, 'MCD43A3');
   
-  print('Seasonal statistics calculated for all methods');
+  print('Monthly statistics calculated for all methods');
   
-  // Combine all seasonal statistics
-  var combinedSeasonalStats = renSeasonalStats.merge(mod10SeasonalStats).merge(mcd43SeasonalStats);
+  // Combine all monthly statistics
+  var combinedMonthlyStats = renMonthlyStats.merge(mod10MonthlyStats).merge(mcd43MonthlyStats);
   
   var chart = ui.Chart.feature.groups({
-    features: combinedSeasonalStats,
-    xProperty: 'day_of_year',
+    features: combinedMonthlyStats,
+    xProperty: 'month',
     yProperty: 'albedo_mean',
     seriesProperty: 'method'
   })
   .setChartType('LineChart')
   .setOptions({
-    title: 'Albédo Saisonnier Moyen par Semaine (2017-2024): Trois Méthodes MODIS',
+    title: 'Tendance Mensuelle de l\'Albédo (Moyennes Multi-Annuelles): Trois Méthodes MODIS',
     titleTextStyle: {fontSize: 16, bold: true},
     hAxis: {
-      title: 'Semaine de la Saison de Fonte (Moyennes Hebdomadaires)',
+      title: 'Mois de la Saison de Fonte',
       titleTextStyle: {fontSize: 14},
-      format: '###',
-      ticks: [152, 166, 182, 197, 213, 228, 244, 259, 274], // Jun 1, Jun 15, Jul 1, Jul 15, Aug 1, Aug 15, Sep 1, Sep 15, Sep 30
-      gridlines: {count: 18}
+      format: '#',
+      ticks: [6, 7, 8, 9],
+      ticksFormat: ['Juin', 'Juillet', 'Août', 'Septembre'],
+      gridlines: {count: 4}
     },
     vAxis: {
       title: 'Albédo Large Bande Moyen',
@@ -571,9 +572,9 @@ function createComparisonChart(results, region) {
       format: '0.00'
     },
     series: {
-      0: {color: '#2E7D32', pointSize: 5, lineWidth: 3}, // Ren Method - Green
-      1: {color: '#1976D2', pointSize: 5, lineWidth: 3}, // MOD10A1 - Blue  
-      2: {color: '#D32F2F', pointSize: 5, lineWidth: 3}  // MCD43A3 - Red
+      0: {color: '#2E7D32', pointSize: 8, lineWidth: 4}, // Ren Method - Green
+      1: {color: '#1976D2', pointSize: 8, lineWidth: 4}, // MOD10A1 - Blue  
+      2: {color: '#D32F2F', pointSize: 8, lineWidth: 4}  // MCD43A3 - Red
     },
     legend: {
       position: 'bottom',
@@ -587,19 +588,20 @@ function createComparisonChart(results, region) {
       width: '75%',
       height: '70%'
     },
-    interpolateNulls: true
+    pointShape: 'circle',
+    curveType: 'function'
   });
   
   return chart;
 }
 
 /**
- * Create seasonal average statistics for a collection (memory optimized)
- * Groups by week instead of day to reduce memory usage
+ * Create monthly average statistics for each method
+ * Groups by month across all years to show seasonal trends
  */
 function createSeasonalAverage(collection, bandName, region, methodName) {
-  // Use weekly averaging to reduce memory usage
-  var weeklyStats = collection.select(bandName).map(function(image) {
+  // Calculate monthly statistics across all years
+  var monthlyStats = collection.select(bandName).map(function(image) {
     var stats = image.reduceRegion({
       reducer: ee.Reducer.mean(),
       geometry: region,
@@ -609,38 +611,47 @@ function createSeasonalAverage(collection, bandName, region, methodName) {
     });
     
     var date = ee.Date(image.get('system:time_start'));
-    var dayOfYear = date.getRelative('day', 'year');
-    var weekOfSeason = dayOfYear.subtract(152).divide(7).floor(); // Week since June 1
+    var month = date.get('month');
     
     return ee.Feature(null, {
       'albedo': stats.get(bandName),
-      'week_of_season': weekOfSeason,
-      'day_of_year': dayOfYear
+      'month': month,
+      'year': date.get('year'),
+      'date': date.format('YYYY-MM-dd')
     });
   }).filter(ee.Filter.notNull(['albedo']));
   
-  // Group by week (0-17 weeks from June 1 to September 30)
-  var weeksOfSeason = ee.List.sequence(0, 17, 1);
+  // Group by month (6=June, 7=July, 8=August, 9=September)
+  var meltSeasonMonths = ee.List([6, 7, 8, 9]);
   
-  var seasonalAverages = weeksOfSeason.map(function(weekNum) {
-    var weekData = weeklyStats.filter(ee.Filter.eq('week_of_season', weekNum));
+  var monthlyAverages = meltSeasonMonths.map(function(monthNum) {
+    var monthData = monthlyStats.filter(ee.Filter.eq('month', monthNum));
     
-    var meanAlbedo = weekData.aggregate_mean('albedo');
-    var count = weekData.size();
+    var meanAlbedo = monthData.aggregate_mean('albedo');
+    var stdAlbedo = monthData.aggregate_total_sd('albedo');
+    var count = monthData.size();
     
-    // Convert week back to approximate day of year for plotting
-    var dayOfYear = ee.Number(weekNum).multiply(7).add(152);
+    // Create month names for display
+    var monthNames = ee.Dictionary({
+      6: 'Juin',
+      7: 'Juillet', 
+      8: 'Août',
+      9: 'Septembre'
+    });
+    
+    var monthName = monthNames.get(monthNum);
     
     return ee.Feature(null, {
-      'day_of_year': dayOfYear,
+      'month': monthNum,
+      'month_name': monthName,
       'albedo_mean': meanAlbedo,
+      'albedo_std': stdAlbedo,
       'count': count,
-      'method': methodName,
-      'week': weekNum
+      'method': methodName
     });
   });
   
-  return ee.FeatureCollection(seasonalAverages).filter(ee.Filter.notNull(['albedo_mean']));
+  return ee.FeatureCollection(monthlyAverages).filter(ee.Filter.notNull(['albedo_mean']));
 }
 
 /**
