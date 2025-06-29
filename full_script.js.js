@@ -1331,9 +1331,9 @@ comparisonYears.forEach(function(year) {
     maxPixels: 1e9
   });
   
-  // Store stats with year information
-  var yearStats50 = ee.Feature(null, stats50.set('year', year).set('threshold', '50%'));
-  var yearStats90 = ee.Feature(null, stats90.set('year', year).set('threshold', '90%'));
+  // Store stats with year information (ensure year is number)
+  var yearStats50 = ee.Feature(null, stats50.set('year', ee.Number(year)).set('threshold', '50%'));
+  var yearStats90 = ee.Feature(null, stats90.set('year', ee.Number(year)).set('threshold', '90%'));
   
   albedoStats50.push(yearStats50);
   albedoStats90.push(yearStats90);
@@ -1427,22 +1427,68 @@ print('=== CREATING DAILY OBSERVATION SCATTER PLOT ===');
 var scatterData50 = [];
 var scatterData90 = [];
 
+// Simple quality filter for scatter plot data (less strict)
+function qualityFilterSimple(image) {
+  var qa = image.select('state_1km');
+  var clearSky = qa.bitwiseAnd(0x3).eq(0);
+  var solarZenith = image.select('SolarZenith').multiply(0.01);
+  var lowSolarZenith = solarZenith.lt(70);
+  var qualityMask = clearSky.and(lowSolarZenith);
+  return image.updateMask(qualityMask);
+}
+
+// Simplified processing for scatter plot
+function processModisImageSimple(image, glacierOutlines, threshold) {
+  var filtered = qualityFilterSimple(image);
+  
+  var glacierMask;
+  if (threshold === 90) {
+    glacierMask = createGlacierMask90(filtered, glacierOutlines);
+  } else {
+    glacierMask = createGlacierMask(filtered, glacierOutlines);
+  }
+  
+  var topocorrected = topographyCorrection(filtered);
+  var classified = classifySnowIce(topocorrected);
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  
+  var snowMask = classified.select('snow_mask');
+  var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
+               'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
+  
+  var combinedNarrowband = bands.map(function(band) {
+    if (band === 'narrowband_b4') {
+      return iceNarrowband.select(band).rename(band);
+    }
+    var iceBand = iceNarrowband.select(band);
+    var snowBand = snowNarrowband.select(band);
+    return iceBand.where(snowMask, snowBand).rename(band);
+  });
+  
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var broadband = computeBroadbandAlbedo(narrowbandImage);
+  var maskedAlbedo = broadband.updateMask(glacierMask);
+  
+  return maskedAlbedo.copyProperties(image, ['system:time_start']);
+}
+
 meltSeasonYears.forEach(function(year) {
   var startDate = year + '-06-01';
   var endDate = year + '-09-30';
   
-  // Process with 50% threshold
+  // Process with 50% threshold (simplified QA)
   var collection50 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
-    .map(function(image) { return processModisImage(image, glacierOutlines); })
+    .map(function(image) { return processModisImageSimple(image, glacierOutlines, 50); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
   
-  // Process with 90% threshold  
+  // Process with 90% threshold (simplified QA)
   var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
-    .map(function(image) { return processModisImage90(image, glacierOutlines); })
+    .map(function(image) { return processModisImageSimple(image, glacierOutlines, 90); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
   
   scatterData50.push(collection50);
@@ -1464,7 +1510,8 @@ var dailyMeans50 = allScatterData50.map(function(image) {
     reducer: ee.Reducer.mean(),
     geometry: glacierBounds,
     scale: 500,
-    maxPixels: 1e9
+    maxPixels: 1e9,
+    bestEffort: true
   });
   
   var date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd');
@@ -1474,14 +1521,15 @@ var dailyMeans50 = allScatterData50.map(function(image) {
     'date': date,
     'system:time_start': image.get('system:time_start')
   });
-}).filter(ee.Filter.notNull(['albedo_50']));
+});
 
 var dailyMeans90 = allScatterData90.map(function(image) {
   var meanAlbedo = image.select('broadband_albedo').reduceRegion({
     reducer: ee.Reducer.mean(),
     geometry: glacierBounds,
     scale: 500,
-    maxPixels: 1e9
+    maxPixels: 1e9,
+    bestEffort: true
   });
   
   var date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd');
@@ -1491,7 +1539,18 @@ var dailyMeans90 = allScatterData90.map(function(image) {
     'date': date,
     'system:time_start': image.get('system:time_start')
   });
-}).filter(ee.Filter.notNull(['albedo_90']));
+});
+
+// Debug: check sizes before filtering
+print('Daily means 50% size (before filter):', dailyMeans50.size());
+print('Daily means 90% size (before filter):', dailyMeans90.size());
+
+// Apply filtering after size check
+dailyMeans50 = dailyMeans50.filter(ee.Filter.notNull(['albedo_50']));
+dailyMeans90 = dailyMeans90.filter(ee.Filter.notNull(['albedo_90']));
+
+print('Daily means 50% size (after filter):', dailyMeans50.size());
+print('Daily means 90% size (after filter):', dailyMeans90.size());
 
 // Join the two collections by date to create paired observations
 var filter = ee.Filter.equals({
