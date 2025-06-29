@@ -215,18 +215,8 @@ function anisotropicCorrection(image, surfaceType) {
 function classifySnowIce(image) {
   // Get surface reflectance bands for MODIS NDSI calculation
   // MODIS Band 4 (545-565nm, Green) and Band 6 (1628-1652nm, SWIR1)
-  // Use topographically corrected bands if available per Ren et al.
-  var bandNames = image.bandNames();
-  var hasTopoCorrection = bandNames.contains('sur_refl_b04_topo');
-  
-  var green, swir;
-  if (hasTopoCorrection) {
-    green = image.select('sur_refl_b04_topo');
-    swir = image.select('sur_refl_b06').multiply(0.0001); // B6 doesn't get topo correction
-  } else {
-    green = image.select('sur_refl_b04').multiply(0.0001);
-    swir = image.select('sur_refl_b06').multiply(0.0001);
-  }
+  var green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
+  var swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('NDSI');
@@ -289,19 +279,24 @@ function computeBroadbandAlbedo(image) {
  * Simplified quality filtering for debugging
  */
 function qualityFilter(image) {
-  // Use state_1km QA band for basic masking
+  // Use state_1km QA band for Ren et al. minimal filtering
   var qa = image.select('state_1km');
   
-  // Cloud state (bits 0-1): 00=clear, 01=cloudy, 10=mixed, 11=not set
-  // Only accept clear sky (00), reject cloudy (01), mixed (10), and not set (11)
+  // Cloud state (bits 0-1): only accept clear sky (00) per Ren et al.
   var clearSky = qa.bitwiseAnd(0x3).eq(0);
   
-  // Solar zenith angle constraint
+  // Internal cloud mask (bit 10): reject internal cloudy pixels per Ren et al.
+  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
+  
+  // Cloud shadow (bit 2): reject cloud shadow pixels per Ren et al.
+  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
+  
+  // Solar zenith angle constraint: < 70° per Ren et al.
   var solarZenith = image.select('SolarZenith').multiply(0.01);
   var lowSolarZenith = solarZenith.lt(70);
   
-  // Simple quality mask - just clear sky and reasonable solar angle
-  var qualityMask = clearSky.and(lowSolarZenith);
+  // Ren et al. minimal quality mask: clear sky + no internal clouds + no shadows + reasonable solar angle
+  var qualityMask = clearSky.and(clearInternal).and(shadowFree).and(lowSolarZenith);
   
   return image.updateMask(qualityMask);
 }
@@ -355,19 +350,19 @@ function processModisImage(image, glacierOutlines) {
   // Create glacier mask
   var glacierMask = createGlacierMask(filtered, glacierOutlines);
   
+  // Step 0: Snow/ice classification using NDSI
+  var classified = classifySnowIce(filtered);
+  
   // Step 1: Topography correction
-  var topocorrected = topographyCorrection(filtered);
+  var topocorrected = topographyCorrection(classified);
   
-  // Step 2: Snow/ice classification using NDSI on topographically corrected bands
-  var classified = classifySnowIce(topocorrected);
-  
-  // Step 3: Surface-specific anisotropic correction
+  // Step 2: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
-  var snowNarrowband = anisotropicCorrection(classified, 'snow');
-  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
+  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
   
   // Combine narrowband albedo based on snow/ice classification
-  var snowMask = classified.select('snow_mask');
+  var snowMask = topocorrected.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -384,9 +379,9 @@ function processModisImage(image, glacierOutlines) {
   });
   
   // Add combined narrowband albedo to image
-  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
   
-  // Step 4: Broadband albedo calculation using NDSI-based classification
+  // Step 3: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
   
   // Apply glacier mask to final results
