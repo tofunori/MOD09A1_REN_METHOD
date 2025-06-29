@@ -16,6 +16,8 @@
  * - Excluded Band 4 from snow processing (absent in Table 4)
  * - Enhanced QA filtering for cloud states
  * - ADDED: 50m elevation bands analysis per Ren et al. (2023)
+ * - STRATÉGIE 1 (2025-06-29): DEM 30m + albédo ré-échantillonné pour glacier individuel
+ *   → Relief fin pour analyse scientifique, tileScale 4-8 pour éviter timeouts
  */
 
 // Load SRTM DEM for topographic correction
@@ -61,34 +63,39 @@ var BAND_NUMS_SNOW = ['b1', 'b2', 'b3', 'b5', 'b7']; // B4 excluded for snow
 
 /**
  * Prepare elevation bands for Ren et al. (2023) methodology
+ * STRATÉGIE 1: DEM 30m pour analyse scientifique d'un glacier individuel
  * Creates 50m elevation classes: 0-50, 50-100, 100-150m etc.
  */
 function prepareElevationBands(glacierBounds) {
-  // Reproject DEM to MODIS projection (500m) to avoid co-registration issues
-  var demModis = dem
+  // Use 30m DEM for fine-scale glacier analysis (Stratégie 1)
+  var demHighRes = dem
     .reproject({
       crs: 'EPSG:4326',
-      scale: 500
+      scale: 30  // 30m resolution for individual glacier analysis
     })
     .clip(glacierBounds);
   
-  // Calculate elevation bands: floor(elev/50)*50 => classes 0-50, 50-100, ...
-  var elevationBand = demModis
+  // Calculate elevation bands at 30m: floor(elev/50)*50 => classes 0-50, 50-100, ...
+  var elevationBandHighRes = demHighRes
     .divide(50).floor().multiply(50)
     .rename('elev50');
   
-  // Optional: Calculate percentiles to exclude extreme values (2.5% and 97.5%) as in Ren et al.
-  var elevationStats = demModis.reduceRegion({
+  // Resample albedo to match 30m DEM resolution (instead of degrading DEM to 500m)
+  // This preserves topographic detail for individual glacier studies
+  
+  // Calculate percentiles to exclude extreme values (2.5% and 97.5%) as in Ren et al.
+  var elevationStats = demHighRes.reduceRegion({
     reducer: ee.Reducer.percentile([2.5, 97.5]),
     geometry: glacierBounds,
-    scale: 500,
+    scale: 30,  // Use 30m scale for statistics
     maxPixels: 1e9,
-    bestEffort: true
+    bestEffort: true,
+    tileScale: 4  // Add tileScale to avoid timeouts on large areas
   });
   
   return {
-    elevationBand: elevationBand,
-    demModis: demModis,
+    elevationBand: elevationBandHighRes,
+    demModis: demHighRes,  // Renamed but now 30m resolution
     stats: elevationStats
   };
 }
@@ -551,6 +558,7 @@ function retrieveGlacierAlbedo(geometry, startDate, endDate, glacierOutlines) {
 
 /**
  * Export albedo statistics by elevation bands (Ren et al. 2023 methodology)
+ * STRATÉGIE 1: Utilise DEM 30m avec albédo ré-échantillonné + tileScale pour éviter timeouts
  */
 function exportAlbedoByElevation(collection, region, description) {
   // Process each image to get elevation-based statistics
@@ -563,16 +571,28 @@ function exportAlbedoByElevation(collection, region, description) {
       ee.Date(timeStart).format('YYYY-MM-dd')
     );
     
-    // Calculate statistics by elevation band using groupBy
-    var statsByBand = image.select(['broadband_albedo', 'elev50']).reduceRegion({
+    // Resample albedo from 500m to 30m to match DEM resolution (Stratégie 1)
+    var albedoResampled = image.select('broadband_albedo')
+      .resample('bilinear')  // Use bilinear interpolation for smooth albedo
+      .reproject({
+        crs: 'EPSG:4326',
+        scale: 30  // Match DEM resolution
+      });
+    
+    // Combine resampled albedo with 30m elevation bands
+    var combinedImage = albedoResampled.addBands(image.select('elev50'));
+    
+    // Calculate statistics by elevation band using groupBy with 30m resolution
+    var statsByBand = combinedImage.select(['broadband_albedo', 'elev50']).reduceRegion({
       reducer: ee.Reducer.mean()
                 .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
                 .combine({reducer2: ee.Reducer.count(), sharedInputs: true})
                 .group({groupField: 1, groupName: 'elev50'}),  // 1 = index of elev50
       geometry: region,
-      scale: 500,
+      scale: 30,  // Use 30m resolution for fine-scale analysis
       maxPixels: 1e9,
-      bestEffort: true
+      bestEffort: true,
+      tileScale: 8  // Higher tileScale for 30m processing to avoid timeouts
     });
     
     // Convert grouped results to features
@@ -643,7 +663,8 @@ function exportDailyObservations(collection, region, description) {
       geometry: region,
       scale: 500,
       maxPixels: 1e9,
-      bestEffort: true
+      bestEffort: true,
+      tileScale: 4  // Add tileScale to avoid timeouts
     });
     
     // Calculate snow coverage percentage
@@ -651,14 +672,16 @@ function exportDailyObservations(collection, region, description) {
       reducer: ee.Reducer.sum(),
       geometry: region,
       scale: 500,
-      maxPixels: 1e9
+      maxPixels: 1e9,
+      tileScale: 4  // Add tileScale to avoid timeouts
     });
     
     var totalPixels = image.select('snow_mask').reduceRegion({
       reducer: ee.Reducer.count(),
       geometry: region,
       scale: 500,
-      maxPixels: 1e9
+      maxPixels: 1e9,
+      tileScale: 4  // Add tileScale to avoid timeouts
     });
     
     var snowCoverage = ee.Number(snowPixels.get('snow_mask'))
