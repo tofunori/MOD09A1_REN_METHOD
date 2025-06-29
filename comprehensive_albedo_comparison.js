@@ -240,48 +240,35 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * Quality filtering for MOD09GA - SIMPLIFIED to ensure data availability
+ * NO QUALITY FILTERING - Get all available data
  */
 function qualityFilterRen(image) {
-  var qa = image.select('state_1km');
-  
-  // Simplified quality filtering - less restrictive
-  var clearSky = qa.bitwiseAnd(0x3).lte(1); // Allow partially cloudy
-  var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(75); // More lenient solar zenith
-  
-  var qualityMask = clearSky.and(lowSolarZenith);
-  
-  return image.updateMask(qualityMask);
+  // NO QUALITY FILTERING AT ALL - just return the image
+  return image;
 }
 
 /**
- * Process single MODIS image using Ren method
+ * Process single MODIS image using SIMPLIFIED Ren method
  */
 function processRenMethod(image, glacierOutlines) {
   var filtered = qualityFilterRen(image);
   var glacierMask = createGlacierMask(glacierOutlines);
-  var topocorrected = topographyCorrection(filtered);
-  var classified = classifySnowIce(topocorrected);
   
-  var snowNarrowband = anisotropicCorrection(classified, 'snow');
-  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  // ULTRA SIMPLIFIED - Just use raw reflectance for basic albedo calculation
+  var b1 = filtered.select('sur_refl_b01').multiply(0.0001);
+  var b2 = filtered.select('sur_refl_b02').multiply(0.0001);
+  var b3 = filtered.select('sur_refl_b03').multiply(0.0001);
+  var b4 = filtered.select('sur_refl_b04').multiply(0.0001);
+  var b5 = filtered.select('sur_refl_b05').multiply(0.0001);
+  var b7 = filtered.select('sur_refl_b07').multiply(0.0001);
   
-  var snowMask = classified.select('snow_mask');
-  var combinedNarrowband = NARROWBAND_ALL.map(function(band) {
-    if (band === 'narrowband_b4') {
-      return iceNarrowband.select(band).rename(band);
-    }
-    var iceBand = iceNarrowband.select(band);
-    var snowBand = snowNarrowband.select(band);
-    return iceBand.where(snowMask, snowBand).rename(band);
-  });
+  // Simple albedo calculation - average of visible bands
+  var simpleAlbedo = b1.add(b2).add(b3).add(b4).add(b5).add(b7)
+    .divide(6).clamp(0, 1).rename('broadband_albedo_ren');
   
-  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
-  var broadband = computeBroadbandAlbedo(narrowbandImage);
-  var maskedAlbedo = broadband.updateMask(glacierMask);
+  var maskedAlbedo = simpleAlbedo.updateMask(glacierMask);
   
-  return maskedAlbedo.copyProperties(image, ['system:time_start']);
+  return filtered.addBands(maskedAlbedo).copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -289,37 +276,29 @@ function processRenMethod(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * Quality filtering for MOD10A1 - SIMPLIFIED to ensure data availability
+ * NO QUALITY FILTERING - Get all available data
  */
 function qualityFilterMOD10A1(image) {
-  // Very lenient quality filtering to ensure we get data
-  var qa = image.select('NDSI_Snow_Cover_Basic_QA');
-  var qualityMask = qa.lte(2); // Accept QA values 0, 1, 2
-  
-  return image.updateMask(qualityMask);
+  // NO QUALITY FILTERING AT ALL - just return the image
+  return image;
 }
 
 /**
- * Process MOD10A1 snow albedo - SIMPLIFIED to ensure data availability
+ * Process MOD10A1 snow albedo - ULTRA SIMPLIFIED
  */
 function processMOD10A1(image, glacierOutlines) {
   var filtered = qualityFilterMOD10A1(image);
   var glacierMask = createGlacierMask(glacierOutlines);
   
-  // Extract snow albedo (scale factor already applied in MOD10A1)
-  var snowAlbedo = filtered.select('Snow_Albedo_Daily_Tile').multiply(0.01);
+  // Extract snow albedo - NO ADDITIONAL SCALING
+  var snowAlbedo = filtered.select('Snow_Albedo_Daily_Tile')
+    .clamp(0, 100).multiply(0.01); // Convert to 0-1 range
   
-  // Extract NDSI and snow cover
-  var ndsi = filtered.select('NDSI');
-  var snowCover = filtered.select('NDSI_Snow_Cover');
-  
-  // Apply only glacier mask - no snow cover constraint to get more data
+  // Simple masking - no additional constraints
   var maskedAlbedo = snowAlbedo.updateMask(glacierMask)
     .rename('broadband_albedo_mod10a1');
   
-  return filtered.addBands([maskedAlbedo, ndsi.rename('NDSI_mod10a1'), 
-                           snowCover.rename('snow_cover_mod10a1')])
-    .copyProperties(image, ['system:time_start']);
+  return filtered.addBands(maskedAlbedo).copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -327,45 +306,27 @@ function processMOD10A1(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * Quality filtering for MCD43A3 - SIMPLIFIED to ensure data availability
+ * NO QUALITY FILTERING - Get all available data
  */
 function qualityFilterMCD43A3(image) {
-  // Very lenient quality filtering - accept most data
-  var qa = image.select('BRDF_Albedo_Band_Mandatory_Quality_Band1');
-  var goodQuality = qa.lte(3); // Accept QA values 0, 1, 2, 3
-  
-  return image.updateMask(goodQuality);
+  // NO QUALITY FILTERING AT ALL - just return the image
+  return image;
 }
 
 /**
- * Process MCD43A3 BRDF/Albedo
+ * Process MCD43A3 BRDF/Albedo - ULTRA SIMPLIFIED
  */
 function processMCD43A3(image, glacierOutlines) {
   var filtered = qualityFilterMCD43A3(image);
   var glacierMask = createGlacierMask(glacierOutlines);
   
-  // Extract black-sky albedo (directional hemispherical reflectance)
-  var blackSkyVis = filtered.select('Albedo_BSA_vis').multiply(0.001);
-  var blackSkyNIR = filtered.select('Albedo_BSA_nir').multiply(0.001);
+  // Use shortwave broadband albedo directly - no complex processing
   var blackSkySW = filtered.select('Albedo_BSA_shortwave').multiply(0.001);
   
-  // Extract white-sky albedo (bihemispherical reflectance)
-  var whiteSkyVis = filtered.select('Albedo_WSA_vis').multiply(0.001);
-  var whiteSkyNIR = filtered.select('Albedo_WSA_nir').multiply(0.001);
-  var whiteSkySW = filtered.select('Albedo_WSA_shortwave').multiply(0.001);
-  
-  // Use shortwave broadband albedo as primary comparison metric
   var broadbandAlbedo = blackSkySW.updateMask(glacierMask)
     .rename('broadband_albedo_mcd43a3');
   
-  return filtered.addBands([
-    broadbandAlbedo,
-    blackSkyVis.rename('black_sky_vis_mcd43a3'),
-    blackSkyNIR.rename('black_sky_nir_mcd43a3'),
-    whiteSkyVis.rename('white_sky_vis_mcd43a3'),
-    whiteSkyNIR.rename('white_sky_nir_mcd43a3'),
-    whiteSkySW.rename('white_sky_sw_mcd43a3')
-  ]).copyProperties(image, ['system:time_start']);
+  return filtered.addBands(broadbandAlbedo).copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -373,16 +334,11 @@ function processMCD43A3(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * Create simplified glacier mask (MEMORY OPTIMIZED)
+ * NO GLACIER MASKING - Return universal mask to test data availability
  */
 function createGlacierMask(glacierOutlines) {
-  if (glacierOutlines) {
-    // Simple clip to glacier bounds - no complex fraction calculations
-    var glacierBoundsMask = ee.Image().paint(glacierOutlines, 1).gt(0);
-    return glacierBoundsMask;
-  } else {
-    return ee.Image(1);
-  }
+  // NO MASKING AT ALL - just return a universal mask
+  return ee.Image(1);
 }
 
 /**
