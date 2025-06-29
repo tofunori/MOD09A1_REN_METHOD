@@ -438,7 +438,172 @@ function retrieveGlacierAlbedo(geometry, startDate, endDate, glacierOutlines) {
 }
 
 /**
- * Export daily observations (one row per day with glacier-wide statistics)
+ * Export daily observations with both thresholds (one row per day with glacier-wide statistics)
+ */
+function exportDailyObservationsWithThresholds(collection50, collection90, region, description) {
+  // Process 50% threshold data
+  var dailyStats50 = collection50.map(function(image) {
+    var timeStart = image.get('system:time_start');
+    var date = ee.Algorithms.If(
+      ee.Algorithms.IsEqual(timeStart, null),
+      'no-date',
+      ee.Date(timeStart).format('YYYY-MM-dd')
+    );
+    
+    var stats = image.select(['broadband_albedo', 'NDSI']).reduceRegion({
+      reducer: ee.Reducer.mean().combine({
+        reducer2: ee.Reducer.stdDev(),
+        sharedInputs: true
+      }).combine({
+        reducer2: ee.Reducer.count(),
+        sharedInputs: true
+      }),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9,
+      bestEffort: true
+    });
+    
+    var snowPixels = image.select('snow_mask').reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9
+    });
+    
+    var totalPixels = image.select('snow_mask').reduceRegion({
+      reducer: ee.Reducer.count(),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9
+    });
+    
+    var snowCoverage = ee.Number(snowPixels.get('snow_mask'))
+      .divide(ee.Number(totalPixels.get('snow_mask')))
+      .multiply(100);
+    
+    return ee.Feature(null, {
+      'date': date,
+      'glacier_threshold': '50%',
+      'broadband_albedo_mean_50': stats.get('broadband_albedo_mean'),
+      'broadband_albedo_stdDev_50': stats.get('broadband_albedo_stdDev'),
+      'broadband_albedo_count_50': stats.get('broadband_albedo_count'),
+      'NDSI_mean_50': stats.get('NDSI_mean'),
+      'snow_coverage_percent_50': snowCoverage,
+      'system:time_start': image.get('system:time_start')
+    });
+  });
+  
+  // Process 90% threshold data
+  var dailyStats90 = collection90.map(function(image) {
+    var timeStart = image.get('system:time_start');
+    var date = ee.Algorithms.If(
+      ee.Algorithms.IsEqual(timeStart, null),
+      'no-date',
+      ee.Date(timeStart).format('YYYY-MM-dd')
+    );
+    
+    var stats = image.select(['broadband_albedo', 'NDSI']).reduceRegion({
+      reducer: ee.Reducer.mean().combine({
+        reducer2: ee.Reducer.stdDev(),
+        sharedInputs: true
+      }).combine({
+        reducer2: ee.Reducer.count(),
+        sharedInputs: true
+      }),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9,
+      bestEffort: true
+    });
+    
+    var snowPixels = image.select('snow_mask').reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9
+    });
+    
+    var totalPixels = image.select('snow_mask').reduceRegion({
+      reducer: ee.Reducer.count(),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9
+    });
+    
+    var snowCoverage = ee.Number(snowPixels.get('snow_mask'))
+      .divide(ee.Number(totalPixels.get('snow_mask')))
+      .multiply(100);
+    
+    return ee.Feature(null, {
+      'date': date,
+      'glacier_threshold': '90%',
+      'broadband_albedo_mean_90': stats.get('broadband_albedo_mean'),
+      'broadband_albedo_stdDev_90': stats.get('broadband_albedo_stdDev'),
+      'broadband_albedo_count_90': stats.get('broadband_albedo_count'),
+      'NDSI_mean_90': stats.get('NDSI_mean'),
+      'snow_coverage_percent_90': snowCoverage,
+      'system:time_start': image.get('system:time_start')
+    });
+  });
+  
+  // Join the two collections by date
+  var filter = ee.Filter.equals({
+    leftField: 'system:time_start',
+    rightField: 'system:time_start'
+  });
+  
+  var joinedData = ee.Join.inner().apply({
+    primary: dailyStats50,
+    secondary: dailyStats90,
+    condition: filter
+  });
+  
+  // Create combined features with both thresholds
+  var combinedStats = ee.FeatureCollection(joinedData.map(function(feature) {
+    var primary = ee.Feature(feature.get('primary'));
+    var secondary = ee.Feature(feature.get('secondary'));
+    
+    return ee.Feature(null, {
+      'date': primary.get('date'),
+      'broadband_albedo_mean_50': primary.get('broadband_albedo_mean_50'),
+      'broadband_albedo_stdDev_50': primary.get('broadband_albedo_stdDev_50'),
+      'broadband_albedo_count_50': primary.get('broadband_albedo_count_50'),
+      'NDSI_mean_50': primary.get('NDSI_mean_50'),
+      'snow_coverage_percent_50': primary.get('snow_coverage_percent_50'),
+      'broadband_albedo_mean_90': secondary.get('broadband_albedo_mean_90'),
+      'broadband_albedo_stdDev_90': secondary.get('broadband_albedo_stdDev_90'),
+      'broadband_albedo_count_90': secondary.get('broadband_albedo_count_90'),
+      'NDSI_mean_90': secondary.get('NDSI_mean_90'),
+      'snow_coverage_percent_90': secondary.get('snow_coverage_percent_90')
+    });
+  }));
+  
+  // Filter out days without valid observations
+  var validCombinedStats = combinedStats.filter(
+    ee.Filter.and(
+      ee.Filter.notNull(['broadband_albedo_count_50']),
+      ee.Filter.notNull(['broadband_albedo_count_90']),
+      ee.Filter.gt('broadband_albedo_count_50', 0),
+      ee.Filter.gt('broadband_albedo_count_90', 0)
+    )
+  );
+  
+  Export.table.toDrive({
+    collection: validCombinedStats,
+    description: description,
+    folder: 'glacier_albedo_results',
+    fileFormat: 'CSV',
+    selectors: ['date',
+                'broadband_albedo_mean_50', 'broadband_albedo_stdDev_50', 'broadband_albedo_count_50',
+                'NDSI_mean_50', 'snow_coverage_percent_50',
+                'broadband_albedo_mean_90', 'broadband_albedo_stdDev_90', 'broadband_albedo_count_90', 
+                'NDSI_mean_90', 'snow_coverage_percent_90']
+  });
+}
+
+/**
+ * Export daily observations (one row per day with glacier-wide statistics) - original function
  */
 function exportDailyObservations(collection, region, description) {
   var dailyStats = collection.map(function(image) {
@@ -509,11 +674,8 @@ function exportDailyObservations(collection, region, description) {
     folder: 'glacier_albedo_results',
     fileFormat: 'CSV',
     selectors: ['date', 
-                'broadband_albedo_mean', 'broadband_albedo_stdDev', 'broadband_albedo_min', 'broadband_albedo_max', 'broadband_albedo_count',
-                'ice_albedo_mean', 'ice_albedo_stdDev', 'ice_albedo_min', 'ice_albedo_max',
-                'snow_albedo_mean', 'snow_albedo_stdDev', 'snow_albedo_min', 'snow_albedo_max',
-                'NDSI_mean', 'NDSI_stdDev', 'NDSI_min', 'NDSI_max',
-                'snow_coverage_percent']
+                'broadband_albedo_mean', 'broadband_albedo_stdDev', 'broadband_albedo_count',
+                'NDSI_mean', 'snow_coverage_percent']
   });
 }
 
@@ -983,10 +1145,40 @@ var validMeltSeasonCollection = combinedMeltSeasons.filter(
 
 print('Valid melt season albedo images:', validMeltSeasonCollection.size());
 
-// Export melt season data to CSV
-exportDailyObservations(validMeltSeasonCollection, glacierBounds, 'saskatchewan_melt_season_2017_2024');
+// Process melt season data with 90% threshold as well
+var allMeltSeasonData90 = [];
 
-print('Melt season CSV export initiated for 2017-2024');
+meltSeasonYears.forEach(function(year) {
+  var startDate = year + '-06-01';
+  var endDate = year + '-09-30';
+  
+  var yearMeltSeason90 = ee.ImageCollection('MODIS/061/MOD09GA')
+    .filterDate(startDate, endDate)
+    .filterBounds(glacierBounds)
+    .map(function(image) { return processModisImage90(image, glacierOutlines); });
+  allMeltSeasonData90.push(yearMeltSeason90);
+});
+
+// Combine all 90% threshold melt season collections
+var allImageLists90 = allMeltSeasonData90.map(function(collection) {
+  return collection.toList(1000);
+});
+
+var eeListOfLists90 = ee.List(allImageLists90);
+var flattenedImages90 = eeListOfLists90.flatten();
+var combinedMeltSeasons90 = ee.ImageCollection.fromImages(flattenedImages90);
+
+// Filter for valid albedo data only (90% threshold)
+var validMeltSeasonCollection90 = combinedMeltSeasons90.filter(
+  ee.Filter.listContains('system:band_names', 'broadband_albedo')
+);
+
+print('Valid melt season albedo images (90% threshold):', validMeltSeasonCollection90.size());
+
+// Export melt season data with both thresholds in one CSV
+exportDailyObservationsWithThresholds(validMeltSeasonCollection, validMeltSeasonCollection90, glacierBounds, 'saskatchewan_melt_season_2017_2024');
+
+print('Melt season CSV export initiated for 2017-2024 (both 50% and 90% thresholds)');
 
 // === THRESHOLD COMPARISON: 50% vs 90% GLACIER ABUNDANCE ===
 print('--- Comparing 50% vs 90% glacier abundance thresholds (2017-2024) ---');
