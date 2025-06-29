@@ -1148,12 +1148,22 @@ var qualityFiltered = qualityFilter(firstImage);
 var glacierMask = createGlacierMask(qualityFiltered, glacierOutlines);
 
 // Step 4: Test processing pipeline on single image
-var processedSingle = processModisImage(firstImage, glacierOutlines);
-
-// Debug: Check if processed image has albedo band
-processedSingle.bandNames().evaluate(function(bands) {
-  print('Step 4 - Bands in processed image:', bands);
-});
+try {
+  var processedSingle = processModisImage(firstImage, glacierOutlines);
+  
+  // Debug: Check if processed image has albedo band
+  if (processedSingle && typeof processedSingle.bandNames === 'function') {
+    processedSingle.bandNames().evaluate(function(bands) {
+      print('Step 4 - Bands in processed image:', bands);
+    }, function(error) {
+      print('Step 4 - Error getting band names:', error);
+    });
+  } else {
+    print('Step 4 - ERROR: processedSingle is not a valid Earth Engine Image');
+  }
+} catch (error) {
+  print('Step 4 - ERROR in processModisImage:', error);
+}
 
 // Step 5: Test collection processing
 var defaultAlbedo2020 = retrieveGlacierAlbedo(glacierBounds, '2020-06-01', '2020-09-30', glacierOutlines);
@@ -1175,11 +1185,18 @@ validDefault.size().evaluate(function(validSize) {
       reducer: ee.Reducer.minMax(),
       geometry: glacierBounds,
       scale: 500,
-      maxPixels: 1e6
+      maxPixels: 1e6,
+      bestEffort: true
     }).evaluate(function(stats) {
       print('Step 6 - Albedo value range in first valid image:', stats);
+    }, function(error) {
+      print('Step 6 - Error getting albedo stats:', error);
     });
+  } else {
+    print('Step 6 - No valid albedo images found');
   }
+}, function(error) {
+  print('Step 6 - Error getting collection size:', error);
 });
 
 // Step 7: Create mean and test layer
@@ -1198,11 +1215,14 @@ meanDefaultAlbedo.reduceRegion({
 }).evaluate(function(meanStats) {
   print('Step 7 - Mean albedo statistics:', meanStats);
   
-  if (meanStats.broadband_albedo_count > 0) {
+  if (meanStats && meanStats.broadband_albedo_count && meanStats.broadband_albedo_count > 0) {
     print('SUCCESS: Found valid albedo data');
   } else {
     print('WARNING: Albedo data exists but may be masked out');
+    print('Mean stats details:', meanStats);
   }
+}, function(error) {
+  print('Step 7 - Error getting mean albedo statistics:', error);
 });
 
 // Add to map with more permissive masking
