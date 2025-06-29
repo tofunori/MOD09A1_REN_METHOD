@@ -635,12 +635,12 @@ function exportAlbedoByElevation(collection, region, description) {
 /**
  * Generate albedo vs elevation plot for multi-year analysis (2017-2024)
  * Similar to Ren et al. (2023) Figure 6 showing albedo trends by elevation bands
+ * + Automatic CSV export to Tasks
  */
 function generateAlbedoElevationPlot(startYear, endYear) {
   print('=== GENERATING ALBEDO-ELEVATION PLOT (' + startYear + '-' + endYear + ') ===');
   
-  // Use a shorter period for demonstration (to avoid timeout issues)
-  // Process the entire period as one collection instead of year by year
+  // Use the entire period as one collection
   var fullPeriodStart = startYear + '-06-01';
   var fullPeriodEnd = endYear + '-09-30';
   
@@ -653,7 +653,6 @@ function generateAlbedoElevationPlot(startYear, endYear) {
   
   // Check collection size first
   var collectionSize = fullCollection.size();
-  
   print('Total images in collection:', collectionSize);
   
   // Filter to ensure we have albedo data
@@ -667,16 +666,23 @@ function generateAlbedoElevationPlot(startYear, endYear) {
   // Calculate mean albedo by elevation band for the entire period
   var overallMean = validCollection.select(['broadband_albedo', 'elev50']).mean();
   
-  // Resample albedo to match 30m DEM for better elevation analysis
-  var albedoResampled = overallMean.select('broadband_albedo')
-    .resample('bilinear')
+  // Use 500m resolution to avoid reprojection error (instead of 30m)
+  // This still preserves elevation bands while avoiding memory issues
+  var albedoAt500m = overallMean.select('broadband_albedo')
     .reproject({
       crs: 'EPSG:4326', 
-      scale: 30
+      scale: 500  // Use 500m instead of 30m to avoid reprojection error
     });
   
-  // Combine with elevation bands
-  var combinedForAnalysis = albedoResampled.addBands(overallMean.select('elev50'));
+  // Resample elevation bands to 500m for consistency
+  var elevAt500m = overallMean.select('elev50')
+    .reproject({
+      crs: 'EPSG:4326',
+      scale: 500
+    });
+  
+  // Combine for analysis
+  var combinedForAnalysis = albedoAt500m.addBands(elevAt500m);
   
   // Extract elevation vs albedo data using grouped reducer
   var elevationStats = combinedForAnalysis.select(['broadband_albedo', 'elev50']).reduceRegion({
@@ -685,36 +691,49 @@ function generateAlbedoElevationPlot(startYear, endYear) {
               .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
               .group({groupField: 1, groupName: 'elev50'}),
     geometry: glacierBounds,
-    scale: 30,
+    scale: 500,  // Use 500m for processing
     maxPixels: 1e9,
     bestEffort: true,
-    tileScale: 8
+    tileScale: 16  // Higher tileScale for large-scale processing
   });
   
-  print('Elevation stats calculated:', elevationStats);
+  print('Elevation stats calculated successfully');
   
   // Process and create chart data
-  print('Creating interactive chart...');
+  print('Creating interactive chart and CSV export...');
   
   // Extract groups and create features for charting
   var groups = ee.List(elevationStats.get('groups'));
-  
   print('Number of elevation groups:', groups.size());
   
   var chartData = groups.map(function(group) {
     var groupDict = ee.Dictionary(group);
     return ee.Feature(null, {
       elevation: groupDict.get('elev50'),
-      albedo: groupDict.get('mean'),
-      albedo_std: groupDict.get('stdDev'),
-      pixel_count: groupDict.get('count')
+      albedo_mean: groupDict.get('mean'),
+      albedo_std: groupDict.get('stdDev'), 
+      pixel_count: groupDict.get('count'),
+      period: startYear + '-' + endYear,
+      analysis_method: 'Ren_et_al_2023'
     });
   });
   
   var chartFeatures = ee.FeatureCollection(chartData);
   
+  // AUTOMATIC CSV EXPORT TO TASKS
+  var exportDescription = 'albedo_elevation_plot_' + startYear + '_' + endYear;
+  Export.table.toDrive({
+    collection: chartFeatures,
+    description: exportDescription,
+    folder: 'glacier_albedo_results',
+    fileFormat: 'CSV',
+    selectors: ['elevation', 'albedo_mean', 'albedo_std', 'pixel_count', 'period', 'analysis_method']
+  });
+  
+  print('✅ CSV export initiated automatically: ' + exportDescription + '.csv');
+  
   // Create scatter plot
-  var chart = ui.Chart.feature.byFeature(chartFeatures, 'elevation', 'albedo')
+  var chart = ui.Chart.feature.byFeature(chartFeatures, 'elevation', 'albedo_mean')
     .setOptions({
       title: 'Saskatchewan Glacier: Albedo vs Elevation (' + startYear + '-' + endYear + ')',
       hAxis: {
@@ -726,7 +745,7 @@ function generateAlbedoElevationPlot(startYear, endYear) {
         titleTextStyle: {italic: false, bold: true},
         viewWindow: {min: 0.1, max: 0.9}
       },
-      pointSize: 5,
+      pointSize: 8,
       series: {
         0: {color: '#1f77b4', pointShape: 'circle'}
       },
@@ -738,7 +757,7 @@ function generateAlbedoElevationPlot(startYear, endYear) {
   print('Albedo vs Elevation Chart (' + startYear + '-' + endYear + '):', chart);
   
   // Print sample data for verification
-  print('Sample elevation-albedo data (first 5 groups):');
+  print('Sample elevation-albedo data (first 5 elevation bands):');
   var sampleData = chartFeatures.limit(5);
   print(sampleData);
   
@@ -746,13 +765,16 @@ function generateAlbedoElevationPlot(startYear, endYear) {
   print('=== ELEVATION ANALYSIS SUMMARY ===');
   print('Period processed: ' + startYear + '-' + endYear + ' (summer months)');
   print('Elevation range: 2700-3600m (50m bands)');
-  print('Analysis method: Ren et al. (2023) methodology with 30m DEM');
+  print('Resolution: 500m (optimized to avoid memory errors)');
+  print('Analysis method: Ren et al. (2023) methodology');
   print('Total valid images:', validSize);
+  print('CSV export: ' + exportDescription + '.csv (check Tasks tab)');
   
   return {
     chart: chart,
     data: chartFeatures,
-    stats: elevationStats
+    stats: elevationStats,
+    exportDescription: exportDescription
   };
 }
 
