@@ -265,7 +265,7 @@ function qualityFilterRen(image) {
  */
 function processRenMethod(image, glacierOutlines) {
   var filtered = qualityFilterRen(image);
-  var glacierMask = createGlacierMask(filtered, glacierOutlines);
+  var glacierMask = createGlacierMask(glacierOutlines);
   var topocorrected = topographyCorrection(filtered);
   var classified = classifySnowIce(topocorrected);
   
@@ -320,7 +320,7 @@ function qualityFilterMOD10A1(image) {
  */
 function processMOD10A1(image, glacierOutlines) {
   var filtered = qualityFilterMOD10A1(image);
-  var glacierMask = createGlacierMask(filtered, glacierOutlines);
+  var glacierMask = createGlacierMask(glacierOutlines);
   
   // Extract snow albedo (scale factor already applied in MOD10A1)
   var snowAlbedo = filtered.select('Snow_Albedo_Daily_Tile').multiply(0.01);
@@ -362,7 +362,7 @@ function qualityFilterMCD43A3(image) {
  */
 function processMCD43A3(image, glacierOutlines) {
   var filtered = qualityFilterMCD43A3(image);
-  var glacierMask = createGlacierMask(filtered, glacierOutlines);
+  var glacierMask = createGlacierMask(glacierOutlines);
   
   // Extract black-sky albedo (directional hemispherical reflectance)
   var blackSkyVis = filtered.select('Albedo_BSA_vis').multiply(0.001);
@@ -393,32 +393,13 @@ function processMCD43A3(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * Create glacier mask using 50% glacier abundance criterion
+ * Create simplified glacier mask (MEMORY OPTIMIZED)
  */
-function createGlacierMask(image, glacierOutlines) {
+function createGlacierMask(glacierOutlines) {
   if (glacierOutlines) {
-    var glacierBounds = glacierOutlines.geometry().bounds();
-    var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
-      .clip(glacierBounds)
-      .setDefaultProjection({
-        crs: 'EPSG:4326',
-        scale: 30
-      });
-    
-    var glacierFraction = glacierMap
-      .reduceResolution({
-        reducer: ee.Reducer.mean(),
-        maxPixels: 1000
-      })
-      .reproject({
-        crs: image.select(0).projection(),
-        scale: 500
-      });
-    
-    var mask50 = glacierFraction.gt(0.50);
+    // Simple clip to glacier bounds - no complex fraction calculations
     var glacierBoundsMask = ee.Image().paint(glacierOutlines, 1).gt(0);
-    
-    return mask50.and(glacierBoundsMask);
+    return glacierBoundsMask;
   } else {
     return ee.Image(1);
   }
@@ -531,190 +512,91 @@ function calculateCorrelation(collection1, band1, collection2, band2, region) {
   ));
 }
 
-/**
- * Create monthly average chart comparing all methods
- * Shows average albedo by month (June-September) across all years
- */
-function createComparisonChart(results, region) {
-  print('Creating monthly comparison chart (June-September averages)...');
-  
-  // Process each method separately to avoid memory issues
-  var renMonthlyStats = createSeasonalAverage(results.ren, 'broadband_albedo_ren', region, 'Ren Method');
-  var mod10MonthlyStats = createSeasonalAverage(results.mod10a1, 'broadband_albedo_mod10a1', region, 'MOD10A1');
-  var mcd43MonthlyStats = createSeasonalAverage(results.mcd43a3, 'broadband_albedo_mcd43a3', region, 'MCD43A3');
-  
-  print('Monthly statistics calculated for all methods');
-  
-  // Combine all monthly statistics
-  var combinedMonthlyStats = renMonthlyStats.merge(mod10MonthlyStats).merge(mcd43MonthlyStats);
-  
-  var chart = ui.Chart.feature.groups({
-    features: combinedMonthlyStats,
-    xProperty: 'month',
-    yProperty: 'albedo_mean',
-    seriesProperty: 'method'
-  })
-  .setChartType('LineChart')
-  .setOptions({
-    title: 'Tendance Mensuelle de l\'Albédo (Moyennes Multi-Annuelles): Trois Méthodes MODIS',
-    titleTextStyle: {fontSize: 16, bold: true},
-    hAxis: {
-      title: 'Mois de la Saison de Fonte',
-      titleTextStyle: {fontSize: 14},
-      format: '#',
-      ticks: [6, 7, 8, 9],
-      ticksFormat: ['Juin', 'Juillet', 'Août', 'Septembre'],
-      gridlines: {count: 4}
-    },
-    vAxis: {
-      title: 'Albédo Large Bande Moyen',
-      titleTextStyle: {fontSize: 14},
-      format: '0.00'
-    },
-    series: {
-      0: {color: '#2E7D32', pointSize: 8, lineWidth: 4}, // Ren Method - Green
-      1: {color: '#1976D2', pointSize: 8, lineWidth: 4}, // MOD10A1 - Blue  
-      2: {color: '#D32F2F', pointSize: 8, lineWidth: 4}  // MCD43A3 - Red
-    },
-    legend: {
-      position: 'bottom',
-      textStyle: {fontSize: 12}
-    },
-    backgroundColor: '#f8f9fa',
-    chartArea: {
-      backgroundColor: 'white',
-      left: 80,
-      top: 60,
-      width: '75%',
-      height: '70%'
-    },
-    pointShape: 'circle',
-    curveType: 'function'
-  });
-  
-  return chart;
-}
+// CHART GENERATION FUNCTIONS REMOVED TO SAVE MEMORY
+// All visualization capabilities disabled to focus on CSV data export
 
 /**
- * Create monthly average statistics for each method (ULTRA MEMORY OPTIMIZED)
- * Groups by month across all years to show seasonal trends
+ * Export ALL observations to CSV (COMPLETE DATA EXTRACTION)
  */
-function createSeasonalAverage(collection, bandName, region, methodName) {
-  // Ultra-aggressive memory optimization
-  var monthlyStats = collection.select(bandName).limit(50).map(function(image) {
+function exportComparisonStats(results, region, description) {
+  print('Exporting ALL observations for each method (NO LIMITS)...');
+  
+  // Ren Method - export all observations
+  var renStats = results.ren.select('broadband_albedo_ren').map(function(image) {
     var stats = image.reduceRegion({
       reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 2000, // Increased scale significantly to reduce memory
-      maxPixels: 1e5, // Very reduced maxPixels
+      scale: 5000, // Large scale to ensure memory efficiency
+      maxPixels: 1e4, // Very conservative to avoid memory issues
       bestEffort: true,
-      tileScale: 16 // Add tile scale for memory optimization
+      tileScale: 16
     });
     
     var date = ee.Date(image.get('system:time_start'));
-    var month = date.get('month');
     
     return ee.Feature(null, {
-      'albedo': stats.get(bandName),
-      'month': month,
+      'albedo': stats.get('broadband_albedo_ren'),
+      'date': date.format('YYYY-MM-dd'),
       'year': date.get('year'),
-      'date': date.format('YYYY-MM-dd')
+      'month': date.get('month'),
+      'day_of_year': date.getRelative('day', 'year'),
+      'method': 'Ren',
+      'system:time_start': image.get('system:time_start')
     });
   }).filter(ee.Filter.notNull(['albedo']));
   
-  // Group by month (6=June, 7=July, 8=August, 9=September)
-  var meltSeasonMonths = ee.List([6, 7, 8, 9]);
-  
-  var monthlyAverages = meltSeasonMonths.map(function(monthNum) {
-    var monthData = monthlyStats.filter(ee.Filter.eq('month', monthNum));
-    
-    var meanAlbedo = monthData.aggregate_mean('albedo');
-    var stdAlbedo = monthData.aggregate_total_sd('albedo');
-    var count = monthData.size();
-    
-    // Create month names for display
-    var monthNames = ee.Dictionary({
-      6: 'Juin',
-      7: 'Juillet', 
-      8: 'Août',
-      9: 'Septembre'
+  // MOD10A1 Method - export all observations  
+  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').map(function(image) {
+    var stats = image.reduceRegion({
+      reducer: ee.Reducer.mean(),
+      geometry: region,
+      scale: 5000, // Large scale to ensure memory efficiency
+      maxPixels: 1e4, // Very conservative to avoid memory issues
+      bestEffort: true,
+      tileScale: 16
     });
     
-    var monthName = monthNames.get(monthNum);
+    var date = ee.Date(image.get('system:time_start'));
     
     return ee.Feature(null, {
-      'month': monthNum,
-      'month_name': monthName,
-      'albedo_mean': meanAlbedo,
-      'albedo_std': stdAlbedo,
-      'count': count,
-      'method': methodName
+      'albedo': stats.get('broadband_albedo_mod10a1'),
+      'date': date.format('YYYY-MM-dd'),
+      'year': date.get('year'),
+      'month': date.get('month'),
+      'day_of_year': date.getRelative('day', 'year'),
+      'method': 'MOD10A1',
+      'system:time_start': image.get('system:time_start')
     });
-  });
+  }).filter(ee.Filter.notNull(['albedo']));
   
-  return ee.FeatureCollection(monthlyAverages).filter(ee.Filter.notNull(['albedo_mean']));
-}
-
-/**
- * Export comparison statistics to CSV (ULTRA MEMORY OPTIMIZED)
- */
-function exportComparisonStats(results, region, description) {
-  // Calculate daily statistics for each method with aggressive memory optimization
-  var renStats = results.ren.select('broadband_albedo_ren').limit(100).map(function(image) {
+  // MCD43A3 Method - export all observations
+  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').map(function(image) {
     var stats = image.reduceRegion({
       reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 2000, // Increased scale to reduce memory
-      maxPixels: 1e5, // Drastically reduced maxPixels
+      scale: 5000, // Large scale to ensure memory efficiency
+      maxPixels: 1e4, // Very conservative to avoid memory issues
       bestEffort: true,
       tileScale: 16
     });
     
-    return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
-      .set('method', 'Ren')
-      .set('system:time_start', image.get('system:time_start')));
-  });
-  
-  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').limit(100).map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 2000, // Increased scale to reduce memory
-      maxPixels: 1e5, // Drastically reduced maxPixels
-      bestEffort: true,
-      tileScale: 16
-    });
+    var date = ee.Date(image.get('system:time_start'));
     
-    return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
-      .set('method', 'MOD10A1')
-      .set('system:time_start', image.get('system:time_start')));
-  });
-  
-  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').limit(100).map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 2000, // Increased scale to reduce memory
-      maxPixels: 1e5, // Drastically reduced maxPixels
-      bestEffort: true,
-      tileScale: 16
+    return ee.Feature(null, {
+      'albedo': stats.get('broadband_albedo_mcd43a3'),
+      'date': date.format('YYYY-MM-dd'),
+      'year': date.get('year'),
+      'month': date.get('month'),
+      'day_of_year': date.getRelative('day', 'year'),
+      'method': 'MCD43A3',
+      'system:time_start': image.get('system:time_start')
     });
-    
-    return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
-      .set('method', 'MCD43A3')
-      .set('system:time_start', image.get('system:time_start')));
-  });
+  }).filter(ee.Filter.notNull(['albedo']));
   
-  // Combine all statistics using ee.FeatureCollection.merge
+  // Combine all statistics
   var allStats = renStats.merge(mod10Stats).merge(mcd43Stats);
   
-  // Filter for valid data - check for any non-null albedo values
-  allStats = allStats.filter(ee.Filter.or(
-    ee.Filter.notNull(['broadband_albedo_ren']),
-    ee.Filter.notNull(['broadband_albedo_mod10a1']),
-    ee.Filter.notNull(['broadband_albedo_mcd43a3'])
-  ));
-  
+  // Export with enhanced metadata
   Export.table.toDrive({
     collection: allStats,
     description: description,
@@ -723,7 +605,19 @@ function exportComparisonStats(results, region, description) {
   });
   
   print('CSV export task initiated: ' + description);
+  print('Exporting ALL observations (no limits) with metadata: date, year, month, day_of_year');
   print('Check Google Drive folder: albedo_method_comparison');
+  
+  // Print data counts for verification
+  renStats.size().evaluate(function(renCount) {
+    print('Ren method observations: ' + renCount);
+  });
+  mod10Stats.size().evaluate(function(mod10Count) {
+    print('MOD10A1 method observations: ' + mod10Count);
+  });
+  mcd43Stats.size().evaluate(function(mcd43Count) {
+    print('MCD43A3 method observations: ' + mcd43Count);
+  });
 }
 
 // ============================================================================
@@ -761,7 +655,7 @@ var title = ui.Label({
 panel.add(title);
 
 var description = ui.Label({
-  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (Monthly averages)\n⚡ ULTRA MEMORY OPTIMIZED: 2km scale, limit 100 images\n📊 AUTO CSV EXPORT: Data exported to Google Drive automatically',
+  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (All observations)\n💾 CSV EXPORT ONLY: No charts to save memory\n🎯 COMPLETE DATA: All observations 2017-2024',
   style: {
     fontSize: '12px',
     margin: '0px 0px 10px 0px'
@@ -772,8 +666,8 @@ panel.add(description);
 // Date selection
 var startDateLabel = ui.Label('Start Date (YYYY-MM-DD):');
 var startDateBox = ui.Textbox({
-  placeholder: '2020-06-01',
-  value: '2020-06-01',
+  placeholder: '2017-06-01',
+  value: '2017-06-01',
   style: {width: '150px'}
 });
 
@@ -876,7 +770,7 @@ panel.add(clearButton);
 
 // Status label
 var statusLabel = ui.Label({
-  value: 'Ready! ULTRA OPTIMIZED: 2km scale, 100 image limit, auto CSV export',
+  value: 'Ready! CSV EXPORT ONLY: All observations 2017-2024, no memory limits',
   style: {
     fontSize: '11px',
     color: 'blue',
@@ -932,19 +826,12 @@ processButton.onClick(function() {
     }, 'MCD43A3 BRDF Albedo');
   }
   
-  // Automatically start CSV export first (less memory intensive)
-  print('=== STARTING AUTOMATIC CSV EXPORT ===');
-  exportComparisonStats(results, glacierBounds, 'auto_albedo_comparison_' + startDate + '_' + endDate);
+  // FOCUS EXCLUSIVELY ON CSV EXPORT - NO CHART GENERATION TO AVOID MEMORY ISSUES
+  print('=== STARTING CSV EXPORT (NO CHART TO SAVE MEMORY) ===');
+  exportComparisonStats(results, glacierBounds, 'complete_albedo_comparison_' + startDate + '_' + endDate);
   
-  // Create comparison chart (may fail due to memory, but CSV export will work)
-  try {
-    var chart = createComparisonChart(results, glacierBounds);
-    print('=== ALBEDO METHOD COMPARISON TIME SERIES ===');
-    print(chart);
-  } catch (error) {
-    print('Chart generation failed due to memory limits, but CSV export is running.');
-    print('Error: ' + error);
-  }
+  print('Chart generation DISABLED to avoid memory limits.');
+  print('CSV export contains all the data you need for analysis.');
   
   // Calculate data availability
   results.ren.size().evaluate(function(renSize) {
@@ -961,14 +848,14 @@ processButton.onClick(function() {
 recent5MeltBtn.onClick(function() {
   startDateBox.setValue('2020-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (RECOMMENDED - ULTRA OPTIMIZED). Click Run Analysis.');
+  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected. CSV EXPORT ONLY. Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
 fullMeltBtn.onClick(function() {
   startDateBox.setValue('2017-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Full 8-year period selected (ULTRA OPTIMIZED - 100 images max per method). Click Run Analysis.');
+  statusLabel.setValue('Full 8-year period selected (DEFAULT). All observations exported. Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
