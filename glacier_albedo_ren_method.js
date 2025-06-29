@@ -69,7 +69,7 @@ function topographyCorrection(image) {
   var sensorZenithCorrected = cosSensorZenithCorrected.acos();
   
   // Topographic correction factor: ρflat = ρslope × (μ0'/μ0) - Ren et al. (2021) Eq. 3c
-  var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos()).clamp(0.1, 10.0);
+  var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos()).clamp(0.2, 5.0);
   
   // Apply correction to surface reflectance bands
   var bands = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
