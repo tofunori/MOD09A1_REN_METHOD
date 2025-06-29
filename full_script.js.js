@@ -215,23 +215,12 @@ function anisotropicCorrection(image, surfaceType) {
 /**
  * Classify glacier surface as snow or ice using NDSI threshold
  * Following Ren et al. (2021) methodology with NDSI thresholds
- * Works with both raw and topographically corrected reflectances
  */
 function classifySnowIce(image) {
-  // Check if we have topographically corrected bands or raw bands
-  var bandNames = image.bandNames();
-  var hasTopoCorrection = bandNames.contains('sur_refl_b04_topo');
-  
-  var green, swir;
-  if (hasTopoCorrection) {
-    // Use topographically corrected reflectances (already scaled)
-    green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green)
-    swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1) - not topo corrected
-  } else {
-    // Use raw surface reflectance bands for MODIS NDSI calculation
-    green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
-    swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
-  }
+  // Get surface reflectance bands for MODIS NDSI calculation
+  // MODIS Band 4 (545-565nm, Green) and Band 6 (1628-1652nm, SWIR1)
+  var green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
+  var swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('NDSI');
