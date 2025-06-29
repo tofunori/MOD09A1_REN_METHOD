@@ -366,6 +366,9 @@ function processModisImage(image, glacierOutlines) {
   // Step 2: Snow/ice classification using topographically corrected reflectances
   var classified = classifySnowIce(topocorrected);
   
+  // Ensure classified image has all bands from topocorrected (including corrected angles)
+  classified = topocorrected.addBands(classified.select(['NDSI', 'snow_mask']));
+  
   // Step 3: Surface-specific anisotropic correction
   // Apply P1 (snow) and P2 (ice) models separately, then combine
   var snowNarrowband = anisotropicCorrection(classified, 'snow');
