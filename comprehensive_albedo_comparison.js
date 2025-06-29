@@ -240,35 +240,48 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * NO QUALITY FILTERING - Get all available data
+ * Quality filtering for MOD09GA - LENIENT to ensure data availability
  */
 function qualityFilterRen(image) {
-  // NO QUALITY FILTERING AT ALL - just return the image
-  return image;
+  var qa = image.select('state_1km');
+  
+  // Very lenient quality filtering - accept most data
+  var clearSky = qa.bitwiseAnd(0x3).lte(2); // Accept clear to moderately cloudy
+  var solarZenith = image.select('SolarZenith').multiply(0.01);
+  var lowSolarZenith = solarZenith.lt(80); // Very lenient solar zenith
+  
+  var qualityMask = clearSky.and(lowSolarZenith);
+  
+  return image.updateMask(qualityMask);
 }
 
 /**
- * Process single MODIS image using SIMPLIFIED Ren method
+ * Process single MODIS image using COMPLETE Ren method (2021/2023)
  */
 function processRenMethod(image, glacierOutlines) {
   var filtered = qualityFilterRen(image);
   var glacierMask = createGlacierMask(glacierOutlines);
+  var topocorrected = topographyCorrection(filtered);
+  var classified = classifySnowIce(topocorrected);
   
-  // ULTRA SIMPLIFIED - Just use raw reflectance for basic albedo calculation
-  var b1 = filtered.select('sur_refl_b01').multiply(0.0001);
-  var b2 = filtered.select('sur_refl_b02').multiply(0.0001);
-  var b3 = filtered.select('sur_refl_b03').multiply(0.0001);
-  var b4 = filtered.select('sur_refl_b04').multiply(0.0001);
-  var b5 = filtered.select('sur_refl_b05').multiply(0.0001);
-  var b7 = filtered.select('sur_refl_b07').multiply(0.0001);
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
   
-  // Simple albedo calculation - average of visible bands
-  var simpleAlbedo = b1.add(b2).add(b3).add(b4).add(b5).add(b7)
-    .divide(6).clamp(0, 1).rename('broadband_albedo_ren');
+  var snowMask = classified.select('snow_mask');
+  var combinedNarrowband = NARROWBAND_ALL.map(function(band) {
+    if (band === 'narrowband_b4') {
+      return iceNarrowband.select(band).rename(band);
+    }
+    var iceBand = iceNarrowband.select(band);
+    var snowBand = snowNarrowband.select(band);
+    return iceBand.where(snowMask, snowBand).rename(band);
+  });
   
-  var maskedAlbedo = simpleAlbedo.updateMask(glacierMask);
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  var broadband = computeBroadbandAlbedo(narrowbandImage);
+  var maskedAlbedo = broadband.updateMask(glacierMask);
   
-  return filtered.addBands(maskedAlbedo).copyProperties(image, ['system:time_start']);
+  return maskedAlbedo.copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
@@ -334,11 +347,16 @@ function processMCD43A3(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * NO GLACIER MASKING - Return universal mask to test data availability
+ * Create simplified glacier mask - BASIC glacier bounds clipping
  */
 function createGlacierMask(glacierOutlines) {
-  // NO MASKING AT ALL - just return a universal mask
-  return ee.Image(1);
+  if (glacierOutlines) {
+    // Simple glacier bounds mask - just clip to glacier area
+    var glacierBoundsMask = ee.Image().paint(glacierOutlines, 1).gt(0);
+    return glacierBoundsMask;
+  } else {
+    return ee.Image(1);
+  }
 }
 
 /**
@@ -606,7 +624,7 @@ var title = ui.Label({
 panel.add(title);
 
 var description = ui.Label({
-  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (All observations)\n💾 CSV EXPORT ONLY: No charts to save memory\n🎯 COMPLETE DATA: All observations 2017-2024',
+  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method (COMPLETE: Topo+BRDF+Empirical)\n2. MOD10A1 Snow Albedo (Direct product)\n3. MCD43A3 BRDF/Albedo (Direct product)\n\n🔥 MELT SEASON: Jun-Sep (All observations)\n💾 CSV EXPORT ONLY: No charts to save memory\n🎯 COMPLETE DATA: All observations 2017-2024',
   style: {
     fontSize: '12px',
     margin: '0px 0px 10px 0px'
