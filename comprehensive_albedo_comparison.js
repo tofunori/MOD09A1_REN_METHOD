@@ -532,87 +532,44 @@ function calculateCorrelation(collection1, band1, collection2, band2, region) {
 }
 
 /**
- * Create time series chart comparing all methods
+ * Create seasonal average chart comparing all methods
+ * Shows average albedo by day-of-year across all years
  */
 function createComparisonChart(results, region) {
-  var renStats = results.ren.select('broadband_albedo_ren').map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 500,
-      maxPixels: 1e9
-    });
-    
-    return ee.Feature(null, {
-      'Ren_Method': stats.get('broadband_albedo_ren'),
-      'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'),
-      'system:time_start': image.get('system:time_start')
-    });
-  }).filter(ee.Filter.notNull(['Ren_Method']));
+  // Process each method to calculate seasonal averages
+  var renSeasonalStats = createSeasonalAverage(results.ren, 'broadband_albedo_ren', region, 'Ren Method');
+  var mod10SeasonalStats = createSeasonalAverage(results.mod10a1, 'broadband_albedo_mod10a1', region, 'MOD10A1');
+  var mcd43SeasonalStats = createSeasonalAverage(results.mcd43a3, 'broadband_albedo_mcd43a3', region, 'MCD43A3');
   
-  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 500,
-      maxPixels: 1e9
-    });
-    
-    return ee.Feature(null, {
-      'MOD10A1': stats.get('broadband_albedo_mod10a1'),
-      'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'),
-      'system:time_start': image.get('system:time_start')
-    });
-  }).filter(ee.Filter.notNull(['MOD10A1']));
-  
-  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').map(function(image) {
-    var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: 500,
-      maxPixels: 1e9
-    });
-    
-    return ee.Feature(null, {
-      'MCD43A3': stats.get('broadband_albedo_mcd43a3'),
-      'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'),
-      'system:time_start': image.get('system:time_start')
-    });
-  }).filter(ee.Filter.notNull(['MCD43A3']));
-  
-  // Create multi-method time series chart
-  // Combine all stats into a single feature collection
-  var renStatsWithMethod = renStats.map(function(f) { return f.set('method', 'Ren Method').set('albedo', f.get('Ren_Method')); });
-  var mod10StatsWithMethod = mod10Stats.map(function(f) { return f.set('method', 'MOD10A1').set('albedo', f.get('MOD10A1')); });
-  var mcd43StatsWithMethod = mcd43Stats.map(function(f) { return f.set('method', 'MCD43A3').set('albedo', f.get('MCD43A3')); });
-  
-  // Merge collections using ee.FeatureCollection.merge
-  var combinedStats = renStatsWithMethod.merge(mod10StatsWithMethod).merge(mcd43StatsWithMethod);
+  // Combine all seasonal statistics
+  var combinedSeasonalStats = renSeasonalStats.merge(mod10SeasonalStats).merge(mcd43SeasonalStats);
   
   var chart = ui.Chart.feature.groups({
-    features: combinedStats,
-    xProperty: 'system:time_start',
-    yProperty: 'albedo',
+    features: combinedSeasonalStats,
+    xProperty: 'day_of_year',
+    yProperty: 'albedo_mean',
     seriesProperty: 'method'
   })
   .setChartType('LineChart')
   .setOptions({
-    title: 'Glacier Albedo Comparison (Melt Season Jun-Sep): Three MODIS Methods',
+    title: 'Albedo Saisonnier Moyen (2017-2024): Comparaison des Trois Méthodes MODIS',
     titleTextStyle: {fontSize: 16, bold: true},
     hAxis: {
-      title: 'Date',
+      title: 'Jour de l\'Année (Saison de Fonte)',
       titleTextStyle: {fontSize: 14},
-      format: 'MMM YYYY'
+      format: '###',
+      ticks: [152, 166, 182, 197, 213, 228, 244, 259, 274], // Jun 1, Jun 15, Jul 1, Jul 15, Aug 1, Aug 15, Sep 1, Sep 15, Sep 30
+      gridlines: {count: 9}
     },
     vAxis: {
-      title: 'Broadband Albedo',
+      title: 'Albédo Large Bande Moyen',
       titleTextStyle: {fontSize: 14},
       format: '0.00'
     },
     series: {
-      0: {color: '#2E7D32', pointSize: 4, lineWidth: 2}, // Ren Method - Green
-      1: {color: '#1976D2', pointSize: 4, lineWidth: 2}, // MOD10A1 - Blue  
-      2: {color: '#D32F2F', pointSize: 4, lineWidth: 2}  // MCD43A3 - Red
+      0: {color: '#2E7D32', pointSize: 5, lineWidth: 3}, // Ren Method - Green
+      1: {color: '#1976D2', pointSize: 5, lineWidth: 3}, // MOD10A1 - Blue  
+      2: {color: '#D32F2F', pointSize: 5, lineWidth: 3}  // MCD43A3 - Red
     },
     legend: {
       position: 'bottom',
@@ -625,10 +582,57 @@ function createComparisonChart(results, region) {
       top: 60,
       width: '75%',
       height: '70%'
-    }
+    },
+    interpolateNulls: true
   });
   
   return chart;
+}
+
+/**
+ * Create seasonal average statistics for a collection
+ * Groups by day-of-year and calculates multi-year averages
+ */
+function createSeasonalAverage(collection, bandName, region, methodName) {
+  // Calculate daily statistics with day-of-year
+  var dailyStats = collection.select(bandName).map(function(image) {
+    var stats = image.reduceRegion({
+      reducer: ee.Reducer.mean(),
+      geometry: region,
+      scale: 500,
+      maxPixels: 1e9
+    });
+    
+    var date = ee.Date(image.get('system:time_start'));
+    var dayOfYear = date.getRelative('day', 'year');
+    
+    return ee.Feature(null, {
+      'albedo': stats.get(bandName),
+      'day_of_year': dayOfYear,
+      'date': date.format('YYYY-MM-dd')
+    });
+  }).filter(ee.Filter.notNull(['albedo']));
+  
+  // Group by day-of-year and calculate averages across all years
+  var daysOfYear = ee.List.sequence(152, 274, 1); // June 1 (152) to September 30 (274)
+  
+  var seasonalAverages = daysOfYear.map(function(dayOfYear) {
+    var dayData = dailyStats.filter(ee.Filter.eq('day_of_year', dayOfYear));
+    
+    var meanAlbedo = dayData.aggregate_mean('albedo');
+    var stdAlbedo = dayData.aggregate_total_sd('albedo');
+    var count = dayData.size();
+    
+    return ee.Feature(null, {
+      'day_of_year': dayOfYear,
+      'albedo_mean': meanAlbedo,
+      'albedo_std': stdAlbedo,
+      'count': count,
+      'method': methodName
+    });
+  });
+  
+  return ee.FeatureCollection(seasonalAverages).filter(ee.Filter.notNull(['albedo_mean']));
 }
 
 /**
