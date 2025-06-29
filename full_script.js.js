@@ -334,21 +334,26 @@ function createGlacierMask(image, glacierOutlines) {
   if (glacierOutlines) {
     // Create high-resolution glacier map with proper bounds
     var glacierBounds = glacierOutlines.geometry().bounds();
+    
+    // Use native MODIS projection from the start to avoid sub-pixel misalignment
+    var modisProjection = image.select('sur_refl_b01').projection();
+    
     var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
       .clip(glacierBounds)
       .setDefaultProjection({
-        crs: 'EPSG:4326',
-        scale: 30
+        crs: modisProjection,
+        scale: 30  // High resolution for accurate fractional coverage
       });
     
     // Calculate glacier fractional abundance in each MODIS pixel (500m)
+    // This implements the exact Ren et al. method: "averaging the high-resolution glacier mask"
     var glacierFraction = glacierMap
       .reduceResolution({
         reducer: ee.Reducer.mean(),
         maxPixels: 1000
       })
       .reproject({
-        crs: image.select('sur_refl_b01').projection(),
+        crs: modisProjection,
         scale: 500
       });
     
