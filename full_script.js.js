@@ -1013,21 +1013,23 @@ print('--- Comparing 50% vs 90% glacier abundance thresholds (2017-2024) ---');
 // Create alternative glacier mask function with 90% threshold
 function createGlacierMask90(image, glacierOutlines) {
   if (glacierOutlines) {
-    var glacierBounds = glacierOutlines.geometry().bounds();
-    var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
-      .clip(glacierBounds)
-      .setDefaultProjection({
-        crs: 'EPSG:4326',
-        scale: 30
-      });
+    // Get MODIS projection for proper alignment
+    var modisProj = image.select('sur_refl_b01').projection();
     
-    var glacierFraction = glacierMap
+    // Create high-resolution glacier map in MODIS projection from start
+    var glacierBounds = glacierOutlines.geometry().bounds();
+    var glacierHighRes = ee.Image(0)
+          .paint(glacierOutlines, 1)
+          .unmask(0)
+          .reproject({crs: modisProj, scale: 30}); // 30m scale in MODIS projection
+    
+    var glacierFraction = glacierHighRes
       .reduceResolution({
         reducer: ee.Reducer.mean(),
         maxPixels: 1000
       })
       .reproject({
-        crs: image.select('sur_refl_b01').projection(),
+        crs: modisProj,
         scale: 500
       });
     
@@ -1043,14 +1045,28 @@ function createGlacierMask90(image, glacierOutlines) {
 
 // Alternative processing function with 90% threshold
 function processModisImage90(image, glacierOutlines) {
+  // Apply quality filtering
   var filtered = qualityFilter(image);
-  var glacierMask = createGlacierMask90(filtered, glacierOutlines); // Use 90% mask
-  var classified = classifySnowIce(filtered);
-  var topocorrected = topographyCorrection(classified);
-  var snowNarrowband = anisotropicCorrection(topocorrected, 'snow');
-  var iceNarrowband = anisotropicCorrection(topocorrected, 'ice');
   
-  var snowMask = topocorrected.select('snow_mask');
+  // Create glacier mask with 90% threshold
+  var glacierMask = createGlacierMask90(filtered, glacierOutlines);
+  
+  // Step 1: Topography correction on raw reflectances
+  var topocorrected = topographyCorrection(filtered);
+  
+  // Step 2: Snow/ice classification using topographically corrected reflectances
+  var classified = classifySnowIce(topocorrected);
+  
+  // Ensure classified image has all bands from topocorrected (including corrected angles)
+  classified = topocorrected.addBands(classified.select(['NDSI', 'snow_mask']));
+  
+  // Step 3: Surface-specific anisotropic correction
+  // Apply P1 (snow) and P2 (ice) models separately, then combine
+  var snowNarrowband = anisotropicCorrection(classified, 'snow');
+  var iceNarrowband = anisotropicCorrection(classified, 'ice');
+  
+  // Combine narrowband albedo based on snow/ice classification
+  var snowMask = classified.select('snow_mask');
   var bands = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
                'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
   
@@ -1066,8 +1082,13 @@ function processModisImage90(image, glacierOutlines) {
     return iceBand.where(snowMask, snowBand).rename(band);
   });
   
-  var narrowbandImage = topocorrected.addBands(ee.Image.cat(combinedNarrowband));
+  // Add combined narrowband albedo to image
+  var narrowbandImage = classified.addBands(ee.Image.cat(combinedNarrowband));
+  
+  // Step 4: Broadband albedo calculation using NDSI-based classification
   var broadband = computeBroadbandAlbedo(narrowbandImage);
+  
+  // Apply glacier mask to final results
   var maskedAlbedo = broadband.updateMask(glacierMask);
   
   return maskedAlbedo.copyProperties(image, ['system:time_start']);
