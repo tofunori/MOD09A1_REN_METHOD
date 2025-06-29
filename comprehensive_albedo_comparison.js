@@ -240,19 +240,38 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * Quality filtering for MOD09GA - RESTORED from full_script.js
+ * Complete quality filtering following Ren et al. (2021/2023) methodology
+ * COPIED EXACTLY from full_script.js
  */
 function qualityFilterRen(image) {
+  // Use state_1km QA band for Ren et al. complete filtering
   var qa = image.select('state_1km');
   
-  // Apply QA filtering for cloud and aerosol states
-  var cloudState = qa.bitwiseAnd(0x3); // Bits 0-1
-  var clearSky = cloudState.eq(0); // 0 = clear, 1 = cloudy, 2 = mixed, 3 = not set
+  // Cloud state (bits 0-1): only accept clear sky (00) per Ren et al.
+  var clearSky = qa.bitwiseAnd(0x3).eq(0);
   
+  // Internal cloud mask (bit 10): reject internal cloudy pixels per Ren et al.
+  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
+  
+  // Cloud shadow (bit 2): reject cloud shadow pixels per Ren et al.
+  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
+  
+  // Cirrus detection (bit 8): reject cirrus contaminated pixels per Ren et al.
+  var noCirrus = qa.bitwiseAnd(1<<8).eq(0);
+  
+  // Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00)
+  // Bits 12-13: 00=unknown, 01=no, 10=maybe, 11=yes
+  // Accept 00 (unknown) and 11 (high confidence) - reject 01 (no) and 10 (maybe)
+  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12); // Extract bits 12-13
+  var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3)); // Accept 00 or 11
+  
+  // Solar zenith angle constraint: < 70° per Ren et al.
   var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(70); // Reasonable solar zenith threshold
+  var lowSolarZenith = solarZenith.lt(70);
   
-  var qualityMask = clearSky.and(lowSolarZenith);
+  // Complete Ren et al. quality mask: all filters combined
+  var qualityMask = clearSky.and(clearInternal).and(shadowFree)
+    .and(noCirrus).and(validSnowIce).and(lowSolarZenith);
   
   return image.updateMask(qualityMask);
 }
@@ -306,10 +325,6 @@ function qualityFilterMOD10A1(image) {
 function processMOD10A1(image, glacierOutlines) {
   // NO FILTERING - just get the raw data
   
-  // Try multiple possible band names to find what works
-  var bandNames = image.bandNames();
-  print('MOD10A1 available bands:', bandNames);
-  
   // Extract NDSI snow cover data with NO MASKING
   var snowCover = image.select('NDSI_Snow_Cover')
     .clamp(0, 100).multiply(0.01); // Convert to 0-1 range
@@ -339,10 +354,6 @@ function qualityFilterMCD43A3(image) {
 function processMCD43A3(image, glacierOutlines) {
   // NO FILTERING - just get the raw data
   
-  // Try multiple possible band names to find what works
-  var bandNames = image.bandNames();
-  print('MCD43A3 available bands:', bandNames);
-  
   // Use shortwave broadband albedo directly with NO MASKING
   var blackSkySW = image.select('Albedo_BSA_shortwave').multiply(0.001);
   
@@ -357,15 +368,41 @@ function processMCD43A3(image, glacierOutlines) {
 // ============================================================================
 
 /**
- * Create simplified glacier mask - BASIC glacier bounds clipping
+ * Create glacier mask using 50% glacier abundance criterion (following Ren et al. 2023)
+ * COPIED EXACTLY from full_script.js
  */
 function createGlacierMask(glacierOutlines) {
   if (glacierOutlines) {
-    // Simple glacier bounds mask - just clip to glacier area
+    // Create high-resolution glacier map with proper bounds
+    var glacierBounds = glacierOutlines.geometry().bounds();
+    var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
+      .clip(glacierBounds)
+      .setDefaultProjection({
+        crs: 'EPSG:4326',
+        scale: 30
+      });
+    
+    // Calculate glacier fractional abundance in each MODIS pixel (500m)
+    var glacierFraction = glacierMap
+      .reduceResolution({
+        reducer: ee.Reducer.mean(),
+        maxPixels: 1000
+      })
+      .reproject({
+        crs: 'EPSG:4326', // Use standard projection
+        scale: 500
+      });
+    
+    // Apply 50% glacier abundance threshold and ensure within glacier bounds
+    var mask50 = glacierFraction.gt(0.50);
+    
+    // Additional safety: mask to glacier bounds
     var glacierBoundsMask = ee.Image().paint(glacierOutlines, 1).gt(0);
-    return glacierBoundsMask;
+    
+    return mask50.and(glacierBoundsMask);
   } else {
-    return ee.Image(1);
+    // Simple fallback - use the glacier image directly
+    return glacierImage.gt(0.50);
   }
 }
 
