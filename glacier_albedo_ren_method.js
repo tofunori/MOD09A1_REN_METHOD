@@ -21,8 +21,10 @@
 
 // Load SRTM DEM for topographic correction
 var dem = ee.Image('USGS/SRTMGL1_003');
-var slope = ee.Terrain.slope(dem);
-var aspect = ee.Terrain.aspect(dem);
+// Get MODIS projection for proper angle calculations
+var modisProj = ee.ImageCollection('MODIS/061/MOD09GA').first().projection();
+var slope = ee.Terrain.slope(dem).reproject(modisProj);
+var aspect = ee.Terrain.aspect(dem).reproject(modisProj);
 
 // Broadband albedo coefficients from Ren et al. (2023)
 var iceCoefficients = {
