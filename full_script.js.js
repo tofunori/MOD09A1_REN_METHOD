@@ -215,8 +215,18 @@ function anisotropicCorrection(image, surfaceType) {
 function classifySnowIce(image) {
   // Get surface reflectance bands for MODIS NDSI calculation
   // MODIS Band 4 (545-565nm, Green) and Band 6 (1628-1652nm, SWIR1)
-  var green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
-  var swir = image.select('sur_refl_b06').multiply(0.0001);  // MODIS Band 6 (SWIR1)
+  // Use topographically corrected bands if available per Ren et al.
+  var bandNames = image.bandNames();
+  var hasTopoCorrection = bandNames.contains('sur_refl_b04_topo');
+  
+  var green, swir;
+  if (hasTopoCorrection) {
+    green = image.select('sur_refl_b04_topo');
+    swir = image.select('sur_refl_b06').multiply(0.0001); // B6 doesn't get topo correction
+  } else {
+    green = image.select('sur_refl_b04').multiply(0.0001);
+    swir = image.select('sur_refl_b06').multiply(0.0001);
+  }
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('NDSI');
