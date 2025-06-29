@@ -240,15 +240,17 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * Quality filtering for MOD09GA - LENIENT to ensure data availability
+ * Quality filtering for MOD09GA - RESTORED from full_script.js
  */
 function qualityFilterRen(image) {
   var qa = image.select('state_1km');
   
-  // Very lenient quality filtering - accept most data
-  var clearSky = qa.bitwiseAnd(0x3).lte(2); // Accept clear to moderately cloudy
+  // Apply QA filtering for cloud and aerosol states
+  var cloudState = qa.bitwiseAnd(0x3); // Bits 0-1
+  var clearSky = cloudState.eq(0); // 0 = clear, 1 = cloudy, 2 = mixed, 3 = not set
+  
   var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(80); // Very lenient solar zenith
+  var lowSolarZenith = solarZenith.lt(70); // Reasonable solar zenith threshold
   
   var qualityMask = clearSky.and(lowSolarZenith);
   
@@ -257,6 +259,7 @@ function qualityFilterRen(image) {
 
 /**
  * Process single MODIS image using COMPLETE Ren method (2021/2023)
+ * RESTORED from full_script.js - exactly as it works there
  */
 function processRenMethod(image, glacierOutlines) {
   var filtered = qualityFilterRen(image);
