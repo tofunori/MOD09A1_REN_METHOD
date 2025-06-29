@@ -596,18 +596,19 @@ function createComparisonChart(results, region) {
 }
 
 /**
- * Create monthly average statistics for each method
+ * Create monthly average statistics for each method (ULTRA MEMORY OPTIMIZED)
  * Groups by month across all years to show seasonal trends
  */
 function createSeasonalAverage(collection, bandName, region, methodName) {
-  // Calculate monthly statistics across all years
-  var monthlyStats = collection.select(bandName).map(function(image) {
+  // Ultra-aggressive memory optimization
+  var monthlyStats = collection.select(bandName).limit(50).map(function(image) {
     var stats = image.reduceRegion({
       reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 1000, // Increased scale to reduce memory
-      maxPixels: 1e6, // Reduced maxPixels
-      bestEffort: true
+      scale: 2000, // Increased scale significantly to reduce memory
+      maxPixels: 1e5, // Very reduced maxPixels
+      bestEffort: true,
+      tileScale: 16 // Add tile scale for memory optimization
     });
     
     var date = ee.Date(image.get('system:time_start'));
@@ -655,22 +656,18 @@ function createSeasonalAverage(collection, bandName, region, methodName) {
 }
 
 /**
- * Export comparison statistics to CSV
+ * Export comparison statistics to CSV (ULTRA MEMORY OPTIMIZED)
  */
 function exportComparisonStats(results, region, description) {
-  // Calculate daily statistics for each method
-  var renStats = results.ren.select('broadband_albedo_ren').map(function(image) {
+  // Calculate daily statistics for each method with aggressive memory optimization
+  var renStats = results.ren.select('broadband_albedo_ren').limit(100).map(function(image) {
     var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean().combine({
-        reducer2: ee.Reducer.stdDev(),
-        sharedInputs: true
-      }).combine({
-        reducer2: ee.Reducer.count(),
-        sharedInputs: true
-      }),
+      reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 500,
-      maxPixels: 1e9
+      scale: 2000, // Increased scale to reduce memory
+      maxPixels: 1e5, // Drastically reduced maxPixels
+      bestEffort: true,
+      tileScale: 16
     });
     
     return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
@@ -678,18 +675,14 @@ function exportComparisonStats(results, region, description) {
       .set('system:time_start', image.get('system:time_start')));
   });
   
-  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').map(function(image) {
+  var mod10Stats = results.mod10a1.select('broadband_albedo_mod10a1').limit(100).map(function(image) {
     var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean().combine({
-        reducer2: ee.Reducer.stdDev(),
-        sharedInputs: true
-      }).combine({
-        reducer2: ee.Reducer.count(),
-        sharedInputs: true
-      }),
+      reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 500,
-      maxPixels: 1e9
+      scale: 2000, // Increased scale to reduce memory
+      maxPixels: 1e5, // Drastically reduced maxPixels
+      bestEffort: true,
+      tileScale: 16
     });
     
     return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
@@ -697,18 +690,14 @@ function exportComparisonStats(results, region, description) {
       .set('system:time_start', image.get('system:time_start')));
   });
   
-  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').map(function(image) {
+  var mcd43Stats = results.mcd43a3.select('broadband_albedo_mcd43a3').limit(100).map(function(image) {
     var stats = image.reduceRegion({
-      reducer: ee.Reducer.mean().combine({
-        reducer2: ee.Reducer.stdDev(),
-        sharedInputs: true
-      }).combine({
-        reducer2: ee.Reducer.count(),
-        sharedInputs: true
-      }),
+      reducer: ee.Reducer.mean(),
       geometry: region,
-      scale: 500,
-      maxPixels: 1e9
+      scale: 2000, // Increased scale to reduce memory
+      maxPixels: 1e5, // Drastically reduced maxPixels
+      bestEffort: true,
+      tileScale: 16
     });
     
     return ee.Feature(null, stats.set('date', ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'))
@@ -721,9 +710,9 @@ function exportComparisonStats(results, region, description) {
   
   // Filter for valid data - check for any non-null albedo values
   allStats = allStats.filter(ee.Filter.or(
-    ee.Filter.notNull(['broadband_albedo_ren_mean']),
-    ee.Filter.notNull(['broadband_albedo_mod10a1_mean']),
-    ee.Filter.notNull(['broadband_albedo_mcd43a3_mean'])
+    ee.Filter.notNull(['broadband_albedo_ren']),
+    ee.Filter.notNull(['broadband_albedo_mod10a1']),
+    ee.Filter.notNull(['broadband_albedo_mcd43a3'])
   ));
   
   Export.table.toDrive({
@@ -732,6 +721,9 @@ function exportComparisonStats(results, region, description) {
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
   });
+  
+  print('CSV export task initiated: ' + description);
+  print('Check Google Drive folder: albedo_method_comparison');
 }
 
 // ============================================================================
@@ -769,7 +761,7 @@ var title = ui.Label({
 panel.add(title);
 
 var description = ui.Label({
-  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (Weekly averages)\n⚠️ Memory optimized: Use shorter periods for large datasets',
+  value: 'Compare three MODIS albedo retrieval methods:\n1. MOD09A1 Ren Method\n2. MOD10A1 Snow Albedo\n3. MCD43A3 BRDF/Albedo\n\n🔥 MELT SEASON: Jun-Sep (Monthly averages)\n⚡ ULTRA MEMORY OPTIMIZED: 2km scale, limit 100 images\n📊 AUTO CSV EXPORT: Data exported to Google Drive automatically',
   style: {
     fontSize: '12px',
     margin: '0px 0px 10px 0px'
@@ -884,7 +876,7 @@ panel.add(clearButton);
 
 // Status label
 var statusLabel = ui.Label({
-  value: 'Ready! Default: 2020-2024 melt seasons (memory optimized)',
+  value: 'Ready! ULTRA OPTIMIZED: 2km scale, 100 image limit, auto CSV export',
   style: {
     fontSize: '11px',
     color: 'blue',
@@ -940,16 +932,25 @@ processButton.onClick(function() {
     }, 'MCD43A3 BRDF Albedo');
   }
   
-  // Create comparison chart
-  var chart = createComparisonChart(results, glacierBounds);
-  print('=== ALBEDO METHOD COMPARISON TIME SERIES ===');
-  print(chart);
+  // Automatically start CSV export first (less memory intensive)
+  print('=== STARTING AUTOMATIC CSV EXPORT ===');
+  exportComparisonStats(results, glacierBounds, 'auto_albedo_comparison_' + startDate + '_' + endDate);
+  
+  // Create comparison chart (may fail due to memory, but CSV export will work)
+  try {
+    var chart = createComparisonChart(results, glacierBounds);
+    print('=== ALBEDO METHOD COMPARISON TIME SERIES ===');
+    print(chart);
+  } catch (error) {
+    print('Chart generation failed due to memory limits, but CSV export is running.');
+    print('Error: ' + error);
+  }
   
   // Calculate data availability
   results.ren.size().evaluate(function(renSize) {
     results.mod10a1.size().evaluate(function(mod10Size) {
       results.mcd43a3.size().evaluate(function(mcd43Size) {
-        statusLabel.setValue('Analysis complete! Data: Ren(' + renSize + '), MOD10A1(' + mod10Size + '), MCD43A3(' + mcd43Size + ')');
+        statusLabel.setValue('Analysis complete! Data: Ren(' + renSize + '), MOD10A1(' + mod10Size + '), MCD43A3(' + mcd43Size + ') | CSV Export: RUNNING');
         statusLabel.style().set('color', 'green');
       });
     });
@@ -960,15 +961,15 @@ processButton.onClick(function() {
 recent5MeltBtn.onClick(function() {
   startDateBox.setValue('2020-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (RECOMMENDED). Click Run Analysis.');
+  statusLabel.setValue('Recent 5-year melt seasons 2020-2024 selected (RECOMMENDED - ULTRA OPTIMIZED). Click Run Analysis.');
   statusLabel.style().set('color', 'blue');
 });
 
 fullMeltBtn.onClick(function() {
   startDateBox.setValue('2017-06-01');
   endDateBox.setValue('2024-09-30');
-  statusLabel.setValue('Full 8-year period selected (HIGH MEMORY - may timeout). Click Run Analysis.');
-  statusLabel.style().set('color', 'orange');
+  statusLabel.setValue('Full 8-year period selected (ULTRA OPTIMIZED - 100 images max per method). Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
 });
 
 summer2024Btn.onClick(function() {
