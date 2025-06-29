@@ -1352,20 +1352,20 @@ print('=== ANNUAL COMPARISON STATISTICS ===');
 var stats50Collection = ee.FeatureCollection(albedoStats50);
 var stats90Collection = ee.FeatureCollection(albedoStats90);
 
-// Create simple data for the chart to avoid type issues
-var chartData50 = ee.FeatureCollection(comparisonYears.map(function(year) {
+// Extract real albedo data from processed statistics for chart display
+var chartData50 = ee.FeatureCollection(albedoStats50.map(function(feature) {
   return ee.Feature(null, {
-    'year': year,
+    'year': ee.Feature(feature).get('year'),
     'threshold': '50%',
-    'albedo': 0.55 // Placeholder - will be updated with real data
+    'albedo': ee.Feature(feature).get('broadband_albedo_mean')
   });
 }));
 
-var chartData90 = ee.FeatureCollection(comparisonYears.map(function(year) {
+var chartData90 = ee.FeatureCollection(albedoStats90.map(function(feature) {
   return ee.Feature(null, {
-    'year': year, 
+    'year': ee.Feature(feature).get('year'), 
     'threshold': '90%',
-    'albedo': 0.60 // Placeholder - will be updated with real data
+    'albedo': ee.Feature(feature).get('broadband_albedo_mean')
   });
 }));
 
@@ -1411,8 +1411,8 @@ var chart = ui.Chart.feature.groups({
 });
 
 print('=== TIME SERIES COMPARISON CHART ===');
-print('Chart temporarily shows placeholder data due to processing complexity.');
-print('Real annual statistics will be available in the exported CSV file.');
+print('Chart displays real processed albedo data from annual statistics.');
+print('Data includes both 50% and 90% glacier abundance thresholds (2017-2024).');
 print(chart);
 
 // Create scatter plot with ALL individual observations (2017-2024)
