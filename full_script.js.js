@@ -1129,11 +1129,24 @@ Map.addLayer(glacierImage.selfMask(), {palette: ['red']}, 'Saskatchewan Glacier 
 print('Adding default glacier albedo layer for 2020 summer...');
 var defaultAlbedo2020 = retrieveGlacierAlbedo(glacierBounds, '2020-06-01', '2020-09-30', glacierOutlines);
 
+// Debug: Check collection size
+defaultAlbedo2020.size().evaluate(function(size) {
+  print('Raw MODIS images found for 2020 summer:', size);
+});
+
 // Filter for valid albedo data and add mean layer
 var validDefault = defaultAlbedo2020.filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
+
+// Debug: Check valid collection size
+validDefault.size().evaluate(function(validSize) {
+  print('Valid albedo images for 2020 summer:', validSize);
+});
+
+// Add layer with debugging
 var meanDefaultAlbedo = validDefault.select('broadband_albedo').mean();
 
-Map.addLayer(meanDefaultAlbedo, {
+// Add debugging layer to check if albedo data exists
+Map.addLayer(meanDefaultAlbedo.mask(meanDefaultAlbedo.gt(0)), {
   min: 0.1, 
   max: 0.9, 
   palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
@@ -1283,34 +1296,26 @@ function processModisImage90(image, glacierOutlines) {
   return maskedAlbedo.copyProperties(image, ['system:time_start']);
 }
 
-// Process comparison data for selected years
-var comparisonYears = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-var albedoStats50 = [];
-var albedoStats90 = [];
+// Process comparison data for selected years using Earth Engine mapping
+var comparisonYears = ee.List([2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]);
 
-comparisonYears.forEach(function(year) {
-  var startDate = year + '-06-01';
-  var endDate = year + '-09-30';
+print('Processing annual comparison data...');
+
+// Process all years with 50% threshold
+var albedoStats50 = ee.FeatureCollection(comparisonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  print('Processing comparison for year ' + year);
-  
-  // Process with 50% threshold (current default)
+  // Process with 50% threshold
   var collection50 = ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImage(image, glacierOutlines); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
   
-  // Process with 90% threshold
-  var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
-    .filterDate(startDate, endDate)
-    .filterBounds(glacierBounds)
-    .map(function(image) { return processModisImage90(image, glacierOutlines); })
-    .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
-  
-  // Calculate annual mean albedo for both thresholds
+  // Calculate annual mean albedo
   var meanAlbedo50 = collection50.select('broadband_albedo').mean();
-  var meanAlbedo90 = collection90.select('broadband_albedo').mean();
   
   // Calculate statistics
   var stats50 = meanAlbedo50.reduceRegion({
@@ -1323,9 +1328,30 @@ comparisonYears.forEach(function(year) {
     }),
     geometry: glacierBounds,
     scale: 500,
-    maxPixels: 1e9
+    maxPixels: 1e9,
+    bestEffort: true
   });
   
+  return ee.Feature(null, stats50.set('year', year).set('threshold', '50%'));
+}));
+
+// Process all years with 90% threshold
+var albedoStats90 = ee.FeatureCollection(comparisonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
+  
+  // Process with 90% threshold
+  var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
+    .filterDate(startDate, endDate)
+    .filterBounds(glacierBounds)
+    .map(function(image) { return processModisImage90(image, glacierOutlines); })
+    .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
+  
+  // Calculate annual mean albedo
+  var meanAlbedo90 = collection90.select('broadband_albedo').mean();
+  
+  // Calculate statistics
   var stats90 = meanAlbedo90.reduceRegion({
     reducer: ee.Reducer.mean().combine({
       reducer2: ee.Reducer.stdDev(),
@@ -1336,43 +1362,35 @@ comparisonYears.forEach(function(year) {
     }),
     geometry: glacierBounds,
     scale: 500,
-    maxPixels: 1e9
+    maxPixels: 1e9,
+    bestEffort: true
   });
   
-  // Store stats with year information (ensure year is number)
-  var yearStats50 = ee.Feature(null, stats50.set('year', ee.Number(year)).set('threshold', '50%'));
-  var yearStats90 = ee.Feature(null, stats90.set('year', ee.Number(year)).set('threshold', '90%'));
-  
-  albedoStats50.push(yearStats50);
-  albedoStats90.push(yearStats90);
-});
+  return ee.Feature(null, stats90.set('year', year).set('threshold', '90%'));
+}));
 
 // Combine statistics for analysis
-var allStats = ee.FeatureCollection(albedoStats50.concat(albedoStats90));
+var allStats = albedoStats50.merge(albedoStats90);
 
 // Print comparison statistics for each year
 print('=== ANNUAL COMPARISON STATISTICS ===');
 
-// Create separate feature collections for each threshold for proper chart display
-var stats50Collection = ee.FeatureCollection(albedoStats50);
-var stats90Collection = ee.FeatureCollection(albedoStats90);
-
 // Extract real albedo data from processed statistics for chart display
-var chartData50 = ee.FeatureCollection(albedoStats50.map(function(feature) {
+var chartData50 = albedoStats50.map(function(feature) {
   return ee.Feature(null, {
-    'year': ee.Feature(feature).get('year'),
+    'year': feature.get('year'),
     'threshold': '50%',
-    'albedo': ee.Feature(feature).get('broadband_albedo_mean')
+    'albedo': feature.get('broadband_albedo_mean')
   });
-}));
+});
 
-var chartData90 = ee.FeatureCollection(albedoStats90.map(function(feature) {
+var chartData90 = albedoStats90.map(function(feature) {
   return ee.Feature(null, {
-    'year': ee.Feature(feature).get('year'), 
+    'year': feature.get('year'), 
     'threshold': '90%',
-    'albedo': ee.Feature(feature).get('broadband_albedo_mean')
+    'albedo': feature.get('broadband_albedo_mean')
   });
-}));
+});
 
 var chartDataCombined = chartData50.merge(chartData90);
 
