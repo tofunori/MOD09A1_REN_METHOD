@@ -564,12 +564,16 @@ function createComparisonChart(results, region) {
   }).filter(ee.Filter.notNull(['MCD43A3']));
   
   // Create multi-method time series chart
+  // Combine all stats into a single feature collection
+  var renStatsWithMethod = renStats.map(function(f) { return f.set('method', 'Ren Method').set('albedo', f.get('Ren_Method')); });
+  var mod10StatsWithMethod = mod10Stats.map(function(f) { return f.set('method', 'MOD10A1').set('albedo', f.get('MOD10A1')); });
+  var mcd43StatsWithMethod = mcd43Stats.map(function(f) { return f.set('method', 'MCD43A3').set('albedo', f.get('MCD43A3')); });
+  
+  // Merge collections using ee.FeatureCollection.merge
+  var combinedStats = renStatsWithMethod.merge(mod10StatsWithMethod).merge(mcd43StatsWithMethod);
+  
   var chart = ui.Chart.feature.groups({
-    features: ee.FeatureCollection([
-      renStats.map(function(f) { return f.set('method', 'Ren Method'); }),
-      mod10Stats.map(function(f) { return f.set('method', 'MOD10A1'); }),
-      mcd43Stats.map(function(f) { return f.set('method', 'MCD43A3'); })
-    ].flatten()),
+    features: combinedStats,
     xProperty: 'system:time_start',
     yProperty: 'albedo',
     seriesProperty: 'method'
@@ -672,12 +676,15 @@ function exportComparisonStats(results, region, description) {
       .set('system:time_start', image.get('system:time_start')));
   });
   
-  // Combine all statistics
-  var allStats = ee.FeatureCollection([
-    renStats,
-    mod10Stats,
-    mcd43Stats
-  ].flatten()).filter(ee.Filter.notNull(['broadband_albedo_ren_mean', 'broadband_albedo_mod10a1_mean', 'broadband_albedo_mcd43a3_mean']));
+  // Combine all statistics using ee.FeatureCollection.merge
+  var allStats = renStats.merge(mod10Stats).merge(mcd43Stats);
+  
+  // Filter for valid data - check for any non-null albedo values
+  allStats = allStats.filter(ee.Filter.or(
+    ee.Filter.notNull(['broadband_albedo_ren_mean']),
+    ee.Filter.notNull(['broadband_albedo_mod10a1_mean']),
+    ee.Filter.notNull(['broadband_albedo_mcd43a3_mean'])
+  ));
   
   Export.table.toDrive({
     collection: allStats,
