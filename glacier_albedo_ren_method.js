@@ -119,14 +119,21 @@ function anisotropicCorrection(image, surfaceType) {
     };
   }
   
-  var bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-               'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+  // Create band list excluding B4 for snow processing per Ren et al. Table 4
+  var bands, bandNums;
+  if (surfaceType === 'snow') {
+    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+             'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+    bandNums = ['b1', 'b2', 'b3', 'b5', 'b7'];
+  } else {
+    bands = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
+             'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+    bandNums = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'];
+  }
   
   var narrowbandAlbedo = bands.map(function(band, index) {
-    var bandNum = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'][index];
+    var bandNum = bandNums[index];
     var coeff = brdfCoefficients[bandNum];
-    
-    if (surfaceType === 'snow' && bandNum === 'b4') return null;
     
     var anisotropyFactor;
     
@@ -157,8 +164,6 @@ function anisotropicCorrection(image, surfaceType) {
     }
     
     return image.select(band).subtract(anisotropyFactor).rename('narrowband_' + bandNum);
-  }).filter(function(band) {
-    return band !== null;
   });
   
   return image.addBands(ee.Image.cat(narrowbandAlbedo));
