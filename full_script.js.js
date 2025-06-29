@@ -21,10 +21,8 @@
 
 // Load SRTM DEM for topographic correction
 var dem = ee.Image('USGS/SRTMGL1_003');
-// Get MODIS projection for proper angle calculations
-var modisProj = ee.ImageCollection('MODIS/061/MOD09GA').first().projection();
-var slope = ee.Terrain.slope(dem).reproject(modisProj);
-var aspect = ee.Terrain.aspect(dem).reproject(modisProj);
+var slope = ee.Terrain.slope(dem);
+var aspect = ee.Terrain.aspect(dem);
 
 // Empirical coefficients from Ren et al. (2023)
 var iceCoefficients = {
@@ -81,11 +79,10 @@ function topographyCorrection(image) {
   
   // Apply topographic correction to reflectance
   // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0)
-  var correctionFactor = cosSolarZenithCorrected.multiply(sensorZenithRad.cos())
-    .divide(solarZenithRad.cos().multiply(cosSensorZenithCorrected));
+  var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos());
   
-  // Clip extreme values to avoid unrealistic corrections
-  correctionFactor = correctionFactor.clamp(0.1, 10.0);
+  // Clip extreme values to avoid unrealistic corrections per Ren et al.
+  correctionFactor = correctionFactor.clamp(0.2, 5.0);
   
   // Apply correction to surface reflectance bands
   var bands = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
