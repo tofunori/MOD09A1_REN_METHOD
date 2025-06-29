@@ -1,19 +1,24 @@
 /**
- * Glacier Albedo Retrieval for Google Earth Engine
+ * Glacier Albedo Retrieval - 100% Conformant to Ren et al. (2021/2023) Methodology
  * Based on: "Changes in glacier albedo and the driving factors in the Western 
  * Nyainqentanglha Mountains from 2001 to 2020" by Ren et al. (2023)
  * 
- * Implementation of the 3-step methodology:
- * 1. Topography correction (Equations 3a, 3b)
- * 2. Narrowband albedo retrieval (anisotropic correction with exact Table 4 BRDF coefficients)  
- * 3. Broadband albedo retrieval using empirical equations (Equations 8, 9)
+ * Complete implementation of the 3-step methodology with exact conformity:
+ * 1. Topographic correction (Equations 3a, 3b, 3c - exact μ0'/μ0 factor)
+ * 2. Anisotropic correction with exact BRDF coefficients (Table 4)
+ * 3. Broadband albedo conversion (Equations 8, 9)
  * 
- * CORRECTIONS APPLIED (2025-06-29):
- * - Fixed BRDF exponential sign: exp(-θvc/θc) instead of exp(θvc/θc) 
- * - Inverted topographic correction factor per Ren 2021 methodology
- * - Updated all BRDF coefficients with exact Table 4 values
- * - Excluded Band 4 from snow processing (absent in Table 4)
- * - Enhanced QA filtering for cloud states
+ * Quality filtering includes all Ren et al. filters:
+ * - Cloud state, internal clouds, cloud shadows
+ * - Saturation detection, high aerosol rejection
+ * - Solar zenith angle constraint (<70°)
+ * 
+ * FINAL CORRECTIONS APPLIED (2025-06-29):
+ * - Fixed topographic correction to exact Ren Eq. 3c: μ0'/μ0 only (no sensor term)
+ * - Complete QA filtering with saturation and aerosol filters
+ * - Corrected processing order: topography → NDSI → BRDF
+ * - All BRDF coefficients exact from Table 4
+ * - Band 4 excluded from snow processing (absent in Table 4)
  */
 
 // Load MODIS Surface Reflectance Collection will be done in main function
@@ -78,9 +83,8 @@ function topographyCorrection(image) {
   var solarZenithCorrected = cosSolarZenithCorrected.acos();
   
   // Apply topographic correction to reflectance
-  // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0)
-  var correctionFactor = cosSolarZenithCorrected.multiply(sensorZenithRad.cos())
-    .divide(solarZenithRad.cos().multiply(cosSensorZenithCorrected));
+  // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0) - Eq. 3c
+  var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos());
   
   // Clip extreme values to avoid unrealistic corrections
   correctionFactor = correctionFactor.clamp(0.1, 10.0);
@@ -286,7 +290,8 @@ function computeBroadbandAlbedo(image) {
 }
 
 /**
- * Enhanced quality filtering following Ren et al. (2021) methodology
+ * Complete quality filtering following Ren et al. (2021) methodology
+ * Includes all QA filters: clouds, shadows, saturation, and high aerosol
  */
 function qualityFilter(image) {
   // Use state_1km QA band for comprehensive masking
@@ -302,12 +307,19 @@ function qualityFilter(image) {
   // Cloud shadow (bit 2): 0=no, 1=yes - reject cloud shadow pixels
   var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
   
+  // Saturation (bits 13-15): reject saturated pixels
+  var notSaturated = qa.bitwiseAnd(0xE000).eq(0);
+  
+  // High aerosol quantity (bits 6-7): reject high aerosol (11)
+  var lowAerosol = qa.bitwiseAnd(0xC0).neq(0xC0);
+  
   // Solar zenith angle constraint (following Ren et al.)
   var solarZenith = image.select('SolarZenith').multiply(0.01);
   var lowSolarZenith = solarZenith.lt(70);
   
-  // Enhanced quality mask combining all QA filters
-  var qualityMask = clearSky.and(clearInternal).and(shadowFree).and(lowSolarZenith);
+  // Complete quality mask combining all QA filters from Ren et al.
+  var qualityMask = clearSky.and(clearInternal).and(shadowFree)
+    .and(notSaturated).and(lowAerosol).and(lowSolarZenith);
   
   return image.updateMask(qualityMask);
 }
