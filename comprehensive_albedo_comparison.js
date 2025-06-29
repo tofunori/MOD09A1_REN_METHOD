@@ -740,15 +740,15 @@ panel.add(description);
 // Date selection
 var startDateLabel = ui.Label('Start Date (YYYY-MM-DD):');
 var startDateBox = ui.Textbox({
-  placeholder: '2020-06-01',
-  value: '2020-06-01',
+  placeholder: '2017-01-01',
+  value: '2017-01-01',
   style: {width: '150px'}
 });
 
 var endDateLabel = ui.Label('End Date (YYYY-MM-DD):');
 var endDateBox = ui.Textbox({
-  placeholder: '2020-09-30',
-  value: '2020-09-30',
+  placeholder: '2024-12-31',
+  value: '2024-12-31',
   style: {width: '150px'}
 });
 
@@ -756,6 +756,41 @@ panel.add(startDateLabel);
 panel.add(startDateBox);
 panel.add(endDateLabel);
 panel.add(endDateBox);
+
+// Add preset date buttons
+var presetsLabel = ui.Label('Quick Date Presets:');
+panel.add(presetsLabel);
+
+var presetsPanel = ui.Panel({
+  layout: ui.Panel.Layout.flow('horizontal'),
+  style: {margin: '5px 0px'}
+});
+
+var fullPeriodBtn = ui.Button({
+  label: '2017-2024 Full',
+  style: {margin: '2px', fontSize: '10px'}
+});
+
+var meltSeasonsBtn = ui.Button({
+  label: '2017-2024 Melt',
+  style: {margin: '2px', fontSize: '10px'}
+});
+
+var recent5YearsBtn = ui.Button({
+  label: '2020-2024',
+  style: {margin: '2px', fontSize: '10px'}
+});
+
+var summer2024Btn = ui.Button({
+  label: '2024 Summer',
+  style: {margin: '2px', fontSize: '10px'}
+});
+
+presetsPanel.add(fullPeriodBtn);
+presetsPanel.add(meltSeasonsBtn);
+presetsPanel.add(recent5YearsBtn);
+presetsPanel.add(summer2024Btn);
+panel.add(presetsPanel);
 
 // Method selection checkboxes
 var methodsLabel = ui.Label('Methods to Compare:');
@@ -809,10 +844,10 @@ panel.add(clearButton);
 
 // Status label
 var statusLabel = ui.Label({
-  value: 'Ready to run comparison analysis...',
+  value: 'Ready for 2017-2024 analysis! Use presets or modify dates.',
   style: {
     fontSize: '11px',
-    color: 'gray',
+    color: 'blue',
     fontStyle: 'italic'
   }
 });
@@ -879,6 +914,35 @@ processButton.onClick(function() {
       });
     });
   });
+});
+
+// Preset button event handlers
+fullPeriodBtn.onClick(function() {
+  startDateBox.setValue('2017-01-01');
+  endDateBox.setValue('2024-12-31');
+  statusLabel.setValue('Full period 2017-2024 selected. Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
+});
+
+meltSeasonsBtn.onClick(function() {
+  startDateBox.setValue('2017-06-01');
+  endDateBox.setValue('2024-09-30');
+  statusLabel.setValue('Melt seasons 2017-2024 selected (Jun-Sep only). Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
+});
+
+recent5YearsBtn.onClick(function() {
+  startDateBox.setValue('2020-01-01');
+  endDateBox.setValue('2024-12-31');
+  statusLabel.setValue('Recent 5 years 2020-2024 selected. Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
+});
+
+summer2024Btn.onClick(function() {
+  startDateBox.setValue('2024-06-01');
+  endDateBox.setValue('2024-09-30');
+  statusLabel.setValue('Summer 2024 selected. Click Run Analysis.');
+  statusLabel.style().set('color', 'blue');
 });
 
 // Clear button event handler
