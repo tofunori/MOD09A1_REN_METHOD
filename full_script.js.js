@@ -1183,43 +1183,44 @@ validDefault.size().evaluate(function(validSize) {
 });
 
 // Step 7: Create mean and test layer
-if (validDefault.size().gt(0)) {
-  var meanDefaultAlbedo = validDefault.select('broadband_albedo').mean();
+var meanDefaultAlbedo = validDefault.select('broadband_albedo').mean();
+
+// Test the mean albedo values
+meanDefaultAlbedo.reduceRegion({
+  reducer: ee.Reducer.minMax().combine({
+    reducer2: ee.Reducer.count(),
+    sharedInputs: true
+  }),
+  geometry: glacierBounds,
+  scale: 500,
+  maxPixels: 1e6,
+  bestEffort: true
+}).evaluate(function(meanStats) {
+  print('Step 7 - Mean albedo statistics:', meanStats);
   
-  // Test the mean albedo values
-  meanDefaultAlbedo.reduceRegion({
-    reducer: ee.Reducer.minMax().combine({
-      reducer2: ee.Reducer.count(),
-      sharedInputs: true
-    }),
-    geometry: glacierBounds,
-    scale: 500,
-    maxPixels: 1e6,
-    bestEffort: true
-  }).evaluate(function(meanStats) {
-    print('Step 7 - Mean albedo statistics:', meanStats);
-  });
-  
-  // Add to map with more permissive masking
-  Map.addLayer(meanDefaultAlbedo, {
-    min: 0.0, 
-    max: 1.0, 
-    palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
-  }, 'Mean Broadband Albedo (2020 Summer)');
-  
-  // Also add a simple version without masking for comparison
-  Map.addLayer(glacierMask, {palette: ['white']}, 'Glacier Mask (Debug)');
-  
-} else {
-  print('ERROR: No valid albedo images found - check processing pipeline');
-  
-  // Create a simple test layer with raw MODIS data
-  print('=== CREATING SIMPLE TEST LAYER ===');
-  var simpleTest = rawModis.first().select('sur_refl_b01').multiply(0.0001);
-  Map.addLayer(simpleTest.updateMask(glacierImage.gt(0)), {
-    min: 0, max: 0.5, palette: ['black', 'red']
-  }, 'Simple Test Layer (Band 1)');
-}
+  if (meanStats.broadband_albedo_count > 0) {
+    print('SUCCESS: Found valid albedo data');
+  } else {
+    print('WARNING: Albedo data exists but may be masked out');
+  }
+});
+
+// Add to map with more permissive masking
+Map.addLayer(meanDefaultAlbedo, {
+  min: 0.0, 
+  max: 1.0, 
+  palette: ['blue', 'cyan', 'yellow', 'orange', 'red']
+}, 'Mean Broadband Albedo (2020 Summer)');
+
+// Also add a simple version without masking for comparison
+Map.addLayer(glacierMask, {palette: ['white']}, 'Glacier Mask (Debug)');
+
+// Create a simple test layer with raw MODIS data as fallback
+print('=== CREATING SIMPLE TEST LAYER ===');
+var simpleTest = rawModis.first().select('sur_refl_b01').multiply(0.0001);
+Map.addLayer(simpleTest.updateMask(glacierImage.gt(0)), {
+  min: 0, max: 0.5, palette: ['black', 'red']
+}, 'Simple Test Layer (Band 1)');
 
 // Initial status
 statusLabel.setValue('Interface ready. Default 2020 summer albedo shown. Select dates and click Apply for other periods.');
@@ -1230,30 +1231,25 @@ statusLabel.style().set('color', 'green');
 
 print('--- Processing melt season data for CSV export (2017-2024) ---');
 
-// Process each melt season individually and combine
-var meltSeasonYears = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-var allMeltSeasonData = [];
+// Process melt season data using Earth Engine mapping (no JavaScript loops)
+var meltSeasonYears = ee.List([2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]);
 
-meltSeasonYears.forEach(function(year) {
-  var startDate = year + '-06-01';
-  var endDate = year + '-09-30';
+print('Processing melt season data for all years...');
+
+// Process all melt seasons using Earth Engine mapping
+var allMeltSeasonCollections = meltSeasonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  print('Processing melt season ' + year + ': ' + startDate + ' to ' + endDate);
-  
-  var yearMeltSeason = retrieveGlacierAlbedo(glacierBounds, startDate, endDate, glacierOutlines);
-  allMeltSeasonData.push(yearMeltSeason);
+  return ee.ImageCollection('MODIS/061/MOD09GA')
+    .filterDate(startDate, endDate)
+    .filterBounds(glacierBounds)
+    .map(function(image) { return processModisImage(image, glacierOutlines); });
 });
 
-// Combine all melt season collections
-var allImageLists = allMeltSeasonData.map(function(collection) {
-  return collection.toList(1000); // Convert each collection to list
-});
-
-// Convert JavaScript array to Earth Engine List and flatten
-var eeListOfLists = ee.List(allImageLists);
-var flattenedImages = eeListOfLists.flatten();
-
-var combinedMeltSeasons = ee.ImageCollection.fromImages(flattenedImages);
+// Flatten all collections into one
+var combinedMeltSeasons = ee.ImageCollection(allMeltSeasonCollections.flatten());
 
 print('Total melt season images (2017-2024):', combinedMeltSeasons.size());
 
@@ -1264,28 +1260,20 @@ var validMeltSeasonCollection = combinedMeltSeasons.filter(
 
 print('Valid melt season albedo images:', validMeltSeasonCollection.size());
 
-// Process melt season data with 90% threshold as well
-var allMeltSeasonData90 = [];
-
-meltSeasonYears.forEach(function(year) {
-  var startDate = year + '-06-01';
-  var endDate = year + '-09-30';
+// Process melt season data with 90% threshold using Earth Engine mapping
+var allMeltSeasonCollections90 = meltSeasonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  var yearMeltSeason90 = ee.ImageCollection('MODIS/061/MOD09GA')
+  return ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImage90(image, glacierOutlines); });
-  allMeltSeasonData90.push(yearMeltSeason90);
 });
 
-// Combine all 90% threshold melt season collections
-var allImageLists90 = allMeltSeasonData90.map(function(collection) {
-  return collection.toList(1000);
-});
-
-var eeListOfLists90 = ee.List(allImageLists90);
-var flattenedImages90 = eeListOfLists90.flatten();
-var combinedMeltSeasons90 = ee.ImageCollection.fromImages(flattenedImages90);
+// Flatten all 90% collections into one
+var combinedMeltSeasons90 = ee.ImageCollection(allMeltSeasonCollections90.flatten());
 
 // Filter for valid albedo data only (90% threshold)
 var validMeltSeasonCollection90 = combinedMeltSeasons90.filter(
@@ -1560,36 +1548,34 @@ function processModisImageSimple(image, glacierOutlines, threshold) {
   return maskedAlbedo.copyProperties(image, ['system:time_start']);
 }
 
-meltSeasonYears.forEach(function(year) {
-  var startDate = year + '-06-01';
-  var endDate = year + '-09-30';
+// Process scatter plot data using Earth Engine mapping (no JavaScript loops)
+var scatterCollections50 = meltSeasonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  // Process with 50% threshold (simplified QA)
-  var collection50 = ee.ImageCollection('MODIS/061/MOD09GA')
+  return ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImageSimple(image, glacierOutlines, 50); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
+});
+
+var scatterCollections90 = meltSeasonYears.map(function(year) {
+  year = ee.Number(year);
+  var startDate = ee.Date.fromYMD(year, 6, 1);
+  var endDate = ee.Date.fromYMD(year, 9, 30);
   
-  // Process with 90% threshold (simplified QA)
-  var collection90 = ee.ImageCollection('MODIS/061/MOD09GA')
+  return ee.ImageCollection('MODIS/061/MOD09GA')
     .filterDate(startDate, endDate)
     .filterBounds(glacierBounds)
     .map(function(image) { return processModisImageSimple(image, glacierOutlines, 90); })
     .filter(ee.Filter.listContains('system:band_names', 'broadband_albedo'));
-  
-  scatterData50.push(collection50);
-  scatterData90.push(collection90);
 });
 
 // Flatten all collections into single collections
-var allScatterData50 = ee.ImageCollection.fromImages(
-  ee.List(scatterData50.map(function(col) { return col.toList(1000); })).flatten()
-);
-
-var allScatterData90 = ee.ImageCollection.fromImages(
-  ee.List(scatterData90.map(function(col) { return col.toList(1000); })).flatten()
-);
+var allScatterData50 = ee.ImageCollection(scatterCollections50.flatten());
+var allScatterData90 = ee.ImageCollection(scatterCollections90.flatten());
 
 // Calculate daily mean albedo for each observation (reduce to glacier-wide means)
 var dailyMeans50 = allScatterData50.map(function(image) {
