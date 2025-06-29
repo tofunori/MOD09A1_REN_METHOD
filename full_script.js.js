@@ -148,7 +148,7 @@ function anisotropicCorrection(image, surfaceType) {
       // MODIS Band 5 (1230-1250nm) → 1219nm coefficients - CORRECTED
       b5: {c1: -0.02388, c2: 0.00656, c3: 0.00227, theta_c: 0.58473},
       // MODIS Band 7 (2105-2155nm) → 1271nm coefficients (correct for ice)
-      b7: {c1: -0.02081, c2: 0.00683, c3: 0.00390, theta_c: 0.57552}
+      b7: {c1: -0.02081, c2: 0.00683, c3: 0.00390, theta_c: 0.575}
     };
   }
   
