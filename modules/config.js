@@ -106,6 +106,20 @@ var QA_CONFIG = {
 };
 
 // ============================================================================
+// EXPORT CONFIGURATION
+// ============================================================================
+
+// Export processing parameters
+var EXPORT_CONFIG = {
+  scale: 463,                    // Processing scale for Ren method
+  scale_simple: 500,             // Processing scale for simpler methods
+  maxPixels_ren: 1e9,           // Max pixels for Ren method exports
+  maxPixels_simple: 1e8,        // Max pixels for simpler method exports
+  bestEffort: true,             // Use best effort for processing
+  tileScale: 2                  // Tile scale for memory management
+};
+
+// ============================================================================
 // EXPORTS FOR USE IN OTHER MODULES
 // ============================================================================
 
