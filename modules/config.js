@@ -106,40 +106,6 @@ var QA_CONFIG = {
 };
 
 // ============================================================================
-// QA FILTER CONFIGURATION PROFILES
-// ============================================================================
-
-/**
- * QA Filter Configuration Profiles for Comparative Analysis
- * Based on incremental relaxation strategy for maximizing valid observations
- * Each level progressively relaxes constraints with expected gain/risk metrics
- */
-var QA_PROFILES = {
-  strict: {
-    name: 'Strict',
-    description: 'Fixed QA filter identical to legacy full_script',
-    cloudState: 1,
-    allowShadow: false,
-    allowCirrus: false,
-    allowInternalCloud: false,
-    snowIceConfidence: [0, 3],
-    solarZenithMax: 80,
-    expectedGain: '0%',
-    risk: 'Minimal'
-  }
-};
-
-// Export parameters for memory optimization
-var EXPORT_CONFIG = {
-  scale: 500,                    // Export scale for Ren method (match MODIS)
-  scale_simple: 500,             // Export scale for simplified methods  
-  maxPixels_ren: 1e6,            // Allow more pixels for Ren exports
-  maxPixels_simple: 1e6,         // Allow more pixels for others
-  tileScale: 16,                // Tile scale for all exports
-  bestEffort: true              // Best effort flag
-};
-
-// ============================================================================
 // EXPORTS FOR USE IN OTHER MODULES
 // ============================================================================
 
@@ -162,5 +128,4 @@ exports.GLACIER_CONFIG = GLACIER_CONFIG;
 exports.PROCESSING_CONFIG = PROCESSING_CONFIG;
 exports.DEBUG_MODE = DEBUG_MODE;
 exports.QA_CONFIG = QA_CONFIG;
-exports.QA_PROFILES = QA_PROFILES;
 exports.EXPORT_CONFIG = EXPORT_CONFIG;

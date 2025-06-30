@@ -389,10 +389,14 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
  */
 function runSingleQAProfileTest(startDate, endDate, profileKey, glacierOutlines, region, successCallback, errorCallback) {
   try {
-    var profile = config.QA_PROFILES[profileKey];
-    if (!profile) {
-      throw new Error('Invalid QA profile key: ' + profileKey);
-    }
+    // Local stub; QA mask is built-in, but we keep metadata for console output.
+    var profile = {
+      name: 'Strict',
+      description: 'Legacy fixed QA mask',
+      expectedGain: 'baseline',
+      risk: 'Minimal',
+      filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
+    };
     
     print('🧪 Testing single QA profile: ' + profile.name);
     print('📋 Description: ' + profile.description);

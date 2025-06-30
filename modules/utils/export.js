@@ -544,7 +544,14 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
   
   // Process collection with each QA profile
   profiles.forEach(function(profileKey) {
-    var profile = config.QA_PROFILES[profileKey];
+    // Local stub profile – QA mask is hard-wired in ren.js, but we keep metadata for CSV columns.
+    var profile = {
+      name: 'Strict',
+      description: 'Legacy fixed QA mask',
+      expectedGain: 'baseline',
+      risk: 'Minimal',
+      filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
+    };
     print('⚡ Processing with ' + profile.name + ' profile...');
     
     // Apply Ren method with specific QA profile
@@ -610,6 +617,7 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
         'qa_description': profile.description,
         'qa_expected_gain': profile.expectedGain,
         'qa_risk_level': profile.risk,
+        'qa_filter_details': profile.filterDetails,
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -647,7 +655,14 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
   
   // Process collection with each QA profile
   profiles.forEach(function(profileKey) {
-    var profile = config.QA_PROFILES[profileKey];
+    // Local stub profile – QA mask is hard-wired in ren.js
+    var profile = {
+      name: 'Strict',
+      description: 'Legacy fixed QA mask',
+      expectedGain: 'baseline',
+      risk: 'Minimal',
+      filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
+    };
     print('⚡ Processing with ' + profile.name + ' profile + QA filters...');
     
     // Apply Ren method with specific QA profile
@@ -718,6 +733,7 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
         'qa_description': profile.description,
         'qa_expected_gain': profile.expectedGain,
         'qa_risk_level': profile.risk,
+        'qa_filter_details': profile.filterDetails,
         'qa_bounds_applied': enableQualityFiltering,
         'system:time_start': image.get('system:time_start')
       });
