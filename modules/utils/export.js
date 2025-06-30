@@ -29,43 +29,40 @@ function exportComparisonStats(results, region, description) {
   // Process each method with comprehensive statistics
   if (results.ren) {
     var renStats = results.ren.map(function(image) {
-      // Prefer glacier-masked broadband albedo if present; fall back gracefully.
-      var bandName = image.bandNames().contains('broadband_albedo_ren_masked')
-        ? 'broadband_albedo_ren_masked'
-        : 'broadband_albedo_ren';
-      var stats = image.select(bandName).reduceRegion({
-        reducer: ee.Reducer.mean().combine({
-          reducer2: ee.Reducer.stdDev(),
-          sharedInputs: true
-        }).combine({
-          reducer2: ee.Reducer.min(),
-          sharedInputs: true
-        }).combine({
-          reducer2: ee.Reducer.max(),
-          sharedInputs: true
-        }).combine({
-          reducer2: ee.Reducer.count(),
-          sharedInputs: true
-        }),
+      // Server-side selection of the available broadband albedo band
+      var chosenBandImg = ee.Image(
+        ee.Algorithms.If(
+          image.bandNames().contains('broadband_albedo_ren_masked'),
+          image.select('broadband_albedo_ren_masked'),
+          image.select('broadband_albedo_ren')
+        )
+      ).rename('albedo'); // Normalise band name for predictable reducer keys
+
+      var stats = chosenBandImg.reduceRegion({
+        reducer: ee.Reducer.mean()
+          .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
+          .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
+          .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
+          .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
         geometry: region,
-        scale: config.EXPORT_CONFIG.scale,
+        scale:     config.EXPORT_CONFIG.scale,
         maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
         bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale: config.EXPORT_CONFIG.tileScale
+        tileScale:  config.EXPORT_CONFIG.tileScale
       });
-      
+
       var date = ee.Date(image.get('system:time_start'));
       return ee.Feature(null, {
-        'albedo_mean': stats.get(bandName + '_mean'),
-        'albedo_std': stats.get(bandName + '_stdDev'),
-        'albedo_min': stats.get(bandName + '_min'),
-        'albedo_max': stats.get(bandName + '_max'),
-        'pixel_count': stats.get(bandName + '_count'),
-        'date': date.format('YYYY-MM-dd'),
-        'year': date.get('year'),
-        'month': date.get('month'),
-        'day_of_year': date.getRelative('day', 'year'),
-        'method': 'Ren',
+        'albedo_mean':  stats.get('albedo_mean'),
+        'albedo_std':   stats.get('albedo_stdDev'),
+        'albedo_min':   stats.get('albedo_min'),
+        'albedo_max':   stats.get('albedo_max'),
+        'pixel_count':  stats.get('albedo_count'),
+        'date':         date.format('YYYY-MM-dd'),
+        'year':         date.get('year'),
+        'month':        date.get('month'),
+        'day_of_year':  date.getRelative('day', 'year'),
+        'method':       'Ren',
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
