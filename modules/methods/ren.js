@@ -36,17 +36,17 @@ function qualityFilter(image) {
   // Cloud shadow (bit 2): reject cloud shadow pixels per Ren et al.
   var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
   
-  // Cirrus detection (bit 8): reject cirrus contaminated pixels per Ren et al.
-  var cirrusFree = qa.bitwiseAnd(1<<8).eq(0);
+  // Cirrus detection (bit 8): allow cirrus-flagged pixels to retain more scenes
+  var cirrusFree = ee.Image(1); // no cirrus filter
   
-  // Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00) per Ren et al.
-  // Bits 12-13 encoding: 00 = unknown, 01 = no snow/ice, 10 = maybe snow/ice, 11 = yes snow/ice
-  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12); // Extract bits 12-13
-  var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3)); // Accept 00 or 11
+  // Snow/ice confidence (bits 12-13): accept all except explicit "no snow/ice" (01)
+  // Encoding: 00 unknown, 01 no snow/ice, 10 maybe, 11 yes
+  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+  var validSnowIce = snowIceConf.neq(1);
   
-  // Solar zenith constraint per Ren et al. (θs < 70°)
-  var solarZenith = image.select('SolarZenith').multiply(0.01); // Convert to degrees
-  var solarAngleOK = solarZenith.lt(70);
+  // Solar zenith constraint relaxed to θs < 80°
+  var solarZenith = image.select('SolarZenith').multiply(0.01);
+  var solarAngleOK = solarZenith.lt(80);
   
   // Combine all QA filters per Ren et al. methodology
   var qualityMask = clearSky
