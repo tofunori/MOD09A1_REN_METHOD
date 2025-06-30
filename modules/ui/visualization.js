@@ -118,13 +118,20 @@ function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines)
  */
 function addMethodLayer(collection, bandName, methodName, visParams, glacierMask, glacierOutlines) {
   if (collection && collection.size().getInfo() > 0) {
-    // Determine which band to use (masked vs unmasked) - client-side check
-    var firstImage = collection.first();
-    var availableBands = firstImage.bandNames().getInfo();
-    var bandToUse = availableBands.indexOf(bandName) !== -1 ? bandName : bandName + '_masked';
+    // Create median composite and handle band selection gracefully
+    var median = collection.median();
     
-    // Create median composite
-    var image = collection.median().select([bandToUse]);
+    // Create image with preferred band or fallback to masked version
+    var bandNames = median.bandNames();
+    var hasPrimaryBand = bandNames.contains(bandName);
+    var hasMaskedBand = bandNames.contains(bandName + '_masked');
+    
+    // Select the band using a server-side conditional approach
+    var primaryImage = ee.Image(ee.Algorithms.If(hasPrimaryBand, median.select(bandName), ee.Image.constant(0).updateMask(0)));
+    var maskedImage = ee.Image(ee.Algorithms.If(hasMaskedBand, median.select(bandName + '_masked'), ee.Image.constant(0).updateMask(0)));
+    
+    // Combine: use primary if available, otherwise use masked
+    var image = ee.Image(ee.Algorithms.If(hasPrimaryBand, primaryImage, maskedImage));
     
     // Optionally reproject glacier mask to the image projection to ensure alignment
     var projectedMask = glacierMask ? glacierMask.reproject(image.projection()) : null;
@@ -219,18 +226,28 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
  * Create difference image between two collections
  */
 function createDifferenceImage(collection1, band1, collection2, band2, glacierMask, glacierOutlines) {
-  // Create median composites for comparison - client-side band selection
-  var availableBands1 = collection1.first().bandNames().getInfo();
-  var availableBands2 = collection2.first().bandNames().getInfo();
+  // Create median composites for comparison using server-side band selection
+  var median1 = collection1.median();
+  var median2 = collection2.median();
   
-  var b1 = availableBands1.indexOf(band1) !== -1 ? band1 : band1 + '_masked';
-  var b2 = availableBands2.indexOf(band2) !== -1 ? band2 : band2 + '_masked';
+  // Handle band selection for first collection
+  var bandNames1 = median1.bandNames();
+  var hasPrimary1 = bandNames1.contains(band1);
+  var hasMasked1 = bandNames1.contains(band1 + '_masked');
+  var primary1 = ee.Image(ee.Algorithms.If(hasPrimary1, median1.select(band1), ee.Image.constant(0).updateMask(0)));
+  var masked1 = ee.Image(ee.Algorithms.If(hasMasked1, median1.select(band1 + '_masked'), ee.Image.constant(0).updateMask(0)));
+  var image1 = ee.Image(ee.Algorithms.If(hasPrimary1, primary1, masked1));
   
-  var median1 = collection1.median().select([b1]);
-  var median2 = collection2.median().select([b2]);
+  // Handle band selection for second collection
+  var bandNames2 = median2.bandNames();
+  var hasPrimary2 = bandNames2.contains(band2);
+  var hasMasked2 = bandNames2.contains(band2 + '_masked');
+  var primary2 = ee.Image(ee.Algorithms.If(hasPrimary2, median2.select(band2), ee.Image.constant(0).updateMask(0)));
+  var masked2 = ee.Image(ee.Algorithms.If(hasMasked2, median2.select(band2 + '_masked'), ee.Image.constant(0).updateMask(0)));
+  var image2 = ee.Image(ee.Algorithms.If(hasPrimary2, primary2, masked2));
   
   // Calculate difference
-  var difference = median1.subtract(median2).rename('albedo_difference');
+  var difference = image1.subtract(image2).rename('albedo_difference');
   
   // Apply glacier mask if provided
   if (glacierMask) {
