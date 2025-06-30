@@ -42,7 +42,7 @@ function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
   var collection = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD10A1);
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
-    return mod10a1Method.processMOD10A1Method(img, glacierOutlines, createGlacierMask);
+    return mod10a1Method.processMOD10A1(img, glacierOutlines, createGlacierMask);
   });
 }
 
@@ -50,7 +50,7 @@ function processMCD43A3Collection(startDate, endDate, region, glacierOutlines) {
   var collection = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MCD43A3);
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
-    return mcd43a3Method.processMCD43A3Method(img, glacierOutlines, createGlacierMask);
+    return mcd43a3Method.processMCD43A3(img, glacierOutlines, createGlacierMask);
   });
 }
 
