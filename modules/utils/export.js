@@ -533,6 +533,106 @@ function generateQualityAssessmentStats(results, description) {
 }
 
 /**
+ * Export QA profile comparison results to CSV
+ * Compares different QA profiles and their impact on albedo calculations
+ */
+function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
+  print('📊 Starting QA Profile Comparison...');
+  
+  var profiles = ['Strict'];
+  var allResults = ee.FeatureCollection([]);
+  
+  // Process collection with each QA profile
+  profiles.forEach(function(profileKey) {
+    var profile = config.QA_PROFILES[profileKey];
+    print('⚡ Processing with ' + profile.name + ' profile...');
+    
+    // Apply Ren method with specific QA profile
+    var processed = collection.map(function(image) {
+      var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
+    });
+    
+    // Generate statistics for this profile
+    var profileStats = processed.map(function(image) {
+      var bandNames = image.bandNames();
+      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+      var hasAnyAlbedoBand = ee.Algorithms.If(
+        hasMaskedBand,
+        true,
+        hasBaseBand
+      );
+      
+      var stats = ee.Algorithms.If(
+        hasAnyAlbedoBand,
+        ee.Image(
+          ee.Algorithms.If(
+            hasMaskedBand,
+            image.select('broadband_albedo_ren_masked'),
+            image.select('broadband_albedo_ren')
+          )
+        ).rename('albedo').reduceRegion({
+          reducer: ee.Reducer.mean()
+            .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
+            .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
+            .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
+            .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
+          geometry: region,
+          scale:     config.EXPORT_CONFIG.scale,
+          maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
+          bestEffort: config.EXPORT_CONFIG.bestEffort,
+          tileScale:  config.EXPORT_CONFIG.tileScale
+        }),
+        ee.Dictionary({
+          'albedo_mean': null,
+          'albedo_stdDev': null,
+          'albedo_min': null,
+          'albedo_max': null,
+          'albedo_count': null
+        })
+      );
+
+      var statsDict = ee.Dictionary(stats);
+      var date = ee.Date(image.get('system:time_start'));
+      
+      return ee.Feature(null, {
+        'albedo_mean':  statsDict.get('albedo_mean', null),
+        'albedo_std':   statsDict.get('albedo_stdDev', null),
+        'albedo_min':   statsDict.get('albedo_min', null),
+        'albedo_max':   statsDict.get('albedo_max', null),
+        'pixel_count':  statsDict.get('albedo_count', null),
+        'date':         date.format('YYYY-MM-dd'),
+        'year':         date.get('year'),
+        'month':        date.get('month'),
+        'day_of_year':  date.getRelative('day', 'year'),
+        'qa_profile':   profile.name,
+        'qa_description': profile.description,
+        'qa_expected_gain': profile.expectedGain,
+        'qa_risk_level': profile.risk,
+        'system:time_start': image.get('system:time_start')
+      });
+    }).filter(ee.Filter.notNull(['albedo_mean']));
+    
+    allResults = allResults.merge(profileStats);
+  });
+  
+  // Export comprehensive comparison CSV
+  Export.table.toDrive({
+    collection: allResults,
+    description: description + '_qa_profile_comparison',
+    folder: 'albedo_method_comparison',
+    fileFormat: 'CSV'
+  });
+  
+  print('✅ QA Profile Comparison export initiated: ' + description + '_qa_profile_comparison');
+  print('📁 Check Google Drive folder: albedo_method_comparison');
+  
+  // Generate summary statistics
+  generateQAProfileSummary(allResults, description);
+}
+
+/**
  * Enhanced QA profile comparison with quality assessment integration
  */
 function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlacierMask, region, description, qaOptions) {
