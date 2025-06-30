@@ -36,9 +36,9 @@ function qualityFilter(image /*, qaProfile */) {
   var noCirrus      = qa.bitwiseAnd(1 << 8).eq(0);       // Bit 8   = 0 (ignore bit 9)
   var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);      // Bit 10  = 0
 
-  // Snow / ice confidence bits 12-13: accept 00 (unknown) or 11 (high)
+  // Snow / ice confidence bits 12-13 (Level 1): accept 01 (no), 10 (maybe) or 11 (high)
   var snowIceConf   = qa.bitwiseAnd(0x3000).rightShift(12);
-  var validSnowIce  = snowIceConf.eq(0).or(snowIceConf.eq(3));
+  var validSnowIce  = snowIceConf.gt(0); // codes 1,2,3
 
   // Solar zenith < 70°
   var solarZenith   = image.select('SolarZenith').multiply(0.01);
