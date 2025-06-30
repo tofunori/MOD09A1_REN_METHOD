@@ -58,7 +58,7 @@ var snowCoefficients = {
 // Load DEM for topographic correction — use ALOS World 3D-30 m (AW3D30)
 // to stay consistent with Ren et al. 2021/2023, which derived slope and
 // aspect from this dataset.
-var dem = ee.Image('JAXA/ALOS/AW3D30/V3_2');
+var dem = ee.Image('JAXA/ALOS/AW3D30/V4_1');
 var slope = ee.Terrain.slope(dem);
 var aspect = ee.Terrain.aspect(dem);
 
