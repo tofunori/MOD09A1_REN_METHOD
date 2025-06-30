@@ -51,13 +51,14 @@ function exportComparisonStats(results, region, description) {
         tileScale:  config.EXPORT_CONFIG.tileScale
       });
 
+      var statsDict = ee.Dictionary(stats);
       var date = ee.Date(image.get('system:time_start'));
       return ee.Feature(null, {
-        'albedo_mean':  stats.get('albedo'),
-        'albedo_std':   stats.get('albedo_stdDev'),
-        'albedo_min':   stats.get('albedo_min'),
-        'albedo_max':   stats.get('albedo_max'),
-        'pixel_count':  stats.get('albedo_count'),
+        'albedo_mean':  statsDict.get('albedo', null),
+        'albedo_std':   statsDict.get('albedo_stdDev', null),
+        'albedo_min':   statsDict.get('albedo_min', null),
+        'albedo_max':   statsDict.get('albedo_max', null),
+        'pixel_count':  statsDict.get('albedo_count', null),
         'date':         date.format('YYYY-MM-dd'),
         'year':         date.get('year'),
         'month':        date.get('month'),
@@ -65,7 +66,7 @@ function exportComparisonStats(results, region, description) {
         'method':       'Ren',
         'system:time_start': image.get('system:time_start')
       });
-    }).filter(ee.Filter.notNull(['albedo']));
+    }).filter(ee.Filter.notNull(['albedo_mean']));
     allStats = allStats.merge(renStats);
   }
   
