@@ -319,6 +319,215 @@ function performCorrelationAnalysis(results, region) {
 }
 
 // ============================================================================
+// QA PROFILE COMPARISON WORKFLOW
+// ============================================================================
+
+/**
+ * Execute QA profile comparison workflow for Ren method optimization
+ * Generates comprehensive CSV exports comparing all 6 QA filter configurations
+ */
+function runQAProfileComparison(startDate, endDate, glacierOutlines, region, successCallback, errorCallback) {
+  try {
+    print('📊 Starting QA Profile Comparison Workflow...');
+    print('📅 Date range: ' + startDate + ' to ' + endDate);
+    print('🔬 Analyzing 6 QA filter configurations: Strict → Level 5');
+    
+    // Load MOD09GA collection for Ren method
+    var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA);
+    
+    // Apply standard filtering (without QA - that will be done per profile)
+    var filtered = glacierUtils.applyStandardFiltering(
+      collection, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
+    );
+    
+    // Create glacier mask function
+    var glacierImage = ee.Image(config.GLACIER_ASSET);
+    var createGlacierMask = glacierUtils.createGlacierMask;
+    
+    // Generate export description
+    var description = exportUtils.generateExportDescription(
+      'qa_profile_analysis', startDate, endDate
+    );
+    
+    // Export comprehensive QA profile comparison
+    exportUtils.exportQAProfileComparison(
+      filtered, glacierOutlines, createGlacierMask, region, description
+    );
+    
+    // Export detailed QA flag analysis for debugging
+    exportUtils.exportQAFlagAnalysis(filtered, region, description);
+    
+    print('✅ QA Profile Comparison workflow initiated');
+    print('📁 Expected outputs:');
+    print('  • ' + description + '_qa_profile_comparison.csv (detailed observations)');
+    print('  • ' + description + '_qa_summary.csv (summary statistics)');
+    print('  • ' + description + '_qa_flag_analysis.csv (QA flag distribution)');
+    
+    if (successCallback) {
+      successCallback({
+        description: description,
+        profileCount: 6,
+        expectedOutputs: [
+          description + '_qa_profile_comparison.csv',
+          description + '_qa_summary.csv', 
+          description + '_qa_flag_analysis.csv'
+        ]
+      });
+    }
+    
+  } catch (error) {
+    print('❌ Error in QA Profile Comparison workflow: ' + error.toString());
+    if (errorCallback) {
+      errorCallback(error.toString());
+    }
+    throw error;
+  }
+}
+
+/**
+ * Execute single QA profile test for quick iteration
+ * Useful for testing specific configurations before full comparison
+ */
+function runSingleQAProfileTest(startDate, endDate, profileKey, glacierOutlines, region, successCallback, errorCallback) {
+  try {
+    var profile = config.QA_PROFILES[profileKey];
+    if (!profile) {
+      throw new Error('Invalid QA profile key: ' + profileKey);
+    }
+    
+    print('🧪 Testing single QA profile: ' + profile.name);
+    print('📋 Description: ' + profile.description);
+    print('📈 Expected gain: ' + profile.expectedGain);
+    print('⚠️ Risk level: ' + profile.risk);
+    
+    // Load and filter collection
+    var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA);
+    var filtered = glacierUtils.applyStandardFiltering(
+      collection, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
+    );
+    
+    // Process with specific QA profile
+    var createGlacierMask = glacierUtils.createGlacierMask;
+    var processed = filtered.map(function(image) {
+      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
+    });
+    
+    // Generate statistics
+    var description = exportUtils.generateExportDescription(
+      'qa_test_' + profileKey, startDate, endDate
+    );
+    
+    exportUtils.exportIndividualMethod(
+      processed, 'broadband_albedo_ren_masked', profile.name, region, description
+    );
+    
+    // Print observation count for immediate feedback
+    processed.size().evaluate(function(count) {
+      print('📊 ' + profile.name + ' profile results: ' + count + ' valid observations');
+    });
+    
+    if (successCallback) {
+      successCallback({
+        profile: profile,
+        description: description,
+        exportFile: description + '_' + profile.name + '.csv'
+      });
+    }
+    
+  } catch (error) {
+    print('❌ Error in single QA profile test: ' + error.toString());
+    if (errorCallback) {
+      errorCallback(error.toString());
+    }
+    throw error;
+  }
+}
+
+/**
+ * Execute enhanced QA profile comparison with quality assessment integration
+ * Combines QA filter optimization with post-processing quality controls
+ */
+function runEnhancedQAProfileComparison(startDate, endDate, glacierOutlines, region, qaOptions, successCallback, errorCallback) {
+  try {
+    qaOptions = qaOptions || {};
+    var enableQualityFiltering = qaOptions.enableQualityFiltering !== false; // Default true
+    var boundsOptions = qaOptions.boundsOptions || {
+      lowerBound: 0.05,
+      upperBound: 0.95,
+      enableTemporalFiltering: false,
+      temporalWindow: 16
+    };
+    
+    print('🔬 Starting Enhanced QA Profile Comparison with Quality Assessment...');
+    print('📅 Date range: ' + startDate + ' to ' + endDate);
+    print('📊 Analyzing 6 QA filter configurations + quality controls');
+    print('🔍 Quality filtering enabled: ' + enableQualityFiltering);
+    if (enableQualityFiltering) {
+      print('  • Albedo bounds: [' + boundsOptions.lowerBound + ', ' + boundsOptions.upperBound + ']');
+      if (boundsOptions.enableTemporalFiltering) {
+        print('  • Temporal filtering: ' + boundsOptions.temporalWindow + '-day window');
+      }
+    }
+    
+    // Load MOD09GA collection for Ren method
+    var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA);
+    
+    // Apply standard filtering (without QA - that will be done per profile)
+    var filtered = glacierUtils.applyStandardFiltering(
+      collection, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
+    );
+    
+    // Create glacier mask function
+    var glacierImage = ee.Image(config.GLACIER_ASSET);
+    var createGlacierMask = glacierUtils.createGlacierMask;
+    
+    // Generate export description
+    var description = exportUtils.generateExportDescription(
+      'qa_enhanced_analysis', startDate, endDate
+    );
+    
+    // Export enhanced QA profile comparison with quality assessment
+    exportUtils.exportQAProfileComparisonWithQA(
+      filtered, glacierOutlines, createGlacierMask, region, description, {
+        enableQualityFiltering: enableQualityFiltering,
+        boundsOptions: boundsOptions
+      }
+    );
+    
+    // Export detailed QA flag analysis for debugging
+    exportUtils.exportQAFlagAnalysis(filtered, region, description);
+    
+    print('✅ Enhanced QA Profile Comparison workflow initiated');
+    print('📁 Expected outputs:');
+    print('  • ' + description + '_qa_profile_enhanced.csv (detailed observations with QA metrics)');
+    print('  • ' + description + '_qa_enhanced_summary.csv (summary with quality metrics)');
+    print('  • ' + description + '_quality_assessment.csv (quality assessment statistics)');
+    print('  • ' + description + '_qa_flag_analysis.csv (QA flag distribution)');
+    
+    if (successCallback) {
+      successCallback({
+        description: description,
+        profileCount: 6,
+        qualityAssessmentEnabled: enableQualityFiltering,
+        expectedOutputs: [
+          description + '_qa_profile_enhanced.csv',
+          description + '_qa_enhanced_summary.csv',
+          description + '_quality_assessment.csv',
+          description + '_qa_flag_analysis.csv'
+        ]
+      });
+    }
+    
+  } catch (error) {
+    print('❌ Error in Enhanced QA Profile Comparison workflow: ' + error.toString());
+    if (errorCallback) {
+      errorCallback(error.toString());
+    }
+    throw error;
+  }
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -330,3 +539,6 @@ exports.processMCD43A3Method = processMCD43A3Method;
 exports.validateWorkflowParameters = validateWorkflowParameters;
 exports.getWorkflowStatus = getWorkflowStatus;
 exports.performCorrelationAnalysis = performCorrelationAnalysis;
+exports.runQAProfileComparison = runQAProfileComparison;
+exports.runSingleQAProfileTest = runSingleQAProfileTest;
+exports.runEnhancedQAProfileComparison = runEnhancedQAProfileComparison;

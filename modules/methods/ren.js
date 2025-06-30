@@ -21,34 +21,48 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 /**
  * Complete quality filtering following Ren et al. (2021/2023) methodology
- * Includes all QA filters for perfect scientific alignment
+ * Now supports configurable QA profiles for comparative analysis
+ * 
+ * @param {ee.Image} image - Input MODIS image
+ * @param {Object} qaProfile - QA configuration profile (optional, defaults to strict)
+ * @returns {ee.Image} Quality-filtered image
  */
-function qualityFilter(image) {
+function qualityFilter(image, qaProfile) {
+  // Default to strict profile if none provided
+  qaProfile = qaProfile || config.QA_PROFILES.strict;
+  
   // Use state_1km QA band for Ren et al. complete filtering
   var qa = image.select('state_1km');
   
-  // 1. Cloud State (Bits 0-1): Accept "Clear" (00) and "Probably Clear" (01)
-  // This is a moderately relaxed approach suitable for snow/ice surfaces
-  var clearSky = qa.bitwiseAnd(0x3).lte(1);
+  // 1. Cloud State (Bits 0-1): Configurable acceptance levels
+  var clearSky = qa.bitwiseAnd(0x3).lte(qaProfile.cloudState);
   
-  // 2. Cloud Shadow (Bit 2): Be strict - reject pixels with cloud shadow
-  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
+  // 2. Cloud Shadow (Bit 2): Configurable shadow tolerance
+  var shadowFree = qaProfile.allowShadow ? 
+    ee.Image(1) : qa.bitwiseAnd(1<<2).eq(0);
   
-  // 3. Cirrus Detection (Bits 8-9): Be strict - reject pixels with cirrus
-  var noCirrus = qa.bitwiseAnd(1<<8).eq(1);
+  // 3. Cirrus Detection (Bit 8): Configurable cirrus tolerance
+  var noCirrus = qaProfile.allowCirrus ? 
+    ee.Image(1) : qa.bitwiseAnd(1<<8).eq(0);
   
-  // 4. Internal Cloud Mask (Bit 10): Be strict - reject internal cloudy pixels
-  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
+  // 4. Internal Cloud Mask (Bit 10): Configurable internal cloud tolerance
+  var clearInternal = qaProfile.allowInternalCloud ? 
+    ee.Image(1) : qa.bitwiseAnd(1<<10).eq(0);
   
-  // 5. Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00)
+  // 5. Snow/ice confidence (bits 12-13): Configurable confidence levels
   var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
-  var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3));
+  var validSnowIce = ee.Image(0); // Start with reject all
   
-  // 6. Solar zenith angle constraint: relaxed to < 80°
+  // Build snow/ice confidence mask based on profile
+  for (var i = 0; i < qaProfile.snowIceConfidence.length; i++) {
+    validSnowIce = validSnowIce.or(snowIceConf.eq(qaProfile.snowIceConfidence[i]));
+  }
+  
+  // 6. Solar zenith angle constraint: Configurable threshold
   var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(80);
+  var lowSolarZenith = solarZenith.lt(qaProfile.solarZenithMax);
   
-  // Combine all evidence-based QA filters
+  // Combine all configurable QA filters
   var qualityMask = clearSky
     .and(shadowFree)
     .and(noCirrus)
@@ -56,7 +70,16 @@ function qualityFilter(image) {
     .and(validSnowIce)
     .and(lowSolarZenith);
   
-  return image.updateMask(qualityMask);
+  // Add QA profile information as image properties for tracking
+  var maskedImage = image.updateMask(qualityMask);
+  maskedImage = maskedImage.set({
+    'qa_profile_name': qaProfile.name,
+    'qa_profile_description': qaProfile.description,
+    'qa_expected_gain': qaProfile.expectedGain,
+    'qa_risk_level': qaProfile.risk
+  });
+  
+  return maskedImage;
 }
 
 // ============================================================================
@@ -313,11 +336,17 @@ function computeBroadbandAlbedo(image) {
 
 /**
  * Complete Ren method processing pipeline - EXACT from full_script.js
- * Implements the complete 3-step methodology with all QA filters
+ * Implements the complete 3-step methodology with configurable QA filters
+ * 
+ * @param {ee.Image} image - Input MODIS image
+ * @param {ee.FeatureCollection} glacierOutlines - Glacier boundary polygons
+ * @param {Function} createGlacierMask - Glacier mask creation function
+ * @param {Object} qaProfile - QA configuration profile (optional)
+ * @returns {ee.Image} Processed image with Ren method albedo
  */
-function processRenMethod(image, glacierOutlines, createGlacierMask) {
+function processRenMethod(image, glacierOutlines, createGlacierMask, qaProfile) {
   // 1) QA & topography
-  var filtered   = qualityFilter(image);
+  var filtered   = qualityFilter(image, qaProfile);
   var topoImg    = topographyCorrection(filtered);
 
   // 2) Snow/ice classification
