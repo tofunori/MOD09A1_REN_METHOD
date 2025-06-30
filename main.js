@@ -50,7 +50,7 @@ function main() {
   print('');
   
   // Initialize UI with callback functions
-  uiSystem = uiSetup.initializeUI(processCallback, exportCallback, qaAnalysisCallback);
+  uiSystem = uiSetup.initializeUI(processCallback, exportCallback);
   isInitialized = true;
   
   print('✅ System ready - Use control panel to start comparison');
@@ -138,49 +138,6 @@ function exportCallback(startDate, endDate, successCallback, errorCallback) {
   }
 }
 
-/**
- * QA Profile Analysis callback for UI
- */
-function qaAnalysisCallback(startDate, endDate, successCallback, errorCallback) {
-  try {
-    print('🔬 Starting QA Profile Analysis...');
-    print('📅 Date range: ' + startDate + ' to ' + endDate);
-    
-    // Get glacier data
-    var glacierData = uiSystem.glacierData;
-    
-    // Run QA profile comparison (generates 5 CSV files)
-    comparisonWorkflow.runQAProfileComparison(
-      startDate,
-      endDate,
-      glacierData.outlines,
-      glacierData.geometry,
-      function(results) {
-        // Success: QA analysis completed
-        print('✅ QA Profile Analysis completed successfully!');
-        print('📁 Generated files:');
-        results.expectedOutputs.forEach(function(filename) {
-          print('  • ' + filename);
-        });
-        
-        // Update UI
-        uiSetup.updateUIAfterQAAnalysis(uiSystem.components, results);
-        if (successCallback) successCallback(results);
-      },
-      function(error) {
-        // Error: QA analysis failed
-        print('❌ QA Profile Analysis failed: ' + error);
-        uiSetup.updateUIWithError(uiSystem.components, 'QA Analysis failed: ' + error);
-        if (errorCallback) errorCallback(error);
-      }
-    );
-    
-  } catch (error) {
-    print('❌ Error in QA Analysis callback: ' + error.toString());
-    uiSetup.updateUIWithError(uiSystem.components, error.toString());
-    if (errorCallback) errorCallback(error);
-  }
-}
 
 // ============================================================================
 // INITIALIZATION

@@ -64,7 +64,6 @@ function createMainInterface() {
   var buttons = createActionButtons();
   panel.add(buttons.processButton);
   panel.add(buttons.exportButton);
-  panel.add(buttons.qaAnalysisButton);
 
   // Status label
   var statusLabel = ui.Label({
@@ -171,20 +170,9 @@ function createActionButtons() {
     }
   });
 
-  var qaAnalysisButton = ui.Button({
-    label: 'Simple Albedo Export',
-    style: {
-      backgroundColor: '#ff9800',
-      color: 'white',
-      margin: '5px 0px',
-      width: '300px'
-    }
-  });
-
   return {
     processButton: processButton,
-    exportButton: exportButton,
-    qaAnalysisButton: qaAnalysisButton
+    exportButton: exportButton
   };
 }
 
@@ -195,7 +183,7 @@ function createActionButtons() {
 /**
  * Setup event handlers for the UI components
  */
-function setupEventHandlers(uiComponents, processCallback, exportCallback, qaAnalysisCallback) {
+function setupEventHandlers(uiComponents, processCallback, exportCallback) {
   // Process button event handler
   uiComponents.buttons.processButton.onClick(function() {
     var startDate = uiComponents.dateControls.startBox.getValue();
@@ -232,23 +220,6 @@ function setupEventHandlers(uiComponents, processCallback, exportCallback, qaAna
     });
   });
 
-  // Simple Albedo Export button event handler
-  uiComponents.buttons.qaAnalysisButton.onClick(function() {
-    var startDate = uiComponents.dateControls.startBox.getValue();
-    var endDate = uiComponents.dateControls.endBox.getValue();
-
-    // Update status
-    updateStatus(uiComponents.statusLabel, '📊 Exporting simple albedo statistics...', 'orange');
-
-    // Call the QA analysis callback (reusing same callback but with simpler functionality)
-    qaAnalysisCallback(startDate, endDate, function(results) {
-      // Success callback
-      updateStatus(uiComponents.statusLabel, '✅ Simple albedo export complete! Check CSV for results.', 'green');
-    }, function(error) {
-      // Error callback
-      updateStatus(uiComponents.statusLabel, '❌ Albedo export failed: ' + error, 'red');
-    });
-  });
 }
 
 /**
