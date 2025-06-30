@@ -172,7 +172,7 @@ function createActionButtons() {
   });
 
   var qaAnalysisButton = ui.Button({
-    label: 'QA Profile Analysis (5 CSVs)',
+    label: 'QA Profile Analysis (1 CSV)',
     style: {
       backgroundColor: '#ff9800',
       color: 'white',
@@ -238,12 +238,12 @@ function setupEventHandlers(uiComponents, processCallback, exportCallback, qaAna
     var endDate = uiComponents.dateControls.endBox.getValue();
 
     // Update status
-    updateStatus(uiComponents.statusLabel, '🔬 Running QA Profile Analysis (5 CSVs)...', 'orange');
+    updateStatus(uiComponents.statusLabel, '🔬 Running QA Profile Analysis (1 CSV)...', 'orange');
 
     // Call the QA analysis callback
     qaAnalysisCallback(startDate, endDate, function(results) {
       // Success callback
-      updateStatus(uiComponents.statusLabel, '✅ QA Analysis complete! Generated ' + results.expectedOutputs.length + ' CSV files.', 'green');
+      updateStatus(uiComponents.statusLabel, '✅ QA Analysis complete! Generated 1 comprehensive CSV file.', 'green');
     }, function(error) {
       // Error callback
       updateStatus(uiComponents.statusLabel, '❌ QA Analysis failed: ' + error, 'red');

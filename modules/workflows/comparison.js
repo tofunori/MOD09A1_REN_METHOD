@@ -349,93 +349,14 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
       'qa_profile_analysis', startDate, endDate
     );
     
-    // Export comprehensive QA profile comparison (main file)
+    // Export comprehensive QA profile comparison - SINGLE CSV with everything
     exportUtils.exportQAProfileComparison(
       filtered, glacierOutlines, createGlacierMask, region, description
     );
     
-    // Export detailed QA flag analysis for debugging
-    exportUtils.exportQAFlagAnalysis(filtered, region, description);
-    
-    // Export additional analysis files
-    print('📊 Generating additional analysis exports...');
-    
-    // Create temporary results for additional exports
-    var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
-    var allResults = ee.FeatureCollection([]);
-    
-    // Process collection with each QA profile to generate data for other exports
-    profiles.forEach(function(profileKey) {
-      var profile = config.QA_PROFILES[profileKey];
-      
-      var processed = filtered.map(function(image) {
-        return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
-      });
-      
-      var profileStats = processed.map(function(image) {
-        var bandNames = image.bandNames();
-        var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-        var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-        var hasAnyAlbedoBand = ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-        
-        var stats = ee.Algorithms.If(
-          hasAnyAlbedoBand,
-          ee.Image(
-            ee.Algorithms.If(
-              hasMaskedBand,
-              image.select('broadband_albedo_ren_masked'),
-              image.select('broadband_albedo_ren')
-            )
-          ).rename('albedo').reduceRegion({
-            reducer: ee.Reducer.mean()
-              .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
-              .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
-              .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
-              .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
-            geometry: region,
-            scale: config.EXPORT_CONFIG.scale,
-            maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
-            bestEffort: config.EXPORT_CONFIG.bestEffort,
-            tileScale: config.EXPORT_CONFIG.tileScale
-          }),
-          ee.Dictionary({
-            'albedo_mean': null, 'albedo_stdDev': null, 'albedo_min': null,
-            'albedo_max': null, 'albedo_count': null
-          })
-        );
-
-        var statsDict = ee.Dictionary(stats);
-        var date = ee.Date(image.get('system:time_start'));
-        
-        return ee.Feature(null, {
-          'albedo_mean': statsDict.get('albedo_mean', null),
-          'albedo_std': statsDict.get('albedo_stdDev', null),
-          'albedo_min': statsDict.get('albedo_min', null),
-          'albedo_max': statsDict.get('albedo_max', null),
-          'pixel_count': statsDict.get('albedo_count', null),
-          'qa_profile': profile.name,
-          'qa_description': profile.description,
-          'qa_expected_gain': profile.expectedGain,
-          'qa_risk_level': profile.risk
-        });
-      }).filter(ee.Filter.notNull(['albedo_mean']));
-      
-      allResults = allResults.merge(profileStats);
-    });
-    
-    // Export quality assessment statistics
-    exportUtils.generateQualityAssessmentStats(allResults, description);
-    
-    // Export enhanced summary
-    exportUtils.generateEnhancedQAProfileSummary(allResults, description);
-    
     print('✅ QA Profile Comparison workflow initiated');
-    print('📁 Expected outputs:');
-    print('  • ' + description + '_qa_profile_comparison.csv (main detailed observations)');
-    print('  • ' + description + '_qa_summary.csv (profile summary statistics)');
-    print('  • ' + description + '_quality_assessment.csv (quality assessment metrics)');
-    print('  • ' + description + '_qa_enhanced_summary.csv (enhanced summary with quality metrics)');
-    print('  • ' + description + '_qa_flag_analysis.csv (QA flag distribution)');
+    print('📁 Single CSV output:');
+    print('  • ' + description + '_qa_complete_analysis.csv (all QA profiles, stats, and quality metrics)');
     
     if (successCallback) {
       successCallback({
@@ -443,11 +364,7 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
         profileCount: 6,
         qualityAssessmentEnabled: true,
         expectedOutputs: [
-          description + '_qa_profile_comparison.csv',
-          description + '_qa_summary.csv',
-          description + '_quality_assessment.csv',
-          description + '_qa_enhanced_summary.csv',
-          description + '_qa_flag_analysis.csv'
+          description + '_qa_complete_analysis.csv'
         ]
       });
     }

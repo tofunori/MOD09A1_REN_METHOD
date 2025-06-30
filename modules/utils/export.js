@@ -305,11 +305,11 @@ function generateExportDescription(prefix, startDate, endDate) {
 // ============================================================================
 
 /**
- * Export comprehensive QA profile comparison for Ren method
- * Generates side-by-side analysis of all QA filter configurations
+ * Export comprehensive QA profile comparison for Ren method - SINGLE CSV with all stats
+ * Generates side-by-side analysis of all QA filter configurations in one file
  */
 function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
-  print('📊 Starting QA Profile Comparative Analysis...');
+  print('📊 Starting QA Profile Comparative Analysis - SINGLE CSV...');
   
   var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
   var allResults = ee.FeatureCollection([]);
@@ -367,21 +367,53 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
 
       var statsDict = ee.Dictionary(stats);
       var date = ee.Date(image.get('system:time_start'));
+      var albedoMean = statsDict.get('albedo_mean', null);
+      var pixelCount = statsDict.get('albedo_count', null);
+      
+      // Quality assessment flags
+      var validRange = ee.Algorithms.If(
+        ee.Algorithms.IsEqual(albedoMean, null),
+        null,
+        ee.Number(albedoMean).gte(0.05).and(ee.Number(albedoMean).lte(0.95))
+      );
+      
+      var reasonableVariability = ee.Algorithms.If(
+        ee.Algorithms.IsEqual(statsDict.get('albedo_stdDev', null), null),
+        null,
+        ee.Number(statsDict.get('albedo_stdDev', null)).lt(0.25)
+      );
+      
+      var sufficientData = ee.Algorithms.If(
+        ee.Algorithms.IsEqual(pixelCount, null),
+        null,
+        ee.Number(pixelCount).gte(100)
+      );
       
       return ee.Feature(null, {
-        'albedo_mean':  statsDict.get('albedo_mean', null),
+        // Basic observation data
+        'albedo_mean':  albedoMean,
         'albedo_std':   statsDict.get('albedo_stdDev', null),
         'albedo_min':   statsDict.get('albedo_min', null),
         'albedo_max':   statsDict.get('albedo_max', null),
-        'pixel_count':  statsDict.get('albedo_count', null),
+        'pixel_count':  pixelCount,
         'date':         date.format('YYYY-MM-dd'),
         'year':         date.get('year'),
         'month':        date.get('month'),
         'day_of_year':  date.getRelative('day', 'year'),
+        // QA profile info
         'qa_profile':   profile.name,
         'qa_description': profile.description,
         'qa_expected_gain': profile.expectedGain,
         'qa_risk_level': profile.risk,
+        // QA configuration details
+        'qa_cloud_state': profile.cloudState,
+        'qa_allow_shadow': profile.allowShadow,
+        'qa_allow_cirrus': profile.allowCirrus,
+        'qa_solar_zenith_max': profile.solarZenithMax,
+        // Quality assessment flags
+        'qa_valid_albedo_range': validRange,
+        'qa_reasonable_variability': reasonableVariability,
+        'qa_sufficient_data': sufficientData,
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -389,19 +421,17 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
     allResults = allResults.merge(profileStats);
   });
   
-  // Export comprehensive comparison CSV
+  // Export comprehensive comparison CSV - SINGLE FILE with everything
   Export.table.toDrive({
     collection: allResults,
-    description: description + '_qa_profile_comparison',
+    description: description + '_qa_complete_analysis',
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
   });
   
-  print('✅ QA Profile Comparison export initiated: ' + description + '_qa_profile_comparison');
+  print('✅ QA Complete Analysis export initiated: ' + description + '_qa_complete_analysis');
+  print('📁 Single CSV with all QA profiles, stats, and quality metrics');
   print('📁 Check Google Drive folder: albedo_method_comparison');
-  
-  // Generate summary statistics
-  generateQAProfileSummary(allResults, description);
 }
 
 /**
