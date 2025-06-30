@@ -27,8 +27,8 @@ function qualityFilter(image) {
   // Use state_1km QA band for Ren et al. complete filtering
   var qa = image.select('state_1km');
   
-  // Cloud state (bits 0-1): only accept clear sky (00) per Ren et al.
-  var clearSky = qa.bitwiseAnd(3).eq(0); // Clear sky = 00
+  // Cloud state (bits 0-1): accept clear (00) and probably clear (01) to keep more scenes
+  var clearSky = qa.bitwiseAnd(3).lte(1); // 0 or 1
   
   // Internal cloud mask (bit 10): reject internal cloudy pixels per Ren et al.
   var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
