@@ -5,7 +5,7 @@
  * used across different MODIS albedo retrieval methods.
  * 
  * Author: Modular Comparison Framework
- * Date: 2025-06-29
+ * Date: 2025-06-30
  */
 
 // ============================================================================

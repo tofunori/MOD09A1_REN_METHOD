@@ -5,8 +5,14 @@
  * Uses kernel-driven BRDF model albedo with comprehensive QA filtering
  * 
  * Author: Modular Comparison Framework
- * Date: 2025-06-29
+ * Date: 2025-06-30
  */
+
+// ============================================================================
+// MODULE IMPORTS
+// ============================================================================
+
+var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 // ============================================================================
 // QUALITY FILTERING CONFIGURATION
@@ -18,7 +24,6 @@
  */
 var QA_CONFIG = {
   // Accept both full and magnitude BRDF inversions (QA 0 or 1)
-  USE_FULL_INVERSION_ONLY: false,
   ACCEPT_QA_0_AND_1: true,
   
   // Mandatory Quality band filtering
@@ -117,8 +122,9 @@ function processMCD43A3(image, glacierOutlines) {
 }
 
 // ============================================================================
-// EXPORTS FOR USE IN MAIN SCRIPT
+// EXPORTS
 // ============================================================================
 
-// Export the main processing function
 exports.processMCD43A3 = processMCD43A3;
+exports.createMCD43A3QualityMask = createMCD43A3QualityMask;
+exports.createAdvancedQualityMask = createAdvancedQualityMask;

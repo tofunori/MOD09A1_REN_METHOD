@@ -1,8 +1,7 @@
 /**
- * GUI Components for Modular MODIS Albedo Comparison
+ * UI Controls Module
  * 
- * This module contains all user interface components, event handlers,
- * and user interaction logic for the albedo comparison tool.
+ * Creates and manages user interface components and controls
  * 
  * Author: Modular Comparison Framework
  * Date: 2025-06-30
@@ -14,7 +13,6 @@
 
 /**
  * Create the main UI panel with all controls
- * @returns {Object} Object containing panel and all UI controls
  */
 function createMainInterface() {
   // Create main UI Panel
@@ -40,7 +38,7 @@ function createMainInterface() {
 
   // Description
   var description = ui.Label({
-    value: '🏗️ MODULAR ARCHITECTURE\n\nCompare three MODIS albedo methods:\n1. MOD09A1 Ren Method (Complete)\n2. MOD10A1 Snow Albedo (Advanced QA)\n3. MCD43A3 BRDF/Albedo (Collection 6.1)\n\n📁 Structure: /methods/, /utils/, /config/\n💾 CSV EXPORT: Comprehensive statistics\n🔥 MELT SEASON: Jun-Sep only',
+    value: '🏗️ MODULAR ARCHITECTURE\n\nCompare three MODIS albedo methods:\n1. MOD09A1 Ren Method (Complete)\n2. MOD10A1 Snow Albedo (Advanced QA)\n3. MCD43A3 BRDF/Albedo (Collection 6.1)\n\n📁 Structure: /modules/{methods,ui,utils,workflows}\n💾 CSV EXPORT: Comprehensive statistics\n🔥 MELT SEASON: Jun-Sep only',
     style: {
       fontSize: '12px',
       margin: '0px 0px 10px 0px'
@@ -69,7 +67,7 @@ function createMainInterface() {
 
   // Status label
   var statusLabel = ui.Label({
-    value: '🏗️ MODULAR READY: Clean separation of GUI, Map, and Processing!',
+    value: '🏗️ MODULAR READY: Clean modules/ architecture with .js paths!',
     style: {
       fontSize: '11px',
       color: 'blue',
@@ -92,7 +90,6 @@ function createMainInterface() {
 
 /**
  * Create date input controls
- * @returns {Object} Date control elements
  */
 function createDateControls() {
   var startDateLabel = ui.Label('Start Date (YYYY-MM-DD):');
@@ -119,7 +116,6 @@ function createDateControls() {
 
 /**
  * Create method selection checkboxes
- * @returns {Object} Method selection controls
  */
 function createMethodControls() {
   var methodsLabel = ui.Label('Methods to Compare:');
@@ -152,7 +148,6 @@ function createMethodControls() {
 
 /**
  * Create action buttons (Process and Export)
- * @returns {Object} Button elements
  */
 function createActionButtons() {
   var processButton = ui.Button({
@@ -187,9 +182,6 @@ function createActionButtons() {
 
 /**
  * Setup event handlers for the UI components
- * @param {Object} uiComponents - Object containing all UI components
- * @param {Function} processCallback - Function to call when processing
- * @param {Function} exportCallback - Function to call when exporting
  */
 function setupEventHandlers(uiComponents, processCallback, exportCallback) {
   // Process button event handler
@@ -231,9 +223,6 @@ function setupEventHandlers(uiComponents, processCallback, exportCallback) {
 
 /**
  * Update status label with message and color
- * @param {ui.Label} statusLabel - Status label element
- * @param {string} message - Status message
- * @param {string} color - Color for the message
  */
 function updateStatus(statusLabel, message, color) {
   statusLabel.setValue(message);
@@ -246,8 +235,6 @@ function updateStatus(statusLabel, message, color) {
 
 /**
  * Get the current configuration from UI controls
- * @param {Object} uiComponents - Object containing all UI components
- * @returns {Object} Current configuration
  */
 function getCurrentConfig(uiComponents) {
   return {
@@ -263,9 +250,6 @@ function getCurrentConfig(uiComponents) {
 
 /**
  * Validate user inputs
- * @param {string} startDate - Start date string
- * @param {string} endDate - End date string
- * @returns {Object} Validation result
  */
 function validateInputs(startDate, endDate) {
   var errors = [];
@@ -291,10 +275,9 @@ function validateInputs(startDate, endDate) {
 }
 
 // ============================================================================
-// EXPORTS FOR USE IN MAIN SCRIPT
+// EXPORTS
 // ============================================================================
 
-// Export functions for use in main script
 exports.createMainInterface = createMainInterface;
 exports.setupEventHandlers = setupEventHandlers;
 exports.updateStatus = updateStatus;

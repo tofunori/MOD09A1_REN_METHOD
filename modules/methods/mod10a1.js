@@ -2,17 +2,23 @@
  * MOD10A1 Snow Albedo Method Implementation
  * 
  * Advanced implementation using MODIS MOD10A1 with comprehensive QA filtering
- * COPIED from your sophisticated MODIS_Albedo project filtering system
+ * Enhanced with sophisticated QA filtering from MODIS_Albedo project
  * 
  * Author: Modular Comparison Framework
- * Date: 2025-06-29
+ * Date: 2025-06-30
  */
 
 // ============================================================================
-// QA CONFIGURATION (copied from your MODIS_Albedo project)
+// MODULE IMPORTS
 // ============================================================================
 
-// Standard QA configuration from your config.js
+var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+
+// ============================================================================
+// QA CONFIGURATION (from MODIS_Albedo project)
+// ============================================================================
+
+// Standard QA configuration
 var QA_CONFIG = {
   STANDARD: {
     basicLevel: 'good',                    // QA level: 'best'(0), 'good'(0-1), 'ok'(0-2), 'all'(0-3)
@@ -40,12 +46,11 @@ var QA_CONFIG = {
 };
 
 // ============================================================================
-// QUALITY FILTERING FUNCTIONS (copied from your qa.js)
+// QUALITY FILTERING FUNCTIONS
 // ============================================================================
 
 /**
  * Create Basic QA mask based on quality level
- * COPIED from your qa.js getBasicQAMask function
  */
 function getBasicQAMask(img, level) {
   var basicQA = img.select('NDSI_Snow_Cover_Basic_QA');
@@ -71,7 +76,6 @@ function getBasicQAMask(img, level) {
 
 /**
  * Create Algorithm Flags QA mask based on flag configuration
- * COPIED from your qa.js getAlgorithmFlagsMask function
  */
 function getAlgorithmFlagsMask(img, flags) {
   var algFlags = img.select('NDSI_Snow_Cover_Algorithm_Flags_QA').uint8();
@@ -91,7 +95,6 @@ function getAlgorithmFlagsMask(img, flags) {
 
 /**
  * Create comprehensive quality mask combining Basic QA and Algorithm Flags
- * COPIED from your qa.js createComprehensiveQualityMask function
  */
 function createComprehensiveQualityMask(img, qaConfig) {
   var basicMask = getBasicQAMask(img, qaConfig.basicLevel || 'good');
@@ -102,7 +105,6 @@ function createComprehensiveQualityMask(img, qaConfig) {
 
 /**
  * Create standard quality mask for exports (uses conservative configuration)
- * COPIED from your qa.js createStandardQualityMask function
  */
 function createStandardQualityMask(img) {
   return createComprehensiveQualityMask(img, QA_CONFIG.STANDARD);
@@ -114,10 +116,10 @@ function createStandardQualityMask(img) {
 
 /**
  * Process MOD10A1 snow data with ADVANCED QA FILTERING
- * Uses your sophisticated quality filtering from MODIS_Albedo project
+ * Uses sophisticated quality filtering from MODIS_Albedo project
  */
 function processMOD10A1(image, glacierOutlines) {
-  // Apply your sophisticated quality filtering
+  // Apply sophisticated quality filtering
   var qualityMask = createStandardQualityMask(image);
   var filtered = image.updateMask(qualityMask);
   
@@ -126,7 +128,7 @@ function processMOD10A1(image, glacierOutlines) {
   var snowCover = filtered.select('NDSI_Snow_Cover')
     .clamp(0, 100).multiply(0.01); // Convert percentage to 0-1 range
   
-  // Also try to use Snow_Albedo_Daily_Tile if available (your project uses both)
+  // Also try to use Snow_Albedo_Daily_Tile if available
   var snowAlbedo = ee.Algorithms.If(
     image.bandNames().contains('Snow_Albedo_Daily_Tile'),
     filtered.select('Snow_Albedo_Daily_Tile').multiply(0.01), // Scale if available
@@ -140,8 +142,10 @@ function processMOD10A1(image, glacierOutlines) {
 }
 
 // ============================================================================
-// EXPORTS FOR USE IN MAIN SCRIPT
+// EXPORTS
 // ============================================================================
 
-// Export the main processing function
 exports.processMOD10A1 = processMOD10A1;
+exports.createStandardQualityMask = createStandardQualityMask;
+exports.getBasicQAMask = getBasicQAMask;
+exports.getAlgorithmFlagsMask = getAlgorithmFlagsMask;
