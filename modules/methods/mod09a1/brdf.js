@@ -3,7 +3,6 @@
  * Copied from modules/methods/ren/brdf.js.
  */
 
-var ee = require('users/google/earthengine:legacy');
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 function applyBRDFAnisotropicCorrection(image, surfaceType) {

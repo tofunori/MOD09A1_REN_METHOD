@@ -1,5 +1,3 @@
-var ee = require('users/google/earthengine:legacy');
-
 /*
  * QA helper for MOD10A1 method.
  * Contains QA_CONFIG plus createStandardQualityMask / createRelaxedQualityMask helpers

@@ -3,15 +3,20 @@
  * Provides createMCD43A3QualityMask and createAdvancedQualityMask helpers.
  */
 
-var ee = require('users/google/earthengine:legacy');
-
+// Basic Quality Assessment configuration for MCD43A3 (Collection 6.1)
+// Exposed for downstream modules that may want to inspect the defaults.
 var QA_CONFIG = {
+  // Accept both full (0) and magnitude (1) BRDF inversions
   ACCEPT_QA_0_AND_1: true,
+
+  // Mandatory QA band names present in MCD43A3
   MANDATORY_QA_BANDS: [
     'BRDF_Albedo_Band_Mandatory_Quality_shortwave',
     'BRDF_Albedo_Band_Mandatory_Quality_vis',
     'BRDF_Albedo_Band_Mandatory_Quality_nir'
   ],
+
+  // Flag values for convenience (currently informational only here)
   QUALITY_FLAGS: {
     FULL_INVERSION: 0,
     MAGNITUDE_INVERSION: 1
