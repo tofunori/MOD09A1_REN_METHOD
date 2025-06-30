@@ -40,6 +40,27 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
  * - snowIceConf: gt(0) accepts any snow/ice detection; gte(2) for higher confidence only
  * - lowSZA: <70° standard for MODIS; <60° for higher quality, <80° for more data
  * 
+ * RELAXED FILTERING EXAMPLES (for more data retention):
+ * 
+ * Moderate Relaxation:
+ * - clearSky: qa.bitwiseAnd(0x3).lte(1)     // Allow clear + mixed conditions
+ * - noCirrus: qa.bitwiseAnd(1 << 8).lte(1)  // Allow small cirrus
+ * - lowSZA: solarZenith.lt(80)              // Higher solar zenith angle
+ * 
+ * Maximum Data Retention:
+ * - clearSky: qa.bitwiseAnd(0x3).lte(2)     // Allow clear + cloudy + mixed
+ * - noCirrus: qa.bitwiseAnd(1 << 8).lte(2)  // Allow small + average cirrus
+ * - Comment out clearInternal filter        // Remove internal cloud filtering
+ * - validSnowIce: snowIceConf.gte(0)        // Accept even no snow/ice detection
+ * - lowSZA: solarZenith.lt(85)              // Very high solar zenith angle
+ * 
+ * Glacier-Optimized Relaxed:
+ * - clearSky: qa.bitwiseAnd(0x3).lte(1)     // Clear + mixed
+ * - shadowFree: Keep eq(0) (critical)       // Shadows bad for glaciers
+ * - noCirrus: Keep eq(0) (critical)         // Cirrus affects albedo accuracy
+ * - Comment out clearInternal filter        // More data retention
+ * - lowSZA: solarZenith.lt(75)              // Slightly relaxed solar angle
+ * 
  * Collection 6.1 Improvements:
  * - Enhanced snow/cloud/salt pan discrimination
  * - Better cirrus detection algorithm
