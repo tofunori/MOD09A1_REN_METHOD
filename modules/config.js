@@ -55,10 +55,11 @@ var snowCoefficients = {
 // TOPOGRAPHIC DATA CONFIGURATION
 // ============================================================================
 
-// Load DEM for topographic correction — use ALOS World 3D-30 m (AW3D30)
-// to stay consistent with Ren et al. 2021/2023, which derived slope and
-// aspect from this dataset.
-var dem = ee.Image('JAXA/ALOS/AW3D30/V4_1');
+// AW3D30 v4.1 is ingested as an *ImageCollection* in GEE.  Build a single DEM
+// by mosaicking the DSM band and keep its native projection for terrain ops.
+var demCollection = ee.ImageCollection('JAXA/ALOS/AW3D30/V4_1');
+var dem = demCollection.select('DSM').mosaic()
+  .setDefaultProjection(demCollection.first().select('DSM').projection());
 var slope = ee.Terrain.slope(dem);
 var aspect = ee.Terrain.aspect(dem);
 
