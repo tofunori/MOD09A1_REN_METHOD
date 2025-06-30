@@ -77,10 +77,15 @@ def process_ren_method(image: ee.Image,
     # 5) Broadband albedo
     with_bb = compute_broadband_albedo(with_nb)
     
+    # Check if broadband albedo computation was successful
+    if with_bb is None:
+        print("Warning: Broadband albedo computation failed")
+        return filtered  # Return original filtered image if processing fails
+    
     # 6) Glacier mask
-    glacier_mask_raw = create_glacier_mask_func(glacier_outlines, None)
-    # Reproject mask using a single-band projection to avoid mixed-projection errors
-    ref_proj = with_bb.select('broadband_albedo_ren').projection()
+    glacier_mask_raw = create_glacier_mask_func(glacier_outlines, filtered)  # Use filtered image as reference
+    # Reproject mask using the input image projection to avoid mixed-projection errors
+    ref_proj = filtered.projection()
     glacier_mask = glacier_mask_raw.reproject(ref_proj)
     
     masked_albedo = with_bb.select('broadband_albedo_ren').updateMask(glacier_mask)

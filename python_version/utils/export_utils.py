@@ -136,18 +136,21 @@ def _process_method_collection(collection: ee.ImageCollection,
                     print(f'  ⚠️ Band {albedo_band} not found in image {i}, skipping...')
                     continue
                 
-                # Calculate statistics
+                # Calculate statistics with simplified region to avoid asset reference issues
+                # Use a simple bounding box instead of complex geometry
+                bounds = region.bounds()
+                
                 stats = image.select(albedo_band).reduceRegion(
                     reducer=ee.Reducer.mean()
                         .combine(ee.Reducer.stdDev(), '', True)
                         .combine(ee.Reducer.min(), '', True)
                         .combine(ee.Reducer.max(), '', True)
                         .combine(ee.Reducer.count(), '', True),
-                    geometry=region,
+                    geometry=bounds,  # Use bounds instead of complex region
                     scale=scale,
                     maxPixels=max_pixels,
-                    bestEffort=EXPORT_CONFIG['bestEffort'],
-                    tileScale=EXPORT_CONFIG['tileScale']
+                    bestEffort=True,
+                    tileScale=1  # Simplified tile scale
                 ).getInfo()
                 
                 # Get date information
