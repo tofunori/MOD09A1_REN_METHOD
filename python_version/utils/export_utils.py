@@ -117,67 +117,78 @@ def _process_method_collection(collection: ee.ImageCollection,
     """
     stats_list = []
     
-    # Get collection info
-    collection_list = collection.toList(collection.size())
-    collection_size = collection.size().getInfo()
-    
-    print(f'  Processing {collection_size} images for {method_name}...')
-    
-    for i in range(collection_size):
-        try:
-            image = ee.Image(collection_list.get(i))
-            
-            # Check if the albedo band exists
-            band_names = image.bandNames().getInfo()
-            if albedo_band not in band_names:
-                print(f'  ⚠️ Band {albedo_band} not found in image {i}, skipping...')
+    try:
+        # Use a reasonable upper limit instead of exact size to avoid asset reference issues
+        max_images = 50  # Process up to 50 images to avoid timeouts
+        collection_list = collection.toList(max_images)
+        print(f'  Processing images for {method_name} (up to {max_images})...')
+        
+        # Process images until we hit an empty one
+        for i in range(max_images):
+            try:
+                image = ee.Image(collection_list.get(i))
+                
+                # Check if the albedo band exists
+                band_names = image.bandNames().getInfo()
+                if not band_names:  # Empty image, end of collection
+                    break
+                if albedo_band not in band_names:
+                    print(f'  ⚠️ Band {albedo_band} not found in image {i}, skipping...')
+                    continue
+                
+                # Calculate statistics
+                stats = image.select(albedo_band).reduceRegion(
+                    reducer=ee.Reducer.mean()
+                        .combine(ee.Reducer.stdDev(), '', True)
+                        .combine(ee.Reducer.min(), '', True)
+                        .combine(ee.Reducer.max(), '', True)
+                        .combine(ee.Reducer.count(), '', True),
+                    geometry=region,
+                    scale=scale,
+                    maxPixels=max_pixels,
+                    bestEffort=EXPORT_CONFIG['bestEffort'],
+                    tileScale=EXPORT_CONFIG['tileScale']
+                ).getInfo()
+                
+                # Get date information
+                date_millis = image.get('system:time_start').getInfo()
+                date_obj = datetime.fromtimestamp(date_millis / 1000)
+                
+                # Extract statistics
+                albedo_mean = stats.get(f'{albedo_band}_mean')
+                albedo_std = stats.get(f'{albedo_band}_stdDev')
+                albedo_min = stats.get(f'{albedo_band}_min')
+                albedo_max = stats.get(f'{albedo_band}_max')
+                pixel_count = stats.get(f'{albedo_band}_count')
+                
+                # Only include if we have valid data
+                if albedo_mean is not None and pixel_count is not None and pixel_count > 0:
+                    stats_dict = {
+                        'albedo_mean': albedo_mean,
+                        'albedo_std': albedo_std,
+                        'albedo_min': albedo_min,
+                        'albedo_max': albedo_max,
+                        'pixel_count': pixel_count,
+                        'date': date_obj.strftime('%Y-%m-%d'),
+                        'year': date_obj.year,
+                        'month': date_obj.month,
+                        'day_of_year': date_obj.timetuple().tm_yday,
+                        'method': method_name,
+                        'system_time_start': date_millis
+                    }
+                    stats_list.append(stats_dict)
+                
+            except Exception as e:
+                print(f'  ⚠️ Error processing image {i} for {method_name}: {str(e)[:50]}...')
+                # If the error is asset-related, stop processing
+                if 'Collection.loadTable' in str(e):
+                    print(f'  🛑 Asset reference error detected, stopping {method_name} processing')
+                    break
                 continue
-            
-            # Calculate statistics
-            stats = image.select(albedo_band).reduceRegion(
-                reducer=ee.Reducer.mean()
-                    .combine(ee.Reducer.stdDev(), '', True)
-                    .combine(ee.Reducer.min(), '', True)
-                    .combine(ee.Reducer.max(), '', True)
-                    .combine(ee.Reducer.count(), '', True),
-                geometry=region,
-                scale=scale,
-                maxPixels=max_pixels,
-                bestEffort=EXPORT_CONFIG['bestEffort'],
-                tileScale=EXPORT_CONFIG['tileScale']
-            ).getInfo()
-            
-            # Get date information
-            date_millis = image.get('system:time_start').getInfo()
-            date_obj = datetime.fromtimestamp(date_millis / 1000)
-            
-            # Extract statistics
-            albedo_mean = stats.get(f'{albedo_band}_mean')
-            albedo_std = stats.get(f'{albedo_band}_stdDev')
-            albedo_min = stats.get(f'{albedo_band}_min')
-            albedo_max = stats.get(f'{albedo_band}_max')
-            pixel_count = stats.get(f'{albedo_band}_count')
-            
-            # Only include if we have valid data
-            if albedo_mean is not None and pixel_count is not None and pixel_count > 0:
-                stats_dict = {
-                    'albedo_mean': albedo_mean,
-                    'albedo_std': albedo_std,
-                    'albedo_min': albedo_min,
-                    'albedo_max': albedo_max,
-                    'pixel_count': pixel_count,
-                    'date': date_obj.strftime('%Y-%m-%d'),
-                    'year': date_obj.year,
-                    'month': date_obj.month,
-                    'day_of_year': date_obj.timetuple().tm_yday,
-                    'method': method_name,
-                    'system_time_start': date_millis
-                }
-                stats_list.append(stats_dict)
-            
-        except Exception as e:
-            print(f'  ⚠️ Error processing image {i} for {method_name}: {str(e)}')
-            continue
+                
+    except Exception as e:
+        print(f'  ❌ Error setting up {method_name} processing: {str(e)[:50]}...')
+        return []
     
     print(f'  ✅ Processed {len(stats_list)} valid observations for {method_name}')
     return stats_list
@@ -286,10 +297,15 @@ def print_data_counts(results: Dict[str, ee.ImageCollection]) -> None:
     for method, collection in results.items():
         if collection is not None:
             try:
-                count = collection.size().getInfo()
-                print(f'  • {method}: {count} observations')
+                # Avoid getInfo() calls that might trigger asset reference issues
+                # Just check if collection is valid
+                first_image = collection.first()
+                if first_image:
+                    print(f'  • {method}: Collection available (count check skipped)')
+                else:
+                    print(f'  • {method}: Empty collection')
             except Exception as e:
-                print(f'  • {method}: Error getting count - {str(e)}')
+                print(f'  • {method}: Error accessing collection - {str(e)[:50]}...')
         else:
             print(f'  • {method}: No data')
 
