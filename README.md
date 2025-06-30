@@ -12,7 +12,7 @@ MOD09A1_REN_METHOD/
 ├── modules/
 │   ├── config.js             # Centralized configuration
 │   ├── methods/              # Individual method implementations
-│   │   ├── ren.js           # MOD09A1 Ren Method (complete)
+│   │   ├── mod09a1.js       # MOD09A1 Method (complete)
 │   │   ├── mod10a1.js       # MOD10A1 Snow Albedo (advanced QA)
 │   │   └── mcd43a3.js       # MCD43A3 BRDF/Albedo (Collection 6.1)
 │   ├── ui/                   # User interface components
@@ -33,7 +33,7 @@ MOD09A1_REN_METHOD/
 
 ## 🔬 Methods Compared
 
-1. **MOD09A1 Ren Method**: Complete implementation with topographic correction and BRDF anisotropic correction
+1. **MOD09A1 Method**: Complete implementation with topographic correction and BRDF anisotropic correction
 2. **MOD10A1 Snow Albedo**: Advanced QA filtering from MODIS_Albedo project  
 3. **MCD43A3 BRDF/Albedo**: Collection 6.1 with comprehensive quality assessment
 
@@ -55,7 +55,7 @@ Comprehensive statistics exported for each method and date:
 - `pixel_count`: Number of valid pixels
 - `date`: Observation date (YYYY-MM-DD)
 - `year`, `month`, `day_of_year`: Temporal metadata
-- `method`: Method identifier (Ren, MOD10A1, MCD43A3)
+- `method`: Method identifier (MOD09A1, MOD10A1, MCD43A3)
 
 ## 🎯 Key Features
 
@@ -81,7 +81,7 @@ Original scripts preserved in `legacy/` folder for reference and comparison.
 ## 🎨 Map Visualization
 
 - **Method Layers**: Individual albedo products with consistent color scales
-- **Difference Layers**: Method comparisons (Ren-MOD10A1, Ren-MCD43A3, etc.)
+- **Difference Layers**: Method comparisons (MOD09A1-MOD10A1, MOD09A1-MCD43A3, etc.)
 - **Glacier Context**: Glacier fraction and outline overlays
 - **QA Debugging**: Quality assessment layer visualization
 - **Interactive Legend**: Color scale reference

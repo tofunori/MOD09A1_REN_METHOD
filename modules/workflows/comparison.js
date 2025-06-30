@@ -2,7 +2,7 @@
  * Full Comparison Workflow – All Three Methods
  *
  * Processes all three MODIS albedo methods with full CSV export:
- * - Ren Method (MOD09GA): Topographic and BRDF correction
+ * - MOD09A1 Method (MOD09GA): Topographic and BRDF correction
  * - MOD10A1: Snow albedo with advanced QA filtering  
  * - MCD43A3: BRDF/Albedo product with Collection 6.1 QA
  */
@@ -65,7 +65,7 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
   try {
     var resultsObj = {};
 
-    // Process Ren method if selected (uses MOD09GA)
+    // Process MOD09A1 method if selected (uses MOD09GA)
     if (methods.ren) {
       print('🔬 Processing MOD09A1 method (MOD09GA)...');
       var filtered = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD09GA);

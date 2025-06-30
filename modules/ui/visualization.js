@@ -167,7 +167,7 @@ function addMethodLayer(collection, bandName, methodName, visParams, glacierMask
  * Add difference layers between methods
  */
 function addDifferenceLayers(results, glacierMask, glacierOutlines) {
-  // Ren vs MOD10A1 difference
+  // MOD09A1 vs MOD10A1 difference
   if (results.ren && results.mod10a1) {
     var renMOD10Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
@@ -185,7 +185,7 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
     );
   }
   
-  // Ren vs MCD43A3 difference
+  // MOD09A1 vs MCD43A3 difference
   if (results.ren && results.mcd43a3) {
     var renMCD43Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
@@ -308,8 +308,9 @@ function clearComparisonLayers() {
     var layer = layers.get(i);
     var name = layer.getName();
     
-    if (name.indexOf('Ren') !== -1 || 
-        name.indexOf('MOD10A1') !== -1 || 
+    if (name.indexOf('MOD09A1') !== -1 || 
+        name.indexOf('Ren') !== -1 || 
+        name.indexOf('MOD10A1') !== -1 ||
         name.indexOf('MCD43A3') !== -1 ||
         name.indexOf('Difference') !== -1) {
       layersToRemove.push(i);
@@ -353,7 +354,7 @@ function addQALayers(results) {
   
   if (results.ren) {
     var renQA = results.ren.first().select('QA_mask').selfMask();
-    Map.addLayer(renQA, VIS_PARAMS.qa_mask, 'Ren QA Mask', false);
+    Map.addLayer(renQA, VIS_PARAMS.qa_mask, 'MOD09A1 QA Mask', false);
   }
   
   if (results.mod10a1) {

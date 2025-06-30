@@ -268,7 +268,7 @@ function exportIndividualMethod(collection, bandName, methodName, region, descri
 function printDataCounts(results) {
   if (results.ren) {
     results.ren.size().evaluate(function(renCount) {
-      print('Ren method observations: ' + renCount);
+      print('MOD09A1 method observations: ' + renCount);
     });
   }
   if (results.mod10a1) {
@@ -311,7 +311,7 @@ function generateExportDescription(prefix, startDate, endDate) {
 function exportAlbedoComparison(renResults, glacierOutlines, region, description) {
   print('📊 Starting albedo export...');
   
-  // Calculate statistics for the Ren method results
+  // Calculate statistics for the MOD09A1 method results
   var stats = renResults.select('broadband_albedo_ren').reduceRegion({
     reducer: ee.Reducer.mean()
       .combine(ee.Reducer.median(), '', true)
@@ -326,7 +326,7 @@ function exportAlbedoComparison(renResults, glacierOutlines, region, description
   // Create feature with statistics
   var results = ee.FeatureCollection([
     ee.Feature(null, {
-      'method': 'Ren_BRDF_Corrected',
+      'method': 'MOD09A1_BRDF_Corrected',
       'mean_albedo': stats.get('broadband_albedo_ren_mean'),
       'median_albedo': stats.get('broadband_albedo_ren_median'),
       'std_albedo': stats.get('broadband_albedo_ren_stdDev'),
@@ -544,7 +544,7 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
   
   // Process collection with each QA profile
   profiles.forEach(function(profileKey) {
-    // Local stub profile – QA mask is hard-wired in ren.js, but we keep metadata for CSV columns.
+    // Local stub profile – QA mask is hard-wired in mod09a1.js, but we keep metadata for CSV columns.
     var profile = {
       name: 'Strict',
       description: 'Legacy fixed QA mask',
@@ -552,9 +552,9 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       risk: 'Minimal',
       filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
     };
-    print('⚡ Processing with ' + profile.name + ' profile...');
+    print('⚡ Processing MOD09A1 with ' + profile.name + ' profile...');
     
-    // Apply Ren method with specific QA profile
+    // Apply MOD09A1 method with specific QA profile
     var processed = collection.map(function(image) {
       var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
       return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);
@@ -655,7 +655,7 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
   
   // Process collection with each QA profile
   profiles.forEach(function(profileKey) {
-    // Local stub profile – QA mask is hard-wired in ren.js
+    // Local stub profile – QA mask is hard-wired in mod09a1.js
     var profile = {
       name: 'Strict',
       description: 'Legacy fixed QA mask',
@@ -663,9 +663,9 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
       risk: 'Minimal',
       filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
     };
-    print('⚡ Processing with ' + profile.name + ' profile + QA filters...');
+    print('⚡ Processing MOD09A1 with ' + profile.name + ' profile + QA filters...');
     
-    // Apply Ren method with specific QA profile
+    // Apply MOD09A1 method with specific QA profile
     var processed = collection.map(function(image) {
       var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
       return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);

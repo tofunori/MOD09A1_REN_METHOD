@@ -12,7 +12,7 @@
 // MODIS BAND CONSTANTS
 // ============================================================================
 
-// Global band constants for MOD09GA Ren method (bands 1,2,3,4,5,7 - no band 6)
+// Global band constants for MOD09GA (used by the MOD09A1 method) – bands 1,2,3,4,5,7 (no band 6)
 var REFL_BANDS = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
                   'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b07'];
 var TOPO_BANDS_ALL = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
@@ -99,21 +99,15 @@ var PROCESSING_CONFIG = {
 // Debug mode flag (also available at top level for convenience)
 var DEBUG_MODE = PROCESSING_CONFIG.debug_mode;
 
-// Quality filtering parameters
-var QA_CONFIG = {
-  solar_zenith_max: 70,          // Maximum solar zenith angle (degrees)
-  ndsi_threshold: 0.4            // NDSI threshold for snow/ice classification
-};
-
 // ============================================================================
 // EXPORT CONFIGURATION
 // ============================================================================
 
 // Export processing parameters
 var EXPORT_CONFIG = {
-  scale: 463,                    // Processing scale for Ren method
+  scale: 463,                    // Processing scale for MOD09A1 method
   scale_simple: 500,             // Processing scale for simpler methods
-  maxPixels_ren: 1e9,           // Max pixels for Ren method exports
+  maxPixels_ren: 1e9,           // Max pixels for MOD09A1 method exports
   maxPixels_simple: 1e8,        // Max pixels for simpler method exports
   bestEffort: true,             // Use best effort for processing
   tileScale: 2                  // Tile scale for memory management
@@ -141,5 +135,4 @@ exports.GLACIER_ASSET = GLACIER_ASSET;
 exports.GLACIER_CONFIG = GLACIER_CONFIG;
 exports.PROCESSING_CONFIG = PROCESSING_CONFIG;
 exports.DEBUG_MODE = DEBUG_MODE;
-exports.QA_CONFIG = QA_CONFIG;
 exports.EXPORT_CONFIG = EXPORT_CONFIG;
