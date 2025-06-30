@@ -349,9 +349,17 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
       'qa_profile_analysis', startDate, endDate
     );
     
-    // Export comprehensive QA profile comparison
-    exportUtils.exportQAProfileComparison(
-      filtered, glacierOutlines, createGlacierMask, region, description
+    // Export comprehensive QA profile comparison with quality assessment
+    exportUtils.exportQAProfileComparisonWithQA(
+      filtered, glacierOutlines, createGlacierMask, region, description, {
+        enableQualityFiltering: true,
+        boundsOptions: {
+          lowerBound: 0.05,
+          upperBound: 0.95,
+          enableTemporalFiltering: false,
+          temporalWindow: 16
+        }
+      }
     );
     
     // Export detailed QA flag analysis for debugging
@@ -359,17 +367,20 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
     
     print('✅ QA Profile Comparison workflow initiated');
     print('📁 Expected outputs:');
-    print('  • ' + description + '_qa_profile_comparison.csv (detailed observations)');
-    print('  • ' + description + '_qa_summary.csv (summary statistics)');
+    print('  • ' + description + '_qa_profile_enhanced.csv (detailed observations with QA metrics)');
+    print('  • ' + description + '_qa_enhanced_summary.csv (summary with quality metrics)');
+    print('  • ' + description + '_quality_assessment.csv (quality assessment statistics)');
     print('  • ' + description + '_qa_flag_analysis.csv (QA flag distribution)');
     
     if (successCallback) {
       successCallback({
         description: description,
         profileCount: 6,
+        qualityAssessmentEnabled: true,
         expectedOutputs: [
-          description + '_qa_profile_comparison.csv',
-          description + '_qa_summary.csv', 
+          description + '_qa_profile_enhanced.csv',
+          description + '_qa_enhanced_summary.csv',
+          description + '_quality_assessment.csv',
           description + '_qa_flag_analysis.csv'
         ]
       });
