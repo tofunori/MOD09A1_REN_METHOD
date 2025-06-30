@@ -72,40 +72,41 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 function qualityFilter(image) {
   var qa = image.select('state_1km');
 
-  // Cloud State Filter (Bits 0-1): Accept only clear conditions
+  // Cloud State Filter (Bits 0-1): RELAXED - Allow clear + cloudy conditions
   // 0=Clear, 1=Cloudy, 2=Mixed, 3=Not set (assumed clear)
-  // Fine-tune: Use .lte(1) to include mixed conditions for more data
-  var clearSky = qa.bitwiseAnd(0x3).eq(0);
+  // RELAXED: Using lte(1) to include clear AND cloudy conditions for more data
+  var clearSky = qa.bitwiseAnd(0x3).lte(1);
 
-  // Cloud Shadow Filter (Bit 2): Critical for glacier surface accuracy  
+  // Cloud Shadow Filter (Bit 2): Keep strict for glacier surface accuracy  
   // 0=No shadow, 1=Shadow present
-  // Fine-tune: Generally keep eq(0) for glacier applications
+  // Keep strict: Shadows critical to avoid for glacier applications
   var shadowFree = qa.bitwiseAnd(1 << 2).eq(0);
 
-  // Cirrus Detection Filter (Bit 8): Affects surface reflectance accuracy
+  // Cirrus Detection Filter (Bit 8): RELAXED - Allow small cirrus
   // Combined with bit 9: 0=None, 1=Small, 2=Average, 3=High
-  // Fine-tune: Use .lte(1) to allow small cirrus for more data retention
-  var noCirrus = qa.bitwiseAnd(1 << 8).eq(0);
+  // RELAXED: Using lte(1) to allow no cirrus AND small cirrus for more data
+  var noCirrus = qa.bitwiseAnd(1 << 8).lte(1);
 
-  // Internal Cloud Algorithm Filter (Bit 10): Secondary cloud detection
+  // Internal Cloud Algorithm Filter (Bit 10): REMOVED for more data retention
   // 0=No cloud, 1=Cloud detected by internal algorithm
-  // Fine-tune: More conservative than state flags; consider allowing for more data
-  var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);
+  // RELAXED: Commented out to allow more observations through
+  // var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);
 
-  // Snow/Ice Confidence Filter (Bits 12-13): Critical for glacier applications
+  // Snow/Ice Confidence Filter (Bits 12-13): Accept any snow/ice detection
   // 0=No snow/ice, 1=Low confidence, 2=Medium confidence, 3=High confidence  
-  // Fine-tune: gt(0)=any detection, gte(2)=medium+ confidence, eq(3)=high confidence only
+  // RELAXED: Accept any snow/ice confidence level (1, 2, 3)
   var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
   var validSnowIce = snowIceConf.gt(0); // Accept confidence levels 1, 2, 3
 
-  // Solar Zenith Angle Filter: Standard MODIS retrieval constraint
-  // Fine-tune: <60°=high quality, <70°=standard, <80°=more data but lower quality
+  // Solar Zenith Angle Filter: RELAXED - Higher angle threshold
+  // RELAXED: <80° instead of <70° for more data retention
   var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSZA = solarZenith.lt(70);
+  var lowSZA = solarZenith.lt(80);
 
   // Combine all quality filters (AND operation = all conditions must be met)
+  // Note: clearInternal filter removed for relaxed filtering
   var mask = clearSky.and(shadowFree).and(noCirrus)
-                     .and(clearInternal).and(validSnowIce).and(lowSZA);
+                     .and(validSnowIce).and(lowSZA);
 
   return image.updateMask(mask);
 }
