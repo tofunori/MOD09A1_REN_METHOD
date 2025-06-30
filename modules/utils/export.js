@@ -53,7 +53,7 @@ function exportComparisonStats(results, region, description) {
 
       var date = ee.Date(image.get('system:time_start'));
       return ee.Feature(null, {
-        'albedo_mean':  stats.get('albedo_mean'),
+        'albedo_mean':  stats.get('albedo'),
         'albedo_std':   stats.get('albedo_stdDev'),
         'albedo_min':   stats.get('albedo_min'),
         'albedo_max':   stats.get('albedo_max'),
@@ -65,7 +65,7 @@ function exportComparisonStats(results, region, description) {
         'method':       'Ren',
         'system:time_start': image.get('system:time_start')
       });
-    }).filter(ee.Filter.notNull(['albedo_mean']));
+    }).filter(ee.Filter.notNull(['albedo']));
     allStats = allStats.merge(renStats);
   }
   
