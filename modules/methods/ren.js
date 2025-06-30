@@ -21,29 +21,68 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 /**
  * Complete quality filtering following Ren et al. (2021/2023) methodology
- * Now supports configurable QA profiles for comparative analysis
+ * MOD09A1 Collection 6.1 state_1km QA flags with detailed bit documentation
  * 
- * @param {ee.Image} image - Input MODIS image
- * @param {Object} qaProfile - QA configuration profile (optional, defaults to strict)
- * @returns {ee.Image} Quality-filtered image
+ * QA Bit Structure (MOD09A1 Collection 6.1):
+ * - Bits 0-1: Cloud State | 0=Clear, 1=Cloudy, 2=Mixed, 3=Not set (assumed clear)
+ * - Bit 2: Cloud Shadow | 0=No shadow, 1=Shadow present
+ * - Bits 3-5: Land/Water | 0=Shallow ocean, 1=Land, 2=Ocean coastlines, etc.
+ * - Bits 6-7: Aerosol Quantity | 0=Climatology, 1=Low, 2=Average, 3=High
+ * - Bit 8: Cirrus Detection | Combined with bit 9 for levels (0=None, 1=Small, 2=Average, 3=High)
+ * - Bit 10: Internal Cloud Algorithm | 0=No cloud, 1=Cloud detected
+ * - Bits 12-13: Snow/Ice Confidence | 0=None, 1=Low confidence, 2=Medium, 3=High confidence
+ * 
+ * Fine-tuning Guidelines:
+ * - clearSky: Use eq(0) for strict clear-sky only, or lte(1) to include mixed conditions
+ * - shadowFree: Keep eq(0) for glacier applications to avoid contamination
+ * - noCirrus: Keep eq(0) for accurate surface reflectance retrieval
+ * - clearInternal: Internal algorithm usually more conservative than state flags
+ * - snowIceConf: gt(0) accepts any snow/ice detection; gte(2) for higher confidence only
+ * - lowSZA: <70° standard for MODIS; <60° for higher quality, <80° for more data
+ * 
+ * Collection 6.1 Improvements:
+ * - Enhanced snow/cloud/salt pan discrimination
+ * - Better cirrus detection algorithm
+ * - Note: State QA preferred over standard QC for cloud info (v3+ compatibility)
+ * 
+ * @param {ee.Image} image - Input MODIS MOD09A1 image with state_1km QA band
+ * @returns {ee.Image} Quality-filtered image with mask applied
  */
-function qualityFilter(image /*, qaProfile */) {
-  // Fixed QA mask identical to legacy full_script.js
+function qualityFilter(image) {
   var qa = image.select('state_1km');
 
-  var clearSky      = qa.bitwiseAnd(0x3).eq(0);          // Bits 0-1 = 00
-  var shadowFree    = qa.bitwiseAnd(1 << 2).eq(0);       // Bit 2   = 0
-  var noCirrus      = qa.bitwiseAnd(1 << 8).eq(0);       // Bit 8   = 0 (ignore bit 9)
-  var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);      // Bit 10  = 0
+  // Cloud State Filter (Bits 0-1): Accept only clear conditions
+  // 0=Clear, 1=Cloudy, 2=Mixed, 3=Not set (assumed clear)
+  // Fine-tune: Use .lte(1) to include mixed conditions for more data
+  var clearSky = qa.bitwiseAnd(0x3).eq(0);
 
-  // Snow / ice confidence bits 12-13 (Level 1): accept 01 (no), 10 (maybe) or 11 (high)
-  var snowIceConf   = qa.bitwiseAnd(0x3000).rightShift(12);
-  var validSnowIce  = snowIceConf.gt(0); // codes 1,2,3
+  // Cloud Shadow Filter (Bit 2): Critical for glacier surface accuracy  
+  // 0=No shadow, 1=Shadow present
+  // Fine-tune: Generally keep eq(0) for glacier applications
+  var shadowFree = qa.bitwiseAnd(1 << 2).eq(0);
 
-  // Solar zenith < 70°
-  var solarZenith   = image.select('SolarZenith').multiply(0.01);
-  var lowSZA        = solarZenith.lt(70);
+  // Cirrus Detection Filter (Bit 8): Affects surface reflectance accuracy
+  // Combined with bit 9: 0=None, 1=Small, 2=Average, 3=High
+  // Fine-tune: Use .lte(1) to allow small cirrus for more data retention
+  var noCirrus = qa.bitwiseAnd(1 << 8).eq(0);
 
+  // Internal Cloud Algorithm Filter (Bit 10): Secondary cloud detection
+  // 0=No cloud, 1=Cloud detected by internal algorithm
+  // Fine-tune: More conservative than state flags; consider allowing for more data
+  var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);
+
+  // Snow/Ice Confidence Filter (Bits 12-13): Critical for glacier applications
+  // 0=No snow/ice, 1=Low confidence, 2=Medium confidence, 3=High confidence  
+  // Fine-tune: gt(0)=any detection, gte(2)=medium+ confidence, eq(3)=high confidence only
+  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+  var validSnowIce = snowIceConf.gt(0); // Accept confidence levels 1, 2, 3
+
+  // Solar Zenith Angle Filter: Standard MODIS retrieval constraint
+  // Fine-tune: <60°=high quality, <70°=standard, <80°=more data but lower quality
+  var solarZenith = image.select('SolarZenith').multiply(0.01);
+  var lowSZA = solarZenith.lt(70);
+
+  // Combine all quality filters (AND operation = all conditions must be met)
   var mask = clearSky.and(shadowFree).and(noCirrus)
                      .and(clearInternal).and(validSnowIce).and(lowSZA);
 
@@ -90,9 +129,6 @@ function topographyCorrection(image) {
   // Apply topographic correction to reflectance
   // Ren et al. (2021) topographic correction factor: ρflat = ρslope × (μ0'/μ0)
   var correctionFactor = cosSolarZenithCorrected.divide(solarZenithRad.cos());
-  
-  // Clip extreme values to avoid unrealistic corrections per Ren et al.
-  correctionFactor = correctionFactor.clamp(0.2, 5.0);
   
   // Apply topographic correction to each reflectance band with scaling
   var correctedBands = config.REFL_BANDS.map(function(bandName, index) {
@@ -199,8 +235,8 @@ function applyBRDFAnisotropicCorrection(image, surfaceType) {
     }
     
     // Apply exact Ren et al. (2021) formula: α_i = r - f̃
-    // Clamp to [0,1] to prevent physically impossible values from rare anisotropy corrections
-    return image.select(band).subtract(anisotropyFactor).clamp(0, 1).rename('narrowband_' + bandNum);
+    // Removed [0,1] clamp to strictly follow α_i = r - f̃ without additional bounding
+    return image.select(band).subtract(anisotropyFactor).rename('narrowband_' + bandNum);
   });
   
   return image.addBands(ee.Image.cat(narrowbandAlbedo));
@@ -309,12 +345,11 @@ function computeBroadbandAlbedo(image) {
  * @param {ee.Image} image - Input MODIS image
  * @param {ee.FeatureCollection} glacierOutlines - Glacier boundary polygons
  * @param {Function} createGlacierMask - Glacier mask creation function
- * @param {Object} qaProfile - QA configuration profile (optional)
  * @returns {ee.Image} Processed image with Ren method albedo
  */
-function processRenMethod(image, glacierOutlines, createGlacierMask, qaProfile) {
+function processRenMethod(image, glacierOutlines, createGlacierMask) {
   // 1) QA & topography
-  var filtered   = qualityFilter(image /*, qaProfile */);
+  var filtered   = qualityFilter(image);
   var topoImg    = topographyCorrection(filtered);
 
   // 2) Snow/ice classification
