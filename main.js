@@ -27,6 +27,9 @@ var uiSystem;
 // Global results storage
 var lastProcessingResults = null;
 
+// Initialization state flag to prevent duplicate UI
+var isInitialized = false;
+
 // ============================================================================
 // MAIN APPLICATION
 // ============================================================================
@@ -35,6 +38,12 @@ var lastProcessingResults = null;
  * Main application entry point
  */
 function main() {
+  // Prevent duplicate initialization
+  if (isInitialized) {
+    print('⚠️ System already initialized - skipping duplicate initialization');
+    return uiSystem;
+  }
+  
   print('🏗️ MODULAR MODIS ALBEDO COMPARISON FRAMEWORK');
   print('📁 Architecture: modules/{methods,ui,utils,workflows}');
   print('🔬 Methods: Ren, MOD10A1, MCD43A3');
@@ -42,8 +51,10 @@ function main() {
   
   // Initialize UI with callback functions
   uiSystem = uiSetup.initializeUI(processCallback, exportCallback);
+  isInitialized = true;
   
   print('✅ System ready - Use control panel to start comparison');
+  return uiSystem;
 }
 
 /**

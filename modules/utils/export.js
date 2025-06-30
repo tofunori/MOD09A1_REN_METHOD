@@ -29,11 +29,11 @@ function exportComparisonStats(results, region, description) {
   // Process each method with comprehensive statistics
   if (results.ren) {
     var renStats = results.ren.map(function(image) {
-      // Check if either albedo band exists before processing
+      // Check if either albedo band exists before processing (server-side)
       var bandNames = image.bandNames();
-      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked').getInfo();
-      var hasBaseBand = bandNames.contains('broadband_albedo_ren').getInfo();
-      var hasAnyAlbedoBand = hasMaskedBand || hasBaseBand;
+      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+      var hasAnyAlbedoBand = hasMaskedBand.or(hasBaseBand);
       
       var stats = ee.Algorithms.If(
         hasAnyAlbedoBand,
@@ -279,13 +279,19 @@ function printDataCounts(results) {
 }
 
 /**
- * Generate export description with timestamp
+ * Generate export description with timestamp (avoiding client-side operations)
  */
 function generateExportDescription(prefix, startDate, endDate) {
+  // Use JavaScript Date for timestamp to avoid GEE client-side operations
+  var now = new Date();
+  var timestamp = now.getFullYear() + 
+    String(now.getMonth() + 1).padStart(2, '0') + 
+    String(now.getDate()).padStart(2, '0');
+    
   return prefix + '_' + 
     startDate.replace(/-/g, '') + '_to_' + 
     endDate.replace(/-/g, '') + '_' +
-    ee.Date(Date.now()).format('YYYYMMdd').getInfo();
+    timestamp;
 }
 
 // ============================================================================

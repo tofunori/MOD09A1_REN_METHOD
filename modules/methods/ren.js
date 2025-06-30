@@ -27,29 +27,34 @@ function qualityFilter(image) {
   // Use state_1km QA band for Ren et al. complete filtering
   var qa = image.select('state_1km');
   
-  // Cloud state (bits 0-1): accept clear (00) and "probably clear" (01)
+  // 1. Cloud State (Bits 0-1): Accept "Clear" (00) and "Probably Clear" (01)
+  // This is a moderately relaxed approach suitable for snow/ice surfaces
   var clearSky = qa.bitwiseAnd(0x3).lte(1);
   
-  // Internal cloud mask (bit 10): reject internal cloudy pixels
-  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
-  
-  // Cloud shadow (bit 2): reject cloud shadow pixels
+  // 2. Cloud Shadow (Bit 2): Be strict - reject pixels with cloud shadow
   var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
   
-  // Cirrus detection (bit 8): reject cirrus contaminated pixels
+  // 3. Cirrus Detection (Bits 8-9): Be strict - reject pixels with cirrus
   var noCirrus = qa.bitwiseAnd(1<<8).eq(0);
   
-  // Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00)
+  // 4. Internal Cloud Mask (Bit 10): Be strict - reject internal cloudy pixels
+  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
+  
+  // 5. Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00)
   var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
   var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3));
   
-  // Solar zenith angle constraint: relaxed to < 80°
+  // 6. Solar zenith angle constraint: relaxed to < 80°
   var solarZenith = image.select('SolarZenith').multiply(0.01);
   var lowSolarZenith = solarZenith.lt(80);
   
-  // Combine all QA filters
-  var qualityMask = clearSky.and(clearInternal).and(shadowFree)
-    .and(noCirrus).and(validSnowIce).and(lowSolarZenith);
+  // Combine all evidence-based QA filters
+  var qualityMask = clearSky
+    .and(shadowFree)
+    .and(noCirrus)
+    .and(clearInternal)
+    .and(validSnowIce)
+    .and(lowSolarZenith);
   
   return image.updateMask(qualityMask);
 }
