@@ -284,10 +284,11 @@ function printDataCounts(results) {
 function generateExportDescription(prefix, startDate, endDate) {
   // Use JavaScript Date for timestamp to avoid GEE client-side operations
   var now = new Date();
-  var timestamp = now.getFullYear() + 
-    String(now.getMonth() + 1).padStart(2, '0') + 
-    String(now.getDate()).padStart(2, '0');
-    
+  // Zero-pad month and day without using String.padStart (not available in EE)
+  var month = ('0' + (now.getMonth() + 1)).slice(-2);
+  var day   = ('0' + now.getDate()).slice(-2);
+  var timestamp = '' + now.getFullYear() + month + day;
+   
   return prefix + '_' + 
     startDate.replace(/-/g, '') + '_to_' + 
     endDate.replace(/-/g, '') + '_' +
