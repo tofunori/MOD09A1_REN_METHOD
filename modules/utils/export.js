@@ -29,7 +29,11 @@ function exportComparisonStats(results, region, description) {
   // Process each method with comprehensive statistics
   if (results.ren) {
     var renStats = results.ren.map(function(image) {
-      var stats = image.select('broadband_albedo_ren').reduceRegion({
+      // Prefer glacier-masked broadband albedo if present; fall back gracefully.
+      var bandName = image.bandNames().contains('broadband_albedo_ren_masked')
+        ? 'broadband_albedo_ren_masked'
+        : 'broadband_albedo_ren';
+      var stats = image.select(bandName).reduceRegion({
         reducer: ee.Reducer.mean().combine({
           reducer2: ee.Reducer.stdDev(),
           sharedInputs: true
@@ -52,11 +56,11 @@ function exportComparisonStats(results, region, description) {
       
       var date = ee.Date(image.get('system:time_start'));
       return ee.Feature(null, {
-        'albedo_mean': stats.get('broadband_albedo_ren_mean'),
-        'albedo_std': stats.get('broadband_albedo_ren_stdDev'),
-        'albedo_min': stats.get('broadband_albedo_ren_min'),
-        'albedo_max': stats.get('broadband_albedo_ren_max'),
-        'pixel_count': stats.get('broadband_albedo_ren_count'),
+        'albedo_mean': stats.get(bandName + '_mean'),
+        'albedo_std': stats.get(bandName + '_stdDev'),
+        'albedo_min': stats.get(bandName + '_min'),
+        'albedo_max': stats.get(bandName + '_max'),
+        'pixel_count': stats.get(bandName + '_count'),
         'date': date.format('YYYY-MM-dd'),
         'year': date.get('year'),
         'month': date.get('month'),

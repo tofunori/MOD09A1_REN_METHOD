@@ -89,25 +89,25 @@ function setOptimalGlacierView(glacierGeometry) {
 /**
  * Add albedo comparison layers to map
  */
-function addComparisonLayers(results, layerConfig, glacierMask) {
+function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines) {
   print('🎨 Adding comparison layers to map...');
   
   // Add individual method layers with glacier mask
   if (results.ren && layerConfig.showRen) {
-    addMethodLayer(results.ren, 'broadband_albedo_ren', 'Ren Method', VIS_PARAMS.albedo, glacierMask);
+    addMethodLayer(results.ren, 'broadband_albedo_ren', 'Ren Method', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
   }
   
   if (results.mod10a1 && layerConfig.showMOD10A1) {
-    addMethodLayer(results.mod10a1, 'broadband_albedo_mod10a1', 'MOD10A1', VIS_PARAMS.albedo, glacierMask);
+    addMethodLayer(results.mod10a1, 'broadband_albedo_mod10a1', 'MOD10A1', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
   }
   
   if (results.mcd43a3 && layerConfig.showMCD43A3) {
-    addMethodLayer(results.mcd43a3, 'broadband_albedo_mcd43a3', 'MCD43A3', VIS_PARAMS.albedo, glacierMask);
+    addMethodLayer(results.mcd43a3, 'broadband_albedo_mcd43a3', 'MCD43A3', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
   }
   
   // Add difference layers if requested
   if (layerConfig.showDifferences) {
-    addDifferenceLayers(results, glacierMask);
+    addDifferenceLayers(results, glacierMask, glacierOutlines);
   }
   
   print('✅ Comparison layers added to map');
@@ -116,19 +116,27 @@ function addComparisonLayers(results, layerConfig, glacierMask) {
 /**
  * Add individual method layer to map with proper glacier masking
  */
-function addMethodLayer(collection, bandName, methodName, visParams, glacierMask) {
+function addMethodLayer(collection, bandName, methodName, visParams, glacierMask, glacierOutlines) {
   if (collection && collection.size().getInfo() > 0) {
     // Create median composite
     var image = collection.median().select(bandName);
     
+    // Optionally reproject glacier mask to the image projection to ensure alignment
+    var projectedMask = glacierMask ? glacierMask.reproject(image.projection()) : null;
+    
     // Apply glacier mask if provided, otherwise try to preserve existing mask
     var maskedImage;
-    if (glacierMask) {
-      maskedImage = image.updateMask(glacierMask);
+    if (projectedMask) {
+      maskedImage = image.updateMask(projectedMask);
     } else {
       // Try to preserve mask from the collection
       var sampleMask = collection.first().mask();
       maskedImage = image.updateMask(sampleMask);
+    }
+    
+    // Strictly clip to glacier outlines if provided (removes any residual outside pixels)
+    if (glacierOutlines) {
+      maskedImage = maskedImage.clip(glacierOutlines);
     }
     
     Map.addLayer(
@@ -146,13 +154,14 @@ function addMethodLayer(collection, bandName, methodName, visParams, glacierMask
 /**
  * Add difference layers between methods
  */
-function addDifferenceLayers(results, glacierMask) {
+function addDifferenceLayers(results, glacierMask, glacierOutlines) {
   // Ren vs MOD10A1 difference
   if (results.ren && results.mod10a1) {
     var renMOD10Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
       results.mod10a1, 'broadband_albedo_mod10a1',
-      glacierMask
+      glacierMask,
+      glacierOutlines
     );
     
     Map.addLayer(
@@ -169,7 +178,8 @@ function addDifferenceLayers(results, glacierMask) {
     var renMCD43Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
       results.mcd43a3, 'broadband_albedo_mcd43a3',
-      glacierMask
+      glacierMask,
+      glacierOutlines
     );
     
     Map.addLayer(
@@ -186,7 +196,8 @@ function addDifferenceLayers(results, glacierMask) {
     var mod10MCD43Diff = createDifferenceImage(
       results.mod10a1, 'broadband_albedo_mod10a1',
       results.mcd43a3, 'broadband_albedo_mcd43a3',
-      glacierMask
+      glacierMask,
+      glacierOutlines
     );
     
     Map.addLayer(
@@ -202,7 +213,7 @@ function addDifferenceLayers(results, glacierMask) {
 /**
  * Create difference image between two collections
  */
-function createDifferenceImage(collection1, band1, collection2, band2, glacierMask) {
+function createDifferenceImage(collection1, band1, collection2, band2, glacierMask, glacierOutlines) {
   // Create median composites for comparison
   var median1 = collection1.median().select(band1);
   var median2 = collection2.median().select(band2);
@@ -212,7 +223,12 @@ function createDifferenceImage(collection1, band1, collection2, band2, glacierMa
   
   // Apply glacier mask if provided
   if (glacierMask) {
-    difference = difference.updateMask(glacierMask);
+    var projectedMask = glacierMask.reproject(difference.projection());
+    difference = difference.updateMask(projectedMask);
+  }
+  
+  if (glacierOutlines) {
+    difference = difference.clip(glacierOutlines);
   }
   
   return difference;

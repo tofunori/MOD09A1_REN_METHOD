@@ -88,7 +88,7 @@ function updateUIAfterProcessing(uiComponents, results, glacierData) {
   var glacierMask = glacierUtils.createGlacierMask(glacierData.outlines, glacierData.image);
   
   // Add new layers with glacier mask
-  visualization.addComparisonLayers(results, layerConfig, glacierMask);
+  visualization.addComparisonLayers(results, layerConfig, glacierMask, glacierData.outlines);
   
   // Optionally add QA layers for debugging
   if (config.DEBUG_MODE) {

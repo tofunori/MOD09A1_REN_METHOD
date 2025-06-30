@@ -293,10 +293,10 @@ function computeBroadbandAlbedo(image) {
     .add(config.snowCoefficients.constant);
   
   // Apply NDSI-based classification for final albedo selection
+  // Use alphaIce as the base so that its data mask (derived from valid reflectance after QA) propagates
+  // This prevents artificially introducing zero values in areas where no valid data exist.
   var snowMask = image.select('snow_mask');
-  var broadbandAlbedo = ee.Image(0)
-    .where(snowMask, alphaSnow)
-    .where(snowMask.not(), alphaIce)
+  var broadbandAlbedo = alphaIce.where(snowMask, alphaSnow)
     .rename('broadband_albedo_ren');
   
   return image.addBands([alphaIce.rename('ice_albedo'), alphaSnow.rename('snow_albedo'), broadbandAlbedo]);
