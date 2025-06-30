@@ -81,7 +81,7 @@ var GLACIER_ASSET = 'projects/tofunori/assets/Saskatchewan_glacier_2024_updated'
 // Glacier processing parameters
 var GLACIER_CONFIG = {
   scale: 30,                      // Glacier outline scale
-  abundance_threshold: 0.50,      // 50% glacier abundance criterion
+  abundance_threshold: 0.90,      // 90% glacier abundance criterion (for stricter glacier-only masking)
   modis_scale: 500               // MODIS pixel scale
 };
 

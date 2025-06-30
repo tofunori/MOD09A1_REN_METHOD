@@ -118,7 +118,7 @@ function createStandardQualityMask(img) {
  * Process MOD10A1 snow data with ADVANCED QA FILTERING
  * Uses sophisticated quality filtering from MODIS_Albedo project
  */
-function processMOD10A1(image, glacierOutlines) {
+function processMOD10A1(image, glacierOutlines, createGlacierMask) {
   // Apply sophisticated quality filtering
   var qualityMask = createStandardQualityMask(image);
   var filtered = image.updateMask(qualityMask);
@@ -138,6 +138,23 @@ function processMOD10A1(image, glacierOutlines) {
   // Use the better albedo product when available
   var finalAlbedo = ee.Image(snowAlbedo).rename('broadband_albedo_mod10a1');
   
+  // -----------------------------------------------------------------
+  // Glacier mask clipping (consistent with Ren pipeline)
+  // -----------------------------------------------------------------
+  if (createGlacierMask) {
+    var glacierMaskRaw = createGlacierMask(glacierOutlines, null);
+    var refProj        = finalAlbedo.projection();
+    var glacierMask    = glacierMaskRaw.reproject(refProj);
+
+    var maskedAlbedo   = finalAlbedo.updateMask(glacierMask)
+                       .rename('broadband_albedo_mod10a1_masked');
+    return filtered
+             .addBands(finalAlbedo)
+             .addBands(maskedAlbedo)
+             .copyProperties(image, ['system:time_start']);
+  }
+
+  // Fallback (no glacier masking function supplied)
   return filtered.addBands(finalAlbedo).copyProperties(image, ['system:time_start']);
 }
 

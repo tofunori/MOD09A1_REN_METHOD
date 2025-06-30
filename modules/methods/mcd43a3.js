@@ -96,7 +96,7 @@ function createAdvancedQualityMask(image) {
  * Process MCD43A3 BRDF/Albedo with Collection 6.1 QA filtering
  * Uses Black-Sky Albedo shortwave band with comprehensive quality filtering
  */
-function processMCD43A3(image, glacierOutlines) {
+function processMCD43A3(image, glacierOutlines, createGlacierMask) {
   // Apply quality filtering for Collection 6.1
   var qualityMask = createMCD43A3QualityMask(image);
   var filteredImage = image.updateMask(qualityMask);
@@ -111,14 +111,30 @@ function processMCD43A3(image, glacierOutlines) {
   // Use Black-Sky Albedo as primary broadband albedo
   var broadbandAlbedo = blackSkySW.rename('broadband_albedo_mcd43a3');
   
-  // Add both black-sky and white-sky for advanced applications
-  var result = filteredImage
-    .addBands(broadbandAlbedo)
-    .addBands(blackSkySW.rename('black_sky_albedo_mcd43a3'))
-    .addBands(whiteSkySW.rename('white_sky_albedo_mcd43a3'))
-    .copyProperties(image, ['system:time_start']);
-  
-  return result;
+  // -----------------------------------------------------------------
+  // Glacier mask clipping (consistent with Ren pipeline)
+  // -----------------------------------------------------------------
+  if (createGlacierMask) {
+    var glacierMaskRaw = createGlacierMask(glacierOutlines, null);
+    var refProj        = broadbandAlbedo.projection();
+    var glacierMask    = glacierMaskRaw.reproject(refProj);
+    var maskedAlbedo   = broadbandAlbedo.updateMask(glacierMask)
+                        .rename('broadband_albedo_mcd43a3_masked');
+
+    return filteredImage
+             .addBands(broadbandAlbedo)
+             .addBands(maskedAlbedo)
+             .addBands(blackSkySW.rename('black_sky_albedo_mcd43a3'))
+             .addBands(whiteSkySW.rename('white_sky_albedo_mcd43a3'))
+             .copyProperties(image, ['system:time_start']);
+  }
+
+  // Fallback (no glacier masking function supplied)
+  return filteredImage
+           .addBands(broadbandAlbedo)
+           .addBands(blackSkySW.rename('black_sky_albedo_mcd43a3'))
+           .addBands(whiteSkySW.rename('white_sky_albedo_mcd43a3'))
+           .copyProperties(image, ['system:time_start']);
 }
 
 // ============================================================================
