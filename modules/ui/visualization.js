@@ -118,15 +118,13 @@ function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines)
  */
 function addMethodLayer(collection, bandName, methodName, visParams, glacierMask, glacierOutlines) {
   if (collection && collection.size().getInfo() > 0) {
-    // Determine which band to use (masked vs unmasked)
-    var bandToUse = ee.Algorithms.If(
-      collection.first().bandNames().contains(bandName),
-      bandName,
-      ee.String(bandName).cat('_masked')
-    );
+    // Determine which band to use (masked vs unmasked) - client-side check
+    var firstImage = collection.first();
+    var availableBands = firstImage.bandNames().getInfo();
+    var bandToUse = availableBands.indexOf(bandName) !== -1 ? bandName : bandName + '_masked';
     
     // Create median composite
-    var image = collection.median().select(bandToUse);
+    var image = collection.median().select([bandToUse]);
     
     // Optionally reproject glacier mask to the image projection to ensure alignment
     var projectedMask = glacierMask ? glacierMask.reproject(image.projection()) : null;
@@ -221,12 +219,15 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
  * Create difference image between two collections
  */
 function createDifferenceImage(collection1, band1, collection2, band2, glacierMask, glacierOutlines) {
-  // Create median composites for comparison
-  var b1 = ee.Algorithms.If(collection1.first().bandNames().contains(band1), band1, ee.String(band1).cat('_masked'));
-  var b2 = ee.Algorithms.If(collection2.first().bandNames().contains(band2), band2, ee.String(band2).cat('_masked'));
+  // Create median composites for comparison - client-side band selection
+  var availableBands1 = collection1.first().bandNames().getInfo();
+  var availableBands2 = collection2.first().bandNames().getInfo();
   
-  var median1 = collection1.median().select(b1);
-  var median2 = collection2.median().select(b2);
+  var b1 = availableBands1.indexOf(band1) !== -1 ? band1 : band1 + '_masked';
+  var b2 = availableBands2.indexOf(band2) !== -1 ? band2 : band2 + '_masked';
+  
+  var median1 = collection1.median().select([b1]);
+  var median2 = collection2.median().select([b2]);
   
   // Calculate difference
   var difference = median1.subtract(median2).rename('albedo_difference');
