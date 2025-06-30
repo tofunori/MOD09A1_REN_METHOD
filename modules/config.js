@@ -12,9 +12,9 @@
 // MODIS BAND CONSTANTS
 // ============================================================================
 
-// Global band constants for MOD09GA (used by the MOD09A1 method) – bands 1,2,3,4,5,7 (no band 6)
+// Global band constants for MOD09GA (used by the MOD09A1 method) – bands 1-7
 var REFL_BANDS = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
-                  'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b07'];
+                  'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b06', 'sur_refl_b07'];
 var TOPO_BANDS_ALL = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
                       'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
 var TOPO_BANDS_SNOW = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
