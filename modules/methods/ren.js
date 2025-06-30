@@ -39,12 +39,10 @@ function qualityFilter(image) {
   // Cirrus detection (bit 8): reject cirrus contaminated pixels per Ren et al.
   var cirrusFree = qa.bitwiseAnd(1<<8).eq(0);
   
-  // Land/water flag (bits 3-5): only accept land pixels (001) for glacier studies
-  var landOnly = qa.bitwiseAnd(56).rightShift(3).eq(1); // Extract bits 3-5, check if == 1 (land)
-  
-  // Snow/ice flag (bits 12-13): accept all conditions (Ren processes both snow and ice)
-  // Snow confidence: 00=no, 01=maybe, 10=yes, 11=detector saturated
-  // We'll classify snow/ice using NDSI instead per Ren methodology
+  // Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00) per Ren et al.
+  // Bits 12-13 encoding: 00 = unknown, 01 = no snow/ice, 10 = maybe snow/ice, 11 = yes snow/ice
+  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12); // Extract bits 12-13
+  var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3)); // Accept 00 or 11
   
   // Solar zenith constraint per Ren et al. (θs < 70°)
   var solarZenith = image.select('SolarZenith').multiply(0.01); // Convert to degrees
@@ -55,7 +53,7 @@ function qualityFilter(image) {
     .and(clearInternal)
     .and(shadowFree)
     .and(cirrusFree)
-    .and(landOnly)
+    .and(validSnowIce)
     .and(solarAngleOK);
   
   return image.updateMask(qualityMask);
@@ -142,10 +140,12 @@ function applyBRDFAnisotropicCorrection(image, surfaceType) {
   if (surfaceType === 'snow') {
     // Snow BRDF coefficients (P1 model) from Table 4 - EXACT VALUES
     brdfCoefficients = {
-      b1: {c1: 0.01134, c2: 0.00386, c3: 0.00133, theta_c: 0.22689},
-      b2: {c1: 0.01016, c2: 0.00386, c3: 0.00110, theta_c: 0.26632},
-      b3: {c1: 0.01097, c2: 0.00421, c3: 0.00125, theta_c: 0.23561},
-      b5: {c1: 0.00877, c2: 0.00474, c3: 0.00124, theta_c: 0.40143},
+      // Exact P1 coefficients from Ren et al. (2021) Table 4
+      b1: {c1: 0.00083, c2: 0.00384, c3: 0.00452, theta_c: 0.34527},
+      b2: {c1: 0.00123, c2: 0.00459, c3: 0.00521, theta_c: 0.34834},
+      b3: {c1: 0.00000, c2: 0.00001, c3: 0.00002, theta_c: 0.12131},
+      // Band 4 has no snow coefficients – excluded by TOPO_BANDS_SNOW
+      b5: {c1: 0.00663, c2: 0.01081, c3: 0.01076, theta_c: 0.46132},
       b7: {c1: 0.00622, c2: 0.01410, c3: 0.01314, theta_c: 0.55261}
     };
   } else {
@@ -231,14 +231,17 @@ function classifySnowIce(image) {
   
   var green, swir;
   if (hasTopoCorrection) {
-    // Use topographically corrected reflectances (already scaled by 0.0001)
-    green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green) - topo corrected
-    // Fix: Use band 7 instead of non-existent band 6 in MOD09GA
-    swir = image.select('sur_refl_b07_topo');  // MODIS Band 7 (SWIR2) - topo corrected
+    // Use topographically corrected green band (already scaled by 0.0001)
+    green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green)
+
+    // SWIR: Band 6 is invalid in Terra MOD09GA; prefer Band 7
+    var swirTopoName = 'sur_refl_b07_topo';
+    swir = image.bandNames().contains(swirTopoName)
+      ? image.select(swirTopoName)                          // topo-corrected if present
+      : image.select('sur_refl_b07').multiply(0.0001);      // raw fallback
   } else {
-    // Fallback to raw reflectances (for backwards compatibility)
-    green = image.select('sur_refl_b04').multiply(0.0001); // MODIS Band 4 (Green)
-    swir = image.select('sur_refl_b07').multiply(0.0001);  // MODIS Band 7 (SWIR2)
+    green = image.select('sur_refl_b04').multiply(0.0001);
+    swir  = image.select('sur_refl_b07').multiply(0.0001);  // Band 7 raw SWIR2
   }
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
@@ -308,29 +311,41 @@ function computeBroadbandAlbedo(image) {
  * Implements the complete 3-step methodology with all QA filters
  */
 function processRenMethod(image, glacierOutlines, createGlacierMask) {
-  // Step 1: Apply complete quality filtering per Ren et al.
-  var qualityFiltered = qualityFilter(image);
-  
-  // Step 2: Apply topographic correction (Equations 3a, 3b)
-  var topoCorrect = topographyCorrection(qualityFiltered);
-  
-  // Step 3: Classify snow/ice using NDSI
-  var classified = classifySnowIce(topoCorrect);
-  
-  // Step 4: Apply BRDF anisotropic correction for both snow and ice
-  var withSnowBRDF = applyBRDFAnisotropicCorrection(classified, 'snow');
-  var withIceBRDF = applyBRDFAnisotropicCorrection(withSnowBRDF, 'ice');
-  
-  // Step 5: Calculate broadband albedo using empirical equations
-  var withBroadband = computeBroadbandAlbedo(withIceBRDF);
-  
-  // Step 6: Apply glacier mask
+  // 1) QA & topography
+  var filtered   = qualityFilter(image);
+  var topoImg    = topographyCorrection(filtered);
+
+  // 2) Snow/ice classification
+  var classified = classifySnowIce(topoImg);
+
+  // 3) Apply P1 & P2 separately
+  var nbSnow = applyBRDFAnisotropicCorrection(classified, 'snow');
+  var nbIce  = applyBRDFAnisotropicCorrection(classified, 'ice');
+
+  // 4) Merge narrow-band albedos using the snow mask
+  var snowMask = classified.select('snow_mask');
+  var mergedNB = config.NARROWBAND_ALL.map(function (band) {
+    // Band 4 is missing in the snow stack – always take ice value
+    if (band === 'narrowband_b4') {
+      return nbIce.select(band).rename(band);
+    }
+    var iceBand  = nbIce.select(band);
+    var snowBand = nbSnow.select(band);
+    return iceBand.where(snowMask, snowBand).rename(band);
+  });
+
+  var withNB = classified.addBands(ee.Image.cat(mergedNB));
+
+  // 5) Broadband albedo
+  var withBB = computeBroadbandAlbedo(withNB);
+
+  // 6) Glacier mask
   var glacierMask = createGlacierMask(glacierOutlines, null);
-  var finalAlbedo = withBroadband.select('broadband_albedo_ren').updateMask(glacierMask);
-  
-  return qualityFiltered
-    .addBands(withBroadband)
-    .addBands(finalAlbedo.rename('broadband_albedo_ren_masked'))
+  var maskedAlbedo = withBB.select('broadband_albedo_ren').updateMask(glacierMask);
+
+  return filtered
+    .addBands(withBB)
+    .addBands(maskedAlbedo.rename('broadband_albedo_ren_masked'))
     .copyProperties(image, ['system:time_start']);
 }
 
