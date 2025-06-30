@@ -74,14 +74,13 @@ function applyTopographicCorrection(image) {
  * Apply BRDF anisotropic correction using Table 4 coefficients from Ren et al. (2023)
  */
 function applyBRDFCorrection(image, bandName) {
-  // BRDF correction coefficients from Table 4 of Ren et al. (2023)
+  // BRDF correction coefficients from Table 4 of Ren et al. (2023) - MOD09GA bands only
   var brdfCoeffs = {
     'sur_refl_b01_topo': {f_iso: 0.8946, f_vol: 0.0520, f_geo: 0.0535},
     'sur_refl_b02_topo': {f_iso: 0.8774, f_vol: 0.0668, f_geo: 0.0557},
     'sur_refl_b03_topo': {f_iso: 0.8950, f_vol: 0.0572, f_geo: 0.0479},
     'sur_refl_b04_topo': {f_iso: 0.9020, f_vol: 0.0535, f_geo: 0.0446},
     'sur_refl_b05_topo': {f_iso: 0.8975, f_vol: 0.0561, f_geo: 0.0464},
-    'sur_refl_b06_topo': {f_iso: 0.8965, f_vol: 0.0553, f_geo: 0.0482}, // Band 6 BRDF coefficients
     'sur_refl_b07_topo': {f_iso: 0.9023, f_vol: 0.0548, f_geo: 0.0429}
   };
   
@@ -145,10 +144,10 @@ function processRenMethod(image, glacierOutlines, createGlacierMask) {
   // 1. Apply topographic correction
   var topoCorrect = applyTopographicCorrection(image);
   
-  // 2. Calculate NDSI for snow/ice classification using bands 4 (green) and 6 (SWIR1)
-  // Following original implementation: green (band 4) and SWIR1 (band 6)
+  // 2. Calculate NDSI for snow/ice classification using bands 4 (green) and 7 (SWIR2)
+  // MOD09GA only has bands 1,2,3,4,5,7 (no band 6), so use band 7 for SWIR
   var green = topoCorrect.select('sur_refl_b04_topo'); // Green band
-  var swir = topoCorrect.select('sur_refl_b06_topo');  // SWIR1 band
+  var swir = topoCorrect.select('sur_refl_b07_topo');  // SWIR2 band (MOD09GA doesn't have band 6)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('ndsi');
   
   // 3. Create snow mask (NDSI > 0.4)

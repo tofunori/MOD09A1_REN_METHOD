@@ -83,8 +83,8 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
  * Process Ren Method with complete workflow
  */
 function processRenMethod(startDate, endDate, glacierOutlines, region) {
-  // Load MOD09A1 collection (has band 6 needed for NDSI)
-  var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09A1);
+  // Load MOD09GA collection (matches original full_script.js)
+  var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA);
   
   // Apply standard filtering
   var filtered = glacierUtils.applyStandardFiltering(
