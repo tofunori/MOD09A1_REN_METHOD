@@ -24,6 +24,9 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 // Global UI system reference
 var uiSystem;
 
+// Global results storage
+var lastProcessingResults = null;
+
 // ============================================================================
 // MAIN APPLICATION
 // ============================================================================
@@ -64,7 +67,8 @@ function processCallback(startDate, endDate, successCallback, errorCallback) {
       params.glacierOutlines,
       params.region,
       function(results) {
-        // Success: Update UI with results
+        // Success: Store results and update UI
+        lastProcessingResults = results;
         uiSetup.updateUIAfterProcessing(uiSystem.components, results);
         if (successCallback) successCallback(results);
       },
@@ -86,18 +90,36 @@ function processCallback(startDate, endDate, successCallback, errorCallback) {
  */
 function exportCallback(startDate, endDate, successCallback, errorCallback) {
   try {
-    // Get parameters and validate
+    // Check if we have processing results
+    if (!lastProcessingResults) {
+      uiSetup.updateUIWithError(uiSystem.components, 'No processing results available. Please run comparison first.');
+      if (errorCallback) errorCallback('No results to export');
+      return;
+    }
+    
+    // Get parameters for export
     var params = uiSetup.getProcessingParameters(uiSystem.components, uiSystem.glacierData);
     
-    // Note: This requires previous processing results
-    // In a production system, you'd store results or re-process
-    print('📤 Export initiated - ensure you have run comparison first');
+    print('📤 Starting CSV export with actual results...');
     
-    // For now, indicate export started
-    var exportDesc = 'export_' + startDate + '_to_' + endDate;
-    uiSetup.updateUIAfterExport(uiSystem.components, exportDesc);
-    
-    if (successCallback) successCallback();
+    // Call the real export workflow
+    comparisonWorkflow.exportComparisonResults(
+      params.startDate,
+      params.endDate,
+      lastProcessingResults,
+      params.region,
+      function() {
+        // Success: Export completed
+        var exportDesc = 'modular_albedo_comparison_' + startDate.replace(/-/g, '') + '_to_' + endDate.replace(/-/g, '');
+        uiSetup.updateUIAfterExport(uiSystem.components, exportDesc);
+        if (successCallback) successCallback();
+      },
+      function(error) {
+        // Error: Export failed
+        uiSetup.updateUIWithError(uiSystem.components, 'Export failed: ' + error);
+        if (errorCallback) errorCallback(error);
+      }
+    );
     
   } catch (error) {
     uiSetup.updateUIWithError(uiSystem.components, error.toString());
