@@ -35,7 +35,7 @@ function qualityFilter(image) {
   var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
   
   // 3. Cirrus Detection (Bits 8-9): Be strict - reject pixels with cirrus
-  var noCirrus = qa.bitwiseAnd(1<<8).eq(1);
+  var noCirrus = qa.bitwiseAnd(1<<8).eq(0);
   
   // 4. Internal Cloud Mask (Bit 10): Be strict - reject internal cloudy pixels
   var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
