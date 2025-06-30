@@ -54,7 +54,7 @@ function qualityFilter(image) {
   // Cloud State Filter (Bits 0-1): Accept only clear conditions
   // 0=Clear, 1=Cloudy, 2=Mixed, 3=Not set (assumed clear)
   // Fine-tune: Use .lte(1) to include mixed conditions for more data
-  var clearSky = qa.bitwiseAnd(0x3).eq(1);
+  var clearSky = qa.bitwiseAnd(0x3).eq(0);
 
   // Cloud Shadow Filter (Bit 2): Critical for glacier surface accuracy  
   // 0=No shadow, 1=Shadow present
@@ -64,7 +64,7 @@ function qualityFilter(image) {
   // Cirrus Detection Filter (Bit 8): Affects surface reflectance accuracy
   // Combined with bit 9: 0=None, 1=Small, 2=Average, 3=High
   // Fine-tune: Use .lte(1) to allow small cirrus for more data retention
-  var noCirrus = qa.bitwiseAnd(1 << 8).eq(1);
+  var noCirrus = qa.bitwiseAnd(1 << 8).eq(0);
 
   // Internal Cloud Algorithm Filter (Bit 10): Secondary cloud detection
   // 0=No cloud, 1=Cloud detected by internal algorithm
