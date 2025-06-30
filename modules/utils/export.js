@@ -305,19 +305,18 @@ function generateExportDescription(prefix, startDate, endDate) {
 // ============================================================================
 
 /**
- * Export comprehensive QA profile comparison for Ren method - SINGLE CSV with all stats
- * Generates side-by-side analysis of all QA filter configurations in one file
+ * Export simple QA observation counts - just total observations per QA level
  */
 function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
-  print('📊 Starting QA Profile Comparative Analysis - SINGLE CSV...');
+  print('📊 Starting Simple QA Observation Count Analysis...');
   
   var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
-  var allResults = ee.FeatureCollection([]);
+  var summaryResults = [];
   
-  // Process collection with each QA profile
+  // Process each QA profile and count total observations
   profiles.forEach(function(profileKey) {
     var profile = config.QA_PROFILES[profileKey];
-    print('⚡ Processing with ' + profile.name + ' profile...');
+    print('⚡ Counting observations for ' + profile.name + ' profile...');
     
     // Apply Ren method with specific QA profile
     var processed = collection.map(function(image) {
@@ -325,112 +324,46 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
     });
     
-    // Generate statistics for this profile
-    var profileStats = processed.map(function(image) {
+    // Filter to only valid observations and count
+    var validObservations = processed.filter(function(image) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
       var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      var hasAnyAlbedoBand = ee.Algorithms.If(
-        hasMaskedBand,
-        true,
-        hasBaseBand
-      );
-      
-      var stats = ee.Algorithms.If(
-        hasAnyAlbedoBand,
-        ee.Image(
-          ee.Algorithms.If(
-            hasMaskedBand,
-            image.select('broadband_albedo_ren_masked'),
-            image.select('broadband_albedo_ren')
-          )
-        ).rename('albedo').reduceRegion({
-          reducer: ee.Reducer.mean()
-            .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
-            .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
-            .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
-            .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
-          geometry: region,
-          scale:     config.EXPORT_CONFIG.scale,
-          maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
-          bestEffort: config.EXPORT_CONFIG.bestEffort,
-          tileScale:  config.EXPORT_CONFIG.tileScale
-        }),
-        ee.Dictionary({
-          'albedo_mean': null,
-          'albedo_stdDev': null,
-          'albedo_min': null,
-          'albedo_max': null,
-          'albedo_count': null
-        })
-      );
-
-      var statsDict = ee.Dictionary(stats);
-      var date = ee.Date(image.get('system:time_start'));
-      var albedoMean = statsDict.get('albedo_mean', null);
-      var pixelCount = statsDict.get('albedo_count', null);
-      
-      // Quality assessment flags
-      var validRange = ee.Algorithms.If(
-        ee.Algorithms.IsEqual(albedoMean, null),
-        null,
-        ee.Number(albedoMean).gte(0.05).and(ee.Number(albedoMean).lte(0.95))
-      );
-      
-      var reasonableVariability = ee.Algorithms.If(
-        ee.Algorithms.IsEqual(statsDict.get('albedo_stdDev', null), null),
-        null,
-        ee.Number(statsDict.get('albedo_stdDev', null)).lt(0.25)
-      );
-      
-      var sufficientData = ee.Algorithms.If(
-        ee.Algorithms.IsEqual(pixelCount, null),
-        null,
-        ee.Number(pixelCount).gte(100)
-      );
-      
-      return ee.Feature(null, {
-        // Basic observation data
-        'albedo_mean':  albedoMean,
-        'albedo_std':   statsDict.get('albedo_stdDev', null),
-        'albedo_min':   statsDict.get('albedo_min', null),
-        'albedo_max':   statsDict.get('albedo_max', null),
-        'pixel_count':  pixelCount,
-        'date':         date.format('YYYY-MM-dd'),
-        'year':         date.get('year'),
-        'month':        date.get('month'),
-        'day_of_year':  date.getRelative('day', 'year'),
-        // QA profile info
-        'qa_profile':   profile.name,
-        'qa_description': profile.description,
-        'qa_expected_gain': profile.expectedGain,
-        'qa_risk_level': profile.risk,
-        // QA configuration details
-        'qa_cloud_state': profile.cloudState,
-        'qa_allow_shadow': profile.allowShadow,
-        'qa_allow_cirrus': profile.allowCirrus,
-        'qa_solar_zenith_max': profile.solarZenithMax,
-        // Quality assessment flags
-        'qa_valid_albedo_range': validRange,
-        'qa_reasonable_variability': reasonableVariability,
-        'qa_sufficient_data': sufficientData,
-        'system:time_start': image.get('system:time_start')
-      });
-    }).filter(ee.Filter.notNull(['albedo_mean']));
+      return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+    });
     
-    allResults = allResults.merge(profileStats);
+    // Count observations for this profile
+    var observationCount = validObservations.size();
+    
+    // Create summary feature
+    var summaryFeature = ee.Feature(null, {
+      'qa_profile': profile.name,
+      'qa_description': profile.description,
+      'qa_expected_gain': profile.expectedGain,
+      'qa_risk_level': profile.risk,
+      'qa_cloud_state': profile.cloudState,
+      'qa_allow_shadow': profile.allowShadow,
+      'qa_allow_cirrus': profile.allowCirrus,
+      'qa_solar_zenith_max': profile.solarZenithMax,
+      'total_observations': observationCount
+    });
+    
+    summaryResults.push(summaryFeature);
   });
   
-  // Export comprehensive comparison CSV - SINGLE FILE with everything
+  // Create collection from summary results
+  var summaryCollection = ee.FeatureCollection(summaryResults);
+  
+  // Export simple summary CSV
   Export.table.toDrive({
-    collection: allResults,
-    description: description + '_qa_complete_analysis',
+    collection: summaryCollection,
+    description: description + '_qa_observation_counts',
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
   });
   
-  print('✅ QA Complete Analysis export initiated: ' + description + '_qa_complete_analysis');
-  print('📁 Single CSV with all QA profiles, stats, and quality metrics');
+  print('✅ Simple QA Observation Count export initiated: ' + description + '_qa_observation_counts');
+  print('📁 Simple CSV with total observation counts per QA level');
   print('📁 Check Google Drive folder: albedo_method_comparison');
 }
 

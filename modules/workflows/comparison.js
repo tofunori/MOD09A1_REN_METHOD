@@ -355,16 +355,16 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
     );
     
     print('✅ QA Profile Comparison workflow initiated');
-    print('📁 Single CSV output:');
-    print('  • ' + description + '_qa_complete_analysis.csv (all QA profiles, stats, and quality metrics)');
+    print('📁 Simple CSV output:');
+    print('  • ' + description + '_qa_observation_counts.csv (total observation counts per QA level)');
     
     if (successCallback) {
       successCallback({
         description: description,
         profileCount: 6,
-        qualityAssessmentEnabled: true,
+        qualityAssessmentEnabled: false,
         expectedOutputs: [
-          description + '_qa_complete_analysis.csv'
+          description + '_qa_observation_counts.csv'
         ]
       });
     }

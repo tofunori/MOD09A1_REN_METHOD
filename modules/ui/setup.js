@@ -199,11 +199,11 @@ function updateUIAfterQAAnalysis(uiComponents, results) {
   // Update status with success message
   controls.updateStatus(
     uiComponents.statusLabel, 
-    '✅ QA Profile Analysis complete! Check Google Drive for comprehensive CSV file.', 
+    '✅ QA observation counts complete! Check Google Drive for results.', 
     'green'
   );
   
-  print('📁 QA Profile Analysis file generated:');
+  print('📁 QA observation count file generated:');
   results.expectedOutputs.forEach(function(filename) {
     print('  • ' + filename);
   });
