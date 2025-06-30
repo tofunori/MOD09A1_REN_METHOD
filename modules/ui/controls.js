@@ -64,6 +64,7 @@ function createMainInterface() {
   var buttons = createActionButtons();
   panel.add(buttons.processButton);
   panel.add(buttons.exportButton);
+  panel.add(buttons.qaAnalysisButton);
 
   // Status label
   var statusLabel = ui.Label({
@@ -170,9 +171,20 @@ function createActionButtons() {
     }
   });
 
+  var qaAnalysisButton = ui.Button({
+    label: 'QA Profile Analysis (5 CSVs)',
+    style: {
+      backgroundColor: '#ff9800',
+      color: 'white',
+      margin: '5px 0px',
+      width: '300px'
+    }
+  });
+
   return {
     processButton: processButton,
-    exportButton: exportButton
+    exportButton: exportButton,
+    qaAnalysisButton: qaAnalysisButton
   };
 }
 
@@ -183,7 +195,7 @@ function createActionButtons() {
 /**
  * Setup event handlers for the UI components
  */
-function setupEventHandlers(uiComponents, processCallback, exportCallback) {
+function setupEventHandlers(uiComponents, processCallback, exportCallback, qaAnalysisCallback) {
   // Process button event handler
   uiComponents.buttons.processButton.onClick(function() {
     var startDate = uiComponents.dateControls.startBox.getValue();
@@ -217,6 +229,24 @@ function setupEventHandlers(uiComponents, processCallback, exportCallback) {
     }, function(error) {
       // Error callback
       updateStatus(uiComponents.statusLabel, '❌ Export failed: ' + error, 'red');
+    });
+  });
+
+  // QA Analysis button event handler
+  uiComponents.buttons.qaAnalysisButton.onClick(function() {
+    var startDate = uiComponents.dateControls.startBox.getValue();
+    var endDate = uiComponents.dateControls.endBox.getValue();
+
+    // Update status
+    updateStatus(uiComponents.statusLabel, '🔬 Running QA Profile Analysis (5 CSVs)...', 'orange');
+
+    // Call the QA analysis callback
+    qaAnalysisCallback(startDate, endDate, function(results) {
+      // Success callback
+      updateStatus(uiComponents.statusLabel, '✅ QA Analysis complete! Generated ' + results.expectedOutputs.length + ' CSV files.', 'green');
+    }, function(error) {
+      // Error callback
+      updateStatus(uiComponents.statusLabel, '❌ QA Analysis failed: ' + error, 'red');
     });
   });
 }

@@ -23,7 +23,7 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 /**
  * Initialize complete UI system
  */
-function initializeUI(processCallback, exportCallback) {
+function initializeUI(processCallback, exportCallback, qaAnalysisCallback) {
   print('🚀 Initializing modular UI system...');
   
   // Initialize glacier data for map setup
@@ -37,7 +37,7 @@ function initializeUI(processCallback, exportCallback) {
   var uiComponents = controls.createMainInterface();
   
   // Setup event handlers with callbacks
-  controls.setupEventHandlers(uiComponents, processCallback, exportCallback);
+  controls.setupEventHandlers(uiComponents, processCallback, exportCallback, qaAnalysisCallback);
   
   // Add legend
   var legend = visualization.createAlbedoLegend();
@@ -192,6 +192,24 @@ function resetUI(uiComponents) {
   print('🔄 UI reset to initial state');
 }
 
+/**
+ * Update UI after QA Analysis completion
+ */
+function updateUIAfterQAAnalysis(uiComponents, results) {
+  // Update status with success message
+  controls.updateStatus(
+    uiComponents.statusLabel, 
+    '✅ QA Profile Analysis complete! Check Google Drive for ' + results.expectedOutputs.length + ' CSV files.', 
+    'green'
+  );
+  
+  print('📁 QA Profile Analysis files generated:');
+  results.expectedOutputs.forEach(function(filename) {
+    print('  • ' + filename);
+  });
+  print('📁 Location: Google Drive > albedo_method_comparison folder');
+}
+
 // ============================================================================
 // LAYER MANAGEMENT INTERFACE
 // ============================================================================
@@ -283,3 +301,4 @@ exports.validateUIInputs = validateUIInputs;
 exports.getProcessingParameters = getProcessingParameters;
 exports.resetUI = resetUI;
 exports.createLayerControlPanel = createLayerControlPanel;
+exports.updateUIAfterQAAnalysis = updateUIAfterQAAnalysis;
