@@ -30,11 +30,11 @@ function qualityFilter(image) {
   // Cloud state (bits 0-1): accept clear (00) and probably clear (01) to keep more scenes
   var clearSky = qa.bitwiseAnd(3).lte(1); // 0 or 1
   
-  // Internal cloud mask (bit 10): reject internal cloudy pixels per Ren et al.
-  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
+  // Internal cloud mask (bit 10): allow internal cloud-flagged pixels to retain more scenes
+  var clearInternal = ee.Image(1); // no internal cloud filter
   
-  // Cloud shadow (bit 2): reject cloud shadow pixels per Ren et al.
-  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
+  // Cloud shadow (bit 2): allow shadow-flagged pixels
+  var shadowFree = ee.Image(1);
   
   // Cirrus detection (bit 8): allow cirrus-flagged pixels to retain more scenes
   var cirrusFree = ee.Image(1); // no cirrus filter
