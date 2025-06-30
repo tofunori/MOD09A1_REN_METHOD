@@ -22,14 +22,14 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 var QA_CONFIG = {
   STANDARD: {
     basicLevel: 'good',                    // QA level: 'best'(0), 'good'(0-1), 'ok'(0-2), 'all'(0-3)
-    excludeInlandWater: false,             // RELAXED: Allow water/glacial lakes for more data
+    excludeInlandWater: true,              // Exclude water/glacial lakes
     excludeVisibleScreenFail: true,        // CRITICAL - corrupted visible data (always exclude)
     excludeNDSIScreenFail: true,           // CRITICAL - unreliable NDSI (always exclude)
-    excludeTempHeightFail: false,          // RELAXED: Allow temp/height failures
-    excludeSWIRAnomaly: false,             // RELAXED: Allow SWIR anomalies
-    excludeProbablyCloudy: false,          // RELAXED: Allow probably cloudy for more data
+    excludeTempHeightFail: true,           // Temperature/height screen failure
+    excludeSWIRAnomaly: true,              // SWIR optical anomalies  
+    excludeProbablyCloudy: true,           // Cloud detection (false positives over snow - consider keeping)
     excludeProbablyClear: false,           // Clear detection (usually safe to keep)
-    excludeHighSolarZenith: false          // RELAXED: Allow high solar zenith
+    excludeHighSolarZenith: true           // Solar zenith angle >70° (poor lighting)
   },
   
   // QA bit mapping for metadata-driven processing
@@ -149,3 +149,4 @@ exports.processMOD10A1 = processMOD10A1;
 exports.createStandardQualityMask = createStandardQualityMask;
 exports.getBasicQAMask = getBasicQAMask;
 exports.getAlgorithmFlagsMask = getAlgorithmFlagsMask;
+exports.QA_CONFIG = QA_CONFIG;
