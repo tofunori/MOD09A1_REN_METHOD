@@ -15,19 +15,17 @@
 // MODULE IMPORTS
 // ============================================================================
 
-// TODO: In Google Earth Engine, require these modules:
+// Load GUI and Map modules using correct GEE absolute paths
+var gui = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/gui');
+var mapViz = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/map_visualization');
+
+// TODO: For full modular implementation, also require:
 // var constants = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/config/constants');
 // var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/methods/ren_method');
 // var mod10a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/methods/mod10a1_method');
 // var mcd43a3Method = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/methods/mcd43a3_method');
 // var commonFunctions = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/common_functions');
 // var exportFunctions = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/export_functions');
-// var gui = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/gui');
-// var mapViz = require('users/tofunori/MOD09A1_REN_METHOD:modular_comparison/utils/map_visualization');
-
-// For demonstration, load simplified processing functions inline
-var gui = require('./utils/gui.js');
-var mapViz = require('./utils/map_visualization.js');
 
 // ============================================================================
 // GLOBAL CONFIGURATION
