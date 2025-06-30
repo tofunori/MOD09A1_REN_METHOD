@@ -310,47 +310,137 @@ function generateExportDescription(prefix, startDate, endDate) {
 function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
   print('📊 Starting Simple QA Observation Count Analysis...');
   
-  var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
-  var allResults = ee.FeatureCollection([]);
-  
-  // Process each QA profile and count total observations
-  profiles.forEach(function(profileKey) {
-    var profile = config.QA_PROFILES[profileKey];
-    print('⚡ Counting observations for ' + profile.name + ' profile...');
-    
-    // Apply Ren method with specific QA profile
-    var processed = collection.map(function(image) {
-      var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
-    });
-    
-    // Filter to only valid observations
-    var validObservations = processed.filter(function(image) {
-      var bandNames = image.bandNames();
-      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-    });
-    
-    // Count observations for this profile
-    var observationCount = validObservations.size();
-    
-    // Create summary feature with server-side operations
-    var summaryFeature = ee.Feature(null, {
-      'qa_profile': profile.name,
-      'qa_description': profile.description,
-      'qa_expected_gain': profile.expectedGain,
-      'qa_risk_level': profile.risk,
-      'qa_cloud_state': profile.cloudState,
-      'qa_allow_shadow': profile.allowShadow,
-      'qa_allow_cirrus': profile.allowCirrus,
-      'qa_solar_zenith_max': profile.solarZenithMax,
-      'total_observations': observationCount
-    });
-    
-    // Add to collection using merge
-    allResults = allResults.merge(ee.FeatureCollection([summaryFeature]));
+  // Process strict profile
+  var strictProfile = config.QA_PROFILES.strict;
+  print('⚡ Counting observations for ' + strictProfile.name + ' profile...');
+  var strictProcessed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, strictProfile);
   });
+  var strictValid = strictProcessed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var strictFeature = ee.Feature(null, {
+    'qa_profile': strictProfile.name,
+    'qa_description': strictProfile.description,
+    'qa_expected_gain': strictProfile.expectedGain,
+    'qa_risk_level': strictProfile.risk,
+    'total_observations': strictValid.size()
+  });
+  
+  // Process level1 profile
+  var level1Profile = config.QA_PROFILES.level1;
+  print('⚡ Counting observations for ' + level1Profile.name + ' profile...');
+  var level1Processed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level1Profile);
+  });
+  var level1Valid = level1Processed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var level1Feature = ee.Feature(null, {
+    'qa_profile': level1Profile.name,
+    'qa_description': level1Profile.description,
+    'qa_expected_gain': level1Profile.expectedGain,
+    'qa_risk_level': level1Profile.risk,
+    'total_observations': level1Valid.size()
+  });
+  
+  // Process level2 profile
+  var level2Profile = config.QA_PROFILES.level2;
+  print('⚡ Counting observations for ' + level2Profile.name + ' profile...');
+  var level2Processed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level2Profile);
+  });
+  var level2Valid = level2Processed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var level2Feature = ee.Feature(null, {
+    'qa_profile': level2Profile.name,
+    'qa_description': level2Profile.description,
+    'qa_expected_gain': level2Profile.expectedGain,
+    'qa_risk_level': level2Profile.risk,
+    'total_observations': level2Valid.size()
+  });
+  
+  // Process level3 profile
+  var level3Profile = config.QA_PROFILES.level3;
+  print('⚡ Counting observations for ' + level3Profile.name + ' profile...');
+  var level3Processed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level3Profile);
+  });
+  var level3Valid = level3Processed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var level3Feature = ee.Feature(null, {
+    'qa_profile': level3Profile.name,
+    'qa_description': level3Profile.description,
+    'qa_expected_gain': level3Profile.expectedGain,
+    'qa_risk_level': level3Profile.risk,
+    'total_observations': level3Valid.size()
+  });
+  
+  // Process level4 profile
+  var level4Profile = config.QA_PROFILES.level4;
+  print('⚡ Counting observations for ' + level4Profile.name + ' profile...');
+  var level4Processed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level4Profile);
+  });
+  var level4Valid = level4Processed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var level4Feature = ee.Feature(null, {
+    'qa_profile': level4Profile.name,
+    'qa_description': level4Profile.description,
+    'qa_expected_gain': level4Profile.expectedGain,
+    'qa_risk_level': level4Profile.risk,
+    'total_observations': level4Valid.size()
+  });
+  
+  // Process level5 profile
+  var level5Profile = config.QA_PROFILES.level5;
+  print('⚡ Counting observations for ' + level5Profile.name + ' profile...');
+  var level5Processed = collection.map(function(image) {
+    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level5Profile);
+  });
+  var level5Valid = level5Processed.filter(function(image) {
+    var bandNames = image.bandNames();
+    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+  });
+  var level5Feature = ee.Feature(null, {
+    'qa_profile': level5Profile.name,
+    'qa_description': level5Profile.description,
+    'qa_expected_gain': level5Profile.expectedGain,
+    'qa_risk_level': level5Profile.risk,
+    'total_observations': level5Valid.size()
+  });
+  
+  // Create final collection
+  var allResults = ee.FeatureCollection([
+    strictFeature, level1Feature, level2Feature, 
+    level3Feature, level4Feature, level5Feature
+  ]);
   
   // Export simple summary CSV
   Export.table.toDrive({
