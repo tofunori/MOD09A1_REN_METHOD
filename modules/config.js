@@ -140,3 +140,41 @@ exports.EXPORT_CONFIG = EXPORT_CONFIG;
 // Legacy uppercase aliases for backward-compatibility
 exports.ICE_COEFFICIENTS = iceCoefficients;
 exports.SNOW_COEFFICIENTS = snowCoefficients;
+
+// ============================================================================
+// BRDF COEFFICIENT TABLES (Ren et al. 2021 – Table 4)
+// ============================================================================
+
+// Coefficients for the anisotropic correction helper.  Keys correspond to
+// MODIS band identifiers used throughout the codebase (b1, b2, …).
+
+var SNOW_BRDF_COEFFICIENTS = {
+  // b1 → 677 nm
+  b1: { c1: 0.00083, c2: 0.00384, c3: 0.00452, theta_c: 0.34527 },
+  // b2 → 873 nm
+  b2: { c1: 0.00123, c2: 0.00459, c3: 0.00521, theta_c: 0.34834 },
+  // b3 → 480 nm
+  b3: { c1: 0.00000, c2: 0.00001, c3: 0.00002, theta_c: 0.12131 },
+  // b4 has no snow coefficients – left undefined on purpose
+  b5: { c1: 0.00663, c2: 0.01081, c3: 0.01076, theta_c: 0.46132 },
+  b7: { c1: 0.00622, c2: 0.01410, c3: 0.01314, theta_c: 0.55261 }
+};
+
+var ICE_BRDF_COEFFICIENTS = {
+  // b1 → 675 nm
+  b1: { c1: -0.00054, c2:  0.00002, c3:  0.00001, theta_c: 0.17600 },
+  // b2 → 868 nm
+  b2: { c1: -0.00924, c2:  0.00033, c3: -0.00005, theta_c: 0.31750 },
+  // b3 → 471 nm
+  b3: { c1: -0.00369, c2:  0.00000, c3:  0.00007, theta_c: 0.27632 },
+  // b4 → 560 nm
+  b4: { c1: -0.02920, c2: -0.00810, c3:  0.00462, theta_c: 0.52360 },
+  // b5 → 1219 nm
+  b5: { c1: -0.02388, c2:  0.00656, c3:  0.00227, theta_c: 0.58473 },
+  // b7 → 1271 nm (≈ 2130 nm in original table)
+  b7: { c1: -0.02081, c2:  0.00683, c3:  0.00390, theta_c: 0.57500 }
+};
+
+// Export BRDF tables
+exports.SNOW_BRDF_COEFFICIENTS = SNOW_BRDF_COEFFICIENTS;
+exports.ICE_BRDF_COEFFICIENTS  = ICE_BRDF_COEFFICIENTS;
