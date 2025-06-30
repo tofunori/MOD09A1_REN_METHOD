@@ -107,10 +107,10 @@ var QA_CONFIG = {
 
 // Export parameters for memory optimization
 var EXPORT_CONFIG = {
-  scale: 5000,                   // Export scale for Ren method
-  scale_simple: 10000,           // Export scale for simplified methods  
-  maxPixels_ren: 1e4,           // Max pixels for Ren method
-  maxPixels_simple: 1e3,        // Max pixels for simplified methods
+  scale: 500,                    // Export scale for Ren method (match MODIS)
+  scale_simple: 500,             // Export scale for simplified methods  
+  maxPixels_ren: 1e6,            // Allow more pixels for Ren exports
+  maxPixels_simple: 1e6,         // Allow more pixels for others
   tileScale: 16,                // Tile scale for all exports
   bestEffort: true              // Best effort flag
 };
