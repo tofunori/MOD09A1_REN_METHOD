@@ -118,8 +118,15 @@ function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines)
  */
 function addMethodLayer(collection, bandName, methodName, visParams, glacierMask, glacierOutlines) {
   if (collection && collection.size().getInfo() > 0) {
+    // Determine which band to use (masked vs unmasked)
+    var bandToUse = ee.Algorithms.If(
+      collection.first().bandNames().contains(bandName),
+      bandName,
+      ee.String(bandName).cat('_masked')
+    );
+    
     // Create median composite
-    var image = collection.median().select(bandName);
+    var image = collection.median().select(bandToUse);
     
     // Optionally reproject glacier mask to the image projection to ensure alignment
     var projectedMask = glacierMask ? glacierMask.reproject(image.projection()) : null;
@@ -215,8 +222,11 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
  */
 function createDifferenceImage(collection1, band1, collection2, band2, glacierMask, glacierOutlines) {
   // Create median composites for comparison
-  var median1 = collection1.median().select(band1);
-  var median2 = collection2.median().select(band2);
+  var b1 = ee.Algorithms.If(collection1.first().bandNames().contains(band1), band1, ee.String(band1).cat('_masked'));
+  var b2 = ee.Algorithms.If(collection2.first().bandNames().contains(band2), band2, ee.String(band2).cat('_masked'));
+  
+  var median1 = collection1.median().select(b1);
+  var median2 = collection2.median().select(b2);
   
   // Calculate difference
   var difference = median1.subtract(median2).rename('albedo_difference');

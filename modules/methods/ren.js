@@ -340,7 +340,10 @@ function processRenMethod(image, glacierOutlines, createGlacierMask) {
   var withBB = computeBroadbandAlbedo(withNB);
 
   // 6) Glacier mask
-  var glacierMask = createGlacierMask(glacierOutlines, null);
+  var glacierMaskRaw = createGlacierMask(glacierOutlines, null);
+  // Reproject mask to match the current image projection to avoid mis-alignment
+  var glacierMask = glacierMaskRaw.reproject(withBB.projection());
+
   var maskedAlbedo = withBB.select('broadband_albedo_ren').updateMask(glacierMask);
 
   return filtered
