@@ -30,16 +30,26 @@ var QA_CONFIG = {
   ]
 };
 
-// Glacier-optimised relaxed preset
+// ES5-compatible deep copy & override (Object.assign is not supported in GEE)
+var relaxedStandard = (function() {
+  var copy = {};
+  for (var key in QA_CONFIG.STANDARD) {
+    if (QA_CONFIG.STANDARD.hasOwnProperty(key)) {
+      copy[key] = QA_CONFIG.STANDARD[key];
+    }
+  }
+  // Override with relaxed options
+  copy.basicLevel = 'ok';
+  copy.excludeInlandWater = false;
+  copy.excludeTempHeightFail = false;
+  copy.excludeSWIRAnomaly = false;
+  copy.excludeProbablyCloudy = false;
+  copy.excludeHighSolarZenith = false;
+  return copy;
+})();
+
 var QA_CONFIG_RELAXED = {
-  STANDARD: Object.assign({}, QA_CONFIG.STANDARD, {
-    basicLevel: 'ok',
-    excludeInlandWater: false,
-    excludeTempHeightFail: false,
-    excludeSWIRAnomaly: false,
-    excludeProbablyCloudy: false,
-    excludeHighSolarZenith: false
-  }),
+  STANDARD: relaxedStandard,
   BIT_MAPPING: QA_CONFIG.BIT_MAPPING
 };
 
