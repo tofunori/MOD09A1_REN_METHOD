@@ -16,6 +16,8 @@ from typing import Dict, Optional, Callable
 from ..config.settings import MODIS_COLLECTIONS
 from ..utils.glacier_utils import apply_standard_filtering, create_glacier_mask
 from ..methods.ren_method import process_ren_method
+from ..methods.mod10a1_method import process_mod10a1_method
+from ..methods.mcd43a3_method import process_mcd43a3_method
 
 
 def get_filtered_collection(start_date: str, 
@@ -70,15 +72,17 @@ def process_ren_collection(start_date: str,
 def process_mod10a1_collection(start_date: str,
                               end_date: str,
                               region: ee.Geometry, 
-                              glacier_outlines: ee.FeatureCollection) -> ee.ImageCollection:
+                              glacier_outlines: ee.FeatureCollection,
+                              relaxed_qa: bool = False) -> ee.ImageCollection:
     """
-    Process MOD10A1 method collection.
+    Process MOD10A1 method collection with full implementation.
     
     Args:
         start_date: Start date
         end_date: End date
         region: Region of interest
         glacier_outlines: Glacier outline features
+        relaxed_qa: Use relaxed quality filtering
         
     Returns:
         Processed collection with MOD10A1 albedo
@@ -86,15 +90,7 @@ def process_mod10a1_collection(start_date: str,
     collection = get_filtered_collection(start_date, end_date, region, MODIS_COLLECTIONS['MOD10A1'])
     
     def process_image(img):
-        # Simplified MOD10A1 processing - extract snow albedo
-        # This is a placeholder - full implementation would be in separate method file
-        snow_albedo = img.select('Snow_Albedo_Daily_Tile').multiply(0.01)
-        glacier_mask = create_glacier_mask(glacier_outlines, img)
-        masked_albedo = snow_albedo.updateMask(glacier_mask)
-        
-        return (img.addBands(snow_albedo.rename('broadband_albedo_mod10a1'))
-                   .addBands(masked_albedo.rename('broadband_albedo_mod10a1_masked'))
-                   .copyProperties(img, ['system:time_start']))
+        return process_mod10a1_method(img, glacier_outlines, create_glacier_mask, relaxed_qa)
     
     return collection.map(process_image)
 
@@ -102,15 +98,17 @@ def process_mod10a1_collection(start_date: str,
 def process_mcd43a3_collection(start_date: str,
                               end_date: str,
                               region: ee.Geometry,
-                              glacier_outlines: ee.FeatureCollection) -> ee.ImageCollection:
+                              glacier_outlines: ee.FeatureCollection,
+                              relaxed_qa: bool = False) -> ee.ImageCollection:
     """
-    Process MCD43A3 method collection.
+    Process MCD43A3 method collection with full implementation.
     
     Args:
         start_date: Start date
         end_date: End date  
         region: Region of interest
         glacier_outlines: Glacier outline features
+        relaxed_qa: Use relaxed quality filtering
         
     Returns:
         Processed collection with MCD43A3 albedo
@@ -118,38 +116,9 @@ def process_mcd43a3_collection(start_date: str,
     collection = get_filtered_collection(start_date, end_date, region, MODIS_COLLECTIONS['MCD43A3'])
     
     def process_image(img):
-        # Simplified MCD43A3 processing - extract BRDF albedo
-        # This is a placeholder - full implementation would be in separate method file
-        try:
-            # Try different possible band names for MCD43A3 albedo
-            band_names = img.bandNames()
-            albedo_band = None
-            
-            possible_bands = ['Albedo_BSA_Band1', 'BSA_vis', 'Albedo_WSA_shortwave']
-            for band in possible_bands:
-                if band_names.contains(band):
-                    albedo_band = band
-                    break
-            
-            if albedo_band:
-                albedo = img.select(albedo_band).multiply(0.001)  # Scale factor for MCD43A3
-            else:
-                # Fallback: create dummy albedo band
-                albedo = ee.Image.constant(0.5).rename('broadband_albedo_mcd43a3')
-            
-            glacier_mask = create_glacier_mask(glacier_outlines, img)
-            masked_albedo = albedo.updateMask(glacier_mask)
-            
-            return (img.addBands(albedo.rename('broadband_albedo_mcd43a3'))
-                       .addBands(masked_albedo.rename('broadband_albedo_mcd43a3_masked'))
-                       .copyProperties(img, ['system:time_start']))
-        except:
-            # Return None if processing fails
-            return None
+        return process_mcd43a3_method(img, glacier_outlines, create_glacier_mask, relaxed_qa)
     
-    # Filter out None results
-    processed = collection.map(process_image)
-    return processed.filter(ee.Filter.notNull(['broadband_albedo_mcd43a3']))
+    return collection.map(process_image)
 
 
 def run_modular_comparison(start_date: str,
@@ -192,7 +161,7 @@ def run_modular_comparison(start_date: str,
             print('🔬 Processing MOD10A1 method...')
             try:
                 results['mod10a1'] = process_mod10a1_collection(
-                    start_date, end_date, region, glacier_outlines
+                    start_date, end_date, region, glacier_outlines, relaxed_qa
                 )
                 print('✅ MOD10A1 method processing completed')
             except Exception as e:
@@ -204,7 +173,7 @@ def run_modular_comparison(start_date: str,
             print('🔬 Processing MCD43A3 method...')
             try:
                 results['mcd43a3'] = process_mcd43a3_collection(
-                    start_date, end_date, region, glacier_outlines
+                    start_date, end_date, region, glacier_outlines, relaxed_qa
                 )
                 print('✅ MCD43A3 method processing completed')
             except Exception as e:

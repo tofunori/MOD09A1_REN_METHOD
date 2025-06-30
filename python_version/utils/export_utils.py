@@ -55,7 +55,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         print('📊 Processing MOD10A1 method statistics...')
         mod10a1_stats = _process_method_collection(
             results['mod10a1'],
-            'broadband_albedo_mod10a1', 
+            'broadband_albedo_mod10a1_masked', 
             'MOD10A1',
             region,
             EXPORT_CONFIG['scale_simple'],
@@ -68,7 +68,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         print('📊 Processing MCD43A3 method statistics...')
         mcd43a3_stats = _process_method_collection(
             results['mcd43a3'],
-            'broadband_albedo_mcd43a3',
+            'broadband_albedo_mcd43a3_masked',
             'MCD43A3', 
             region,
             EXPORT_CONFIG['scale_simple'],
