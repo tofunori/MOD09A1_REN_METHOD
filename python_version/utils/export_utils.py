@@ -15,7 +15,10 @@ from typing import Dict, List, Optional, Union, Tuple
 from datetime import datetime
 import time
 
-from ..config.settings import EXPORT_CONFIG
+try:
+    from ..config.settings import EXPORT_CONFIG
+except ImportError:
+    from config.settings import EXPORT_CONFIG
 
 
 def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],

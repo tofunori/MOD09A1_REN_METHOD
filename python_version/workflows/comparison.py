@@ -13,11 +13,18 @@ Date: 2025-06-30
 import ee
 from typing import Dict, Optional, Callable
 
-from ..config.settings import MODIS_COLLECTIONS
-from ..utils.glacier_utils import apply_standard_filtering, create_glacier_mask
-from ..methods.ren_method import process_ren_method
-from ..methods.mod10a1_method import process_mod10a1_method
-from ..methods.mcd43a3_method import process_mcd43a3_method
+try:
+    from ..config.settings import MODIS_COLLECTIONS
+    from ..utils.glacier_utils import apply_standard_filtering, create_glacier_mask
+    from ..methods.ren_method import process_ren_method
+    from ..methods.mod10a1_method import process_mod10a1_method
+    from ..methods.mcd43a3_method import process_mcd43a3_method
+except ImportError:
+    from config.settings import MODIS_COLLECTIONS
+    from utils.glacier_utils import apply_standard_filtering, create_glacier_mask
+    from methods.ren_method import process_ren_method
+    from methods.mod10a1_method import process_mod10a1_method
+    from methods.mcd43a3_method import process_mcd43a3_method
 
 
 def get_filtered_collection(start_date: str, 

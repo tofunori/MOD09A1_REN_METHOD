@@ -18,16 +18,30 @@ import os
 # Add the current directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from config.settings import (
-    MODIS_COLLECTIONS, GLACIER_ASSET, PROCESSING_CONFIG, 
-    DEBUG_MODE, get_all_config
-)
-from utils.glacier_utils import initialize_glacier_data, apply_standard_filtering
-from utils.export_utils import (
-    export_comparison_stats_to_dataframe, export_dataframe_to_csv,
-    print_data_counts, create_summary_statistics
-)
-from workflows.comparison import run_modular_comparison
+try:
+    # Try relative imports first (when run as module)
+    from .config.settings import (
+        MODIS_COLLECTIONS, GLACIER_ASSET, PROCESSING_CONFIG, 
+        DEBUG_MODE, get_all_config
+    )
+    from .utils.glacier_utils import initialize_glacier_data, apply_standard_filtering
+    from .utils.export_utils import (
+        export_comparison_stats_to_dataframe, export_dataframe_to_csv,
+        print_data_counts, create_summary_statistics
+    )
+    from .workflows.comparison import run_modular_comparison
+except ImportError:
+    # Fall back to absolute imports (when run directly)
+    from config.settings import (
+        MODIS_COLLECTIONS, GLACIER_ASSET, PROCESSING_CONFIG, 
+        DEBUG_MODE, get_all_config
+    )
+    from utils.glacier_utils import initialize_glacier_data, apply_standard_filtering
+    from utils.export_utils import (
+        export_comparison_stats_to_dataframe, export_dataframe_to_csv,
+        print_data_counts, create_summary_statistics
+    )
+    from workflows.comparison import run_modular_comparison
 
 
 def authenticate_ee():

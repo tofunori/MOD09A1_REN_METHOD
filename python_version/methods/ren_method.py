@@ -12,13 +12,22 @@ Source: Ren et al. (2021/2023) methodology - EXACT implementation
 import ee
 import math
 from typing import Dict, Optional, Tuple, Union
-from ..config.settings import (
-    REFL_BANDS, TOPO_BANDS_ALL, TOPO_BANDS_SNOW, NARROWBAND_ALL, NARROWBAND_SNOW,
-    BAND_NUMS_ALL, BAND_NUMS_SNOW, ICE_COEFFICIENTS, SNOW_COEFFICIENTS,
-    SNOW_BRDF_COEFFICIENTS, ICE_BRDF_COEFFICIENTS, get_topographic_data
-)
-from ..utils.quality_filters import quality_filter_mod09a1
-from ..utils.glacier_utils import create_glacier_mask
+try:
+    from ..config.settings import (
+        REFL_BANDS, TOPO_BANDS_ALL, TOPO_BANDS_SNOW, NARROWBAND_ALL, NARROWBAND_SNOW,
+        BAND_NUMS_ALL, BAND_NUMS_SNOW, ICE_COEFFICIENTS, SNOW_COEFFICIENTS,
+        SNOW_BRDF_COEFFICIENTS, ICE_BRDF_COEFFICIENTS, get_topographic_data
+    )
+    from ..utils.quality_filters import quality_filter_mod09a1
+    from ..utils.glacier_utils import create_glacier_mask
+except ImportError:
+    from config.settings import (
+        REFL_BANDS, TOPO_BANDS_ALL, TOPO_BANDS_SNOW, NARROWBAND_ALL, NARROWBAND_SNOW,
+        BAND_NUMS_ALL, BAND_NUMS_SNOW, ICE_COEFFICIENTS, SNOW_COEFFICIENTS,
+        SNOW_BRDF_COEFFICIENTS, ICE_BRDF_COEFFICIENTS, get_topographic_data
+    )
+    from utils.quality_filters import quality_filter_mod09a1
+    from utils.glacier_utils import create_glacier_mask
 
 
 def process_ren_method(image: ee.Image, 

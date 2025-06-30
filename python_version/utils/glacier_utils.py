@@ -9,7 +9,10 @@ Date: 2025-06-30
 
 import ee
 from typing import Dict, Optional, Tuple
-from ..config.settings import GLACIER_ASSET, GLACIER_CONFIG, PROCESSING_CONFIG
+try:
+    from ..config.settings import GLACIER_ASSET, GLACIER_CONFIG, PROCESSING_CONFIG
+except ImportError:
+    from config.settings import GLACIER_ASSET, GLACIER_CONFIG, PROCESSING_CONFIG
 
 
 def initialize_glacier_data() -> Dict:
@@ -19,11 +22,24 @@ def initialize_glacier_data() -> Dict:
     Returns:
         Dictionary containing glacier outlines, geometry, and reference image
     """
-    # Load glacier asset
-    glacier_outlines = ee.FeatureCollection(GLACIER_ASSET)
-    
-    # Get glacier geometry for region of interest
-    glacier_geometry = glacier_outlines.geometry()
+    # Load glacier asset - can be either FeatureCollection or Image
+    try:
+        # Try as FeatureCollection first
+        glacier_outlines = ee.FeatureCollection(GLACIER_ASSET)
+        glacier_geometry = glacier_outlines.geometry()
+        use_vector = True
+    except:
+        # Fall back to Image (rasterized glacier mask)
+        glacier_image = ee.Image(GLACIER_ASSET)
+        # Create geometry from image footprint
+        glacier_geometry = glacier_image.geometry()
+        # Convert image to fake FeatureCollection for compatibility
+        glacier_outlines = glacier_image.gt(0).reduceToVectors(
+            geometry=glacier_geometry,
+            scale=30,
+            maxPixels=1e8
+        )
+        use_vector = False
     
     # Create a reference image for glacier fraction calculations
     # Use a constant image to establish the glacier grid
@@ -32,7 +48,8 @@ def initialize_glacier_data() -> Dict:
     return {
         'outlines': glacier_outlines,
         'geometry': glacier_geometry,
-        'image': reference_image
+        'image': reference_image,
+        'use_vector': use_vector
     }
 
 
@@ -43,7 +60,7 @@ def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
     Create glacier abundance mask for MODIS pixel filtering.
     
     Args:
-        glacier_outlines: Glacier outline features
+        glacier_outlines: Glacier outline features (or vectorized raster)
         reference_image: Reference image for grid alignment
         abundance_threshold: Minimum glacier fraction threshold (default from config)
         
@@ -53,11 +70,24 @@ def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
     if abundance_threshold is None:
         abundance_threshold = GLACIER_CONFIG['abundance_threshold']
     
-    # Rasterize glacier outlines at high resolution
-    glacier_raster = glacier_outlines.reduceToImage(
-        properties=['glacier_id'],
-        reducer=ee.Reducer.first()
-    ).gt(0)
+    # Try to use the original raster if available
+    try:
+        # If we have the original glacier image, use it directly
+        glacier_image = ee.Image(GLACIER_ASSET)
+        band_names = glacier_image.bandNames().getInfo()
+        
+        # Use the first band (usually B3 or similar)
+        if band_names:
+            glacier_raster = glacier_image.select(band_names[0]).gt(0)
+        else:
+            raise Exception("No bands found")
+            
+    except:
+        # Fall back to rasterizing the FeatureCollection
+        glacier_raster = glacier_outlines.reduceToImage(
+            properties=[glacier_outlines.first().propertyNames().get(0)],
+            reducer=ee.Reducer.first()
+        ).gt(0)
     
     # Calculate glacier fraction at MODIS scale
     glacier_fraction = glacier_raster.reduceResolution(

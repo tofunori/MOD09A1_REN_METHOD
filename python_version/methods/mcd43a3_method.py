@@ -10,8 +10,12 @@ Date: 2025-06-30
 
 import ee
 from typing import Dict, Optional, List
-from ..config.settings import MODIS_COLLECTIONS
-from ..utils.glacier_utils import create_glacier_mask
+try:
+    from ..config.settings import MODIS_COLLECTIONS
+    from ..utils.glacier_utils import create_glacier_mask
+except ImportError:
+    from config.settings import MODIS_COLLECTIONS
+    from utils.glacier_utils import create_glacier_mask
 
 
 # ============================================================================
