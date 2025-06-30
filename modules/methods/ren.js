@@ -225,19 +225,24 @@ function classifySnowIce(image) {
   var hasTopoCorrection = bandNames.contains('sur_refl_b04_topo');
   
   var green, swir;
-  if (hasTopoCorrection) {
-    // Use topographically corrected green band (already scaled by 0.0001)
-    green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green)
+  
+  // Use topographically corrected bands if available (Ren et al. recommendation)
+  var topoGreen = 'sur_refl_b04_topo';
+  var topoSwir = 'sur_refl_b06_topo';
 
-    // SWIR: Use Band 6 for standard NDSI, but check for availability
-    var swirTopoName = 'sur_refl_b06_topo';
-    swir = image.bandNames().contains(swirTopoName)
-      ? image.select(swirTopoName)                          // topo-corrected if present
-      : image.select('sur_refl_b06').multiply(0.0001);      // raw fallback
-  } else {
-    green = image.select('sur_refl_b04').multiply(0.0001);
-    swir  = image.select('sur_refl_b07').multiply(0.0001);  // Band 7 raw SWIR2
-  }
+  // Check for topo-corrected green band (B4)
+  green = image.bandNames().contains(topoGreen)
+    ? image.select(topoGreen)
+    : image.select('sur_refl_b04').multiply(0.0001);
+
+  // Check for topo-corrected SWIR band (B6), fallback to B7 raw if needed
+  swir = ee.Image(
+    ee.Algorithms.If(
+      image.bandNames().contains(topoSwir),
+      image.select(topoSwir),
+      image.select('sur_refl_b07').multiply(0.0001) // Fallback to B7 raw
+    )
+  );
   
   // Calculate NDSI = (Green - SWIR) / (Green + SWIR)
   var ndsi = green.subtract(swir).divide(green.add(swir)).rename('NDSI');

@@ -31,9 +31,9 @@ function exportComparisonStats(results, region, description) {
     var renStats = results.ren.map(function(image) {
       // Check if either albedo band exists before processing
       var bandNames = image.bandNames();
-      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      var hasAnyAlbedoBand = hasMaskedBand.or(hasBaseBand);
+      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked').getInfo();
+      var hasBaseBand = bandNames.contains('broadband_albedo_ren').getInfo();
+      var hasAnyAlbedoBand = hasMaskedBand || hasBaseBand;
       
       var stats = ee.Algorithms.If(
         hasAnyAlbedoBand,
