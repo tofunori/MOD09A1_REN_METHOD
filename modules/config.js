@@ -88,6 +88,16 @@ var GLACIER_CONFIG = {
 // PROCESSING PARAMETERS
 // ============================================================================
 
+// Processing workflow configuration
+var PROCESSING_CONFIG = {
+  melt_season_only: true,        // Filter to melt season (June-September)
+  apply_cloud_masking: true,     // Apply cloud masking where available
+  debug_mode: false             // Enable debug logging
+};
+
+// Debug mode flag (also available at top level for convenience)
+var DEBUG_MODE = PROCESSING_CONFIG.debug_mode;
+
 // Quality filtering parameters
 var QA_CONFIG = {
   solar_zenith_max: 70,          // Maximum solar zenith angle (degrees)
@@ -124,5 +134,7 @@ exports.aspect = aspect;
 exports.MODIS_COLLECTIONS = MODIS_COLLECTIONS;
 exports.GLACIER_ASSET = GLACIER_ASSET;
 exports.GLACIER_CONFIG = GLACIER_CONFIG;
+exports.PROCESSING_CONFIG = PROCESSING_CONFIG;
+exports.DEBUG_MODE = DEBUG_MODE;
 exports.QA_CONFIG = QA_CONFIG;
 exports.EXPORT_CONFIG = EXPORT_CONFIG;
