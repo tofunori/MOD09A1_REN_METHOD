@@ -12,19 +12,19 @@
 // MODIS BAND CONSTANTS
 // ============================================================================
 
-// Global band constants for MOD09A1 Ren method
+// Global band constants for MOD09A1 Ren method (includes band 6 for NDSI)
 var REFL_BANDS = ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b03', 
-                  'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b07'];
+                  'sur_refl_b04', 'sur_refl_b05', 'sur_refl_b06', 'sur_refl_b07'];
 var TOPO_BANDS_ALL = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-                      'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+                      'sur_refl_b04_topo', 'sur_refl_b05_topo', 'sur_refl_b06_topo', 'sur_refl_b07_topo'];
 var TOPO_BANDS_SNOW = ['sur_refl_b01_topo', 'sur_refl_b02_topo', 'sur_refl_b03_topo',
-                       'sur_refl_b05_topo', 'sur_refl_b07_topo'];
+                       'sur_refl_b05_topo', 'sur_refl_b07_topo']; // B4 and B6 excluded for snow
 var NARROWBAND_ALL = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3', 
-                      'narrowband_b4', 'narrowband_b5', 'narrowband_b7'];
+                      'narrowband_b4', 'narrowband_b5', 'narrowband_b6', 'narrowband_b7'];
 var NARROWBAND_SNOW = ['narrowband_b1', 'narrowband_b2', 'narrowband_b3',
-                       'narrowband_b5', 'narrowband_b7'];
-var BAND_NUMS_ALL = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7'];
-var BAND_NUMS_SNOW = ['b1', 'b2', 'b3', 'b5', 'b7'];
+                       'narrowband_b5', 'narrowband_b7']; // B4 and B6 excluded for snow
+var BAND_NUMS_ALL = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
+var BAND_NUMS_SNOW = ['b1', 'b2', 'b3', 'b5', 'b7']; // B4 and B6 excluded for snow
 
 // ============================================================================
 // EMPIRICAL COEFFICIENTS (Ren et al. 2023)
@@ -37,6 +37,7 @@ var iceCoefficients = {
   b3: 0.243, 
   b4: 0.116, 
   b5: 0.112, 
+  b6: 0.094, // Band 6 coefficient for ice
   b7: 0.081, 
   constant: -0.0015
 };
@@ -65,7 +66,8 @@ var aspect = ee.Terrain.aspect(dem);
 // ============================================================================
 
 var MODIS_COLLECTIONS = {
-  MOD09GA: 'MODIS/061/MOD09GA',    // Surface Reflectance Daily Global 1km and 500m
+  MOD09A1: 'MODIS/061/MOD09A1',    // Surface Reflectance 8-Day Global 500m (has band 6)
+  MOD09GA: 'MODIS/061/MOD09GA',    // Surface Reflectance Daily Global 1km and 500m (no band 6)
   MOD10A1: 'MODIS/061/MOD10A1',   // Snow Cover Daily Global 500m
   MCD43A3: 'MODIS/061/MCD43A3'    // BRDF/Albedo Daily Global 500m
 };
