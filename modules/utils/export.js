@@ -305,16 +305,18 @@ function generateExportDescription(prefix, startDate, endDate) {
 // ============================================================================
 
 /**
- * Export simple QA observation counts - count successful Ren method results per QA level
- * FIXED: Now actually processes through Ren method to count valid albedo results
+ * Export simple QA observation counts - count pixels with valid albedo per QA level
+ * FIXED: Count valid PIXELS with albedo data, not just images
  */
 function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
-  print('📊 Starting QA Count Analysis - Processing Ren Method Results...');
+  print('📊 Starting QA Count Analysis - Counting Valid Pixels...');
   
-  // Helper function to apply QA filter and process Ren method (hard-coded to avoid object issues)
-  function processWithQALevel(qaType) {
+  // Helper function to count valid pixels for each QA level
+  function countValidPixels(qaType) {
+    var totalPixels = 0;
+    
     return collection.map(function(image) {
-      // Apply QA filtering based on level (hard-coded)
+      // Apply QA filtering based on level (hard-coded to match config)
       var qa = image.select('state_1km');
       var cloudState = qa.bitwiseAnd(0x3);
       var shadowFlag = qa.bitwiseAnd(1<<2).rightShift(2);
@@ -324,114 +326,110 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       
       var validQA;
       if (qaType === 'strict') {
+        // Strict: cloud=0, shadow=0, cirrus=0, sza<70, snow>=2 (high confidence)
         validQA = cloudState.eq(0).and(shadowFlag.eq(0)).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(2));
       } else if (qaType === 'level1') {
+        // Level1: Allow maybe snow/ice (confidence >= 1) 
         validQA = cloudState.eq(0).and(shadowFlag.eq(0)).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(1));
       } else if (qaType === 'level2') {
+        // Level2: Allow shadow pixels
         validQA = cloudState.eq(0).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(1));
       } else if (qaType === 'level3') {
+        // Level3: Allow cirrus pixels  
         validQA = cloudState.eq(0).and(sza.lt(70)).and(snowIceConf.gte(1));
       } else if (qaType === 'level4') {
+        // Level4: Increase solar zenith to 85°
         validQA = cloudState.eq(0).and(sza.lt(85)).and(snowIceConf.gte(1));
       } else if (qaType === 'level5') {
+        // Level5: Allow uncertain cloud state (cloud <= 1)
         validQA = cloudState.lte(1).and(sza.lt(85)).and(snowIceConf.gte(1));
       }
       
-      // Apply QA mask
-      var qaFiltered = image.updateMask(validQA);
+      // Apply glacier mask to focus on glacier pixels only
+      var glacierMask = createGlacierMask(glacierOutlines, image);
+      var finalMask = validQA.and(glacierMask);
       
-      // Apply Ren method processing (simplified version to avoid external module)
-      // Extract required bands for BRDF correction
-      var red = qaFiltered.select('sur_refl_b01').multiply(0.0001);
-      var nir = qaFiltered.select('sur_refl_b02').multiply(0.0001);
-      var blue = qaFiltered.select('sur_refl_b03').multiply(0.0001);
-      var green = qaFiltered.select('sur_refl_b04').multiply(0.0001);
-      var swir1 = qaFiltered.select('sur_refl_b06').multiply(0.0001);
-      var swir2 = qaFiltered.select('sur_refl_b07').multiply(0.0001);
+      // Count valid pixels in this image
+      var pixelCount = finalMask.reduceRegion({
+        reducer: ee.Reducer.sum(),
+        geometry: region,
+        scale: 463, // MOD09GA native resolution
+        maxPixels: 1e9,
+        bestEffort: true
+      }).get('state_1km');
       
-      // Calculate broadband albedo (simplified Ren method formula)
-      var broadbandAlbedo = red.multiply(0.484)
-        .add(nir.multiply(0.335))
-        .add(blue.multiply(0.181));
-      
-      // Apply glacier mask
-      var glacierMask = createGlacierMask(glacierOutlines, qaFiltered);
-      var maskedAlbedo = broadbandAlbedo.updateMask(glacierMask);
-      
-      // Return image with albedo band
-      return maskedAlbedo.rename('broadband_albedo_ren');
-    }).filter(ee.Filter.listContains('system:band_names', 'broadband_albedo_ren'));
+      // Return feature with pixel count for this image
+      return ee.Feature(null, {
+        'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'),
+        'pixel_count': pixelCount,
+        'qa_type': qaType
+      });
+    });
   }
   
-  // Process each QA level and count valid results
-  print('⚡ Processing Strict QA level...');
-  var strictResults = processWithQALevel('strict');
-  var strictCount = strictResults.size();
+  // Process each QA level and get pixel counts
+  print('⚡ Counting valid pixels for each QA level...');
   
-  print('⚡ Processing Level 1 QA level...');
-  var level1Results = processWithQALevel('level1');
-  var level1Count = level1Results.size();
+  var strictPixels = countValidPixels('strict');
+  var level1Pixels = countValidPixels('level1');
+  var level2Pixels = countValidPixels('level2');
+  var level3Pixels = countValidPixels('level3');
+  var level4Pixels = countValidPixels('level4');
+  var level5Pixels = countValidPixels('level5');
   
-  print('⚡ Processing Level 2 QA level...');
-  var level2Results = processWithQALevel('level2');
-  var level2Count = level2Results.size();
+  // Calculate total pixels for each QA level
+  var strictTotal = strictPixels.aggregate_sum('pixel_count');
+  var level1Total = level1Pixels.aggregate_sum('pixel_count');
+  var level2Total = level2Pixels.aggregate_sum('pixel_count');
+  var level3Total = level3Pixels.aggregate_sum('pixel_count');
+  var level4Total = level4Pixels.aggregate_sum('pixel_count');
+  var level5Total = level5Pixels.aggregate_sum('pixel_count');
   
-  print('⚡ Processing Level 3 QA level...');
-  var level3Results = processWithQALevel('level3');
-  var level3Count = level3Results.size();
-  
-  print('⚡ Processing Level 4 QA level...');
-  var level4Results = processWithQALevel('level4');
-  var level4Count = level4Results.size();
-  
-  print('⚡ Processing Level 5 QA level...');
-  var level5Results = processWithQALevel('level5');
-  var level5Count = level5Results.size();
-  
-  // Create features with actual Ren method results
+  // Create summary features
   var results = ee.FeatureCollection([
     ee.Feature(null, {
       'qa_level': 'Strict',
-      'description': 'Current strict QA',
-      'total_observations': strictCount
+      'description': 'cloud=0,shadow=0,cirrus=0,sza<70,snow>=2',
+      'total_pixels': strictTotal
     }),
     ee.Feature(null, {
       'qa_level': 'Level1', 
-      'description': 'Add maybe snow/ice',
-      'total_observations': level1Count
+      'description': 'cloud=0,shadow=0,cirrus=0,sza<70,snow>=1',
+      'total_pixels': level1Total
     }),
     ee.Feature(null, {
       'qa_level': 'Level2',
-      'description': 'Allow shadow pixels', 
-      'total_observations': level2Count
+      'description': 'cloud=0,cirrus=0,sza<70,snow>=1 (allow shadow)', 
+      'total_pixels': level2Total
     }),
     ee.Feature(null, {
       'qa_level': 'Level3',
-      'description': 'Allow cirrus pixels',
-      'total_observations': level3Count
+      'description': 'cloud=0,sza<70,snow>=1 (allow cirrus)',
+      'total_pixels': level3Total
     }),
     ee.Feature(null, {
       'qa_level': 'Level4',
-      'description': 'Solar zenith to 85°',
-      'total_observations': level4Count
+      'description': 'cloud=0,sza<85,snow>=1 (higher SZA)',
+      'total_pixels': level4Total
     }),
     ee.Feature(null, {
       'qa_level': 'Level5',
-      'description': 'Allow uncertain cloud',
-      'total_observations': level5Count
+      'description': 'cloud<=1,sza<85,snow>=1 (uncertain cloud)',
+      'total_pixels': level5Total
     })
   ]);
   
   // Export results
   Export.table.toDrive({
     collection: results,
-    description: description + '_qa_ren_counts',
+    description: description + '_qa_pixel_counts',
     folder: 'albedo_method_comparison', 
     fileFormat: 'CSV'
   });
   
-  print('✅ QA Ren method count export initiated: ' + description + '_qa_ren_counts');
-  print('📁 CSV with valid Ren albedo observation counts per QA level');
+  print('✅ QA pixel count export initiated: ' + description + '_qa_pixel_counts');
+  print('📁 CSV with total valid glacier pixels per QA level');
+  print('📊 This should show increasing pixel counts with relaxed QA levels');
 }
 
 /**
