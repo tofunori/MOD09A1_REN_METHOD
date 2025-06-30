@@ -27,34 +27,29 @@ function qualityFilter(image) {
   // Use state_1km QA band for Ren et al. complete filtering
   var qa = image.select('state_1km');
   
-  // Cloud state (bits 0-1): accept clear (00) and probably clear (01) to keep more scenes
-  var clearSky = qa.bitwiseAnd(3).lte(1); // 0 or 1
+  // Cloud state (bits 0-1): accept clear (00) and "probably clear" (01)
+  var clearSky = qa.bitwiseAnd(0x3).lte(1);
   
-  // Internal cloud mask (bit 10): allow internal cloud-flagged pixels to retain more scenes
-  var clearInternal = ee.Image(1); // no internal cloud filter
+  // Internal cloud mask (bit 10): reject internal cloudy pixels
+  var clearInternal = qa.bitwiseAnd(1<<10).eq(0);
   
-  // Cloud shadow (bit 2): allow shadow-flagged pixels
-  var shadowFree = ee.Image(1);
+  // Cloud shadow (bit 2): reject cloud shadow pixels
+  var shadowFree = qa.bitwiseAnd(1<<2).eq(0);
   
-  // Cirrus detection (bit 8): allow cirrus-flagged pixels to retain more scenes
-  var cirrusFree = ee.Image(1); // no cirrus filter
+  // Cirrus detection (bit 8): reject cirrus contaminated pixels
+  var noCirrus = qa.bitwiseAnd(1<<8).eq(0);
   
-  // Snow/ice confidence (bits 12-13): accept all except explicit "no snow/ice" (01)
-  // Encoding: 00 unknown, 01 no snow/ice, 10 maybe, 11 yes
+  // Snow/ice confidence (bits 12-13): only accept high confidence (11) or unknown (00)
   var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
-  var validSnowIce = snowIceConf.neq(1);
+  var validSnowIce = snowIceConf.eq(0).or(snowIceConf.eq(3));
   
-  // Solar zenith constraint relaxed to θs < 80°
+  // Solar zenith angle constraint: relaxed to < 80°
   var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var solarAngleOK = solarZenith.lt(80);
+  var lowSolarZenith = solarZenith.lt(80);
   
-  // Combine all QA filters per Ren et al. methodology
-  var qualityMask = clearSky
-    .and(clearInternal)
-    .and(shadowFree)
-    .and(cirrusFree)
-    .and(validSnowIce)
-    .and(solarAngleOK);
+  // Combine all QA filters
+  var qualityMask = clearSky.and(clearInternal).and(shadowFree)
+    .and(noCirrus).and(validSnowIce).and(lowSolarZenith);
   
   return image.updateMask(qualityMask);
 }
@@ -234,11 +229,11 @@ function classifySnowIce(image) {
     // Use topographically corrected green band (already scaled by 0.0001)
     green = image.select('sur_refl_b04_topo'); // MODIS Band 4 (Green)
 
-    // SWIR: Band 6 is invalid in Terra MOD09GA; prefer Band 7
-    var swirTopoName = 'sur_refl_b07_topo';
+    // SWIR: Use Band 6 for standard NDSI, but check for availability
+    var swirTopoName = 'sur_refl_b06_topo';
     swir = image.bandNames().contains(swirTopoName)
       ? image.select(swirTopoName)                          // topo-corrected if present
-      : image.select('sur_refl_b07').multiply(0.0001);      // raw fallback
+      : image.select('sur_refl_b06').multiply(0.0001);      // raw fallback
   } else {
     green = image.select('sur_refl_b04').multiply(0.0001);
     swir  = image.select('sur_refl_b07').multiply(0.0001);  // Band 7 raw SWIR2

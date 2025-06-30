@@ -29,32 +29,47 @@ function exportComparisonStats(results, region, description) {
   // Process each method with comprehensive statistics
   if (results.ren) {
     var renStats = results.ren.map(function(image) {
-      // Server-side selection of the available broadband albedo band
-      var chosenBandImg = ee.Image(
-        ee.Algorithms.If(
-          image.bandNames().contains('broadband_albedo_ren_masked'),
-          image.select('broadband_albedo_ren_masked'),
-          image.select('broadband_albedo_ren')
-        )
-      ).rename('albedo'); // Normalise band name for predictable reducer keys
-
-      var stats = chosenBandImg.reduceRegion({
-        reducer: ee.Reducer.mean()
-          .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
-          .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
-          .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
-          .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
-        geometry: region,
-        scale:     config.EXPORT_CONFIG.scale,
-        maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
-        bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale:  config.EXPORT_CONFIG.tileScale
-      });
+      // Check if either albedo band exists before processing
+      var bandNames = image.bandNames();
+      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
+      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
+      var hasAnyAlbedoBand = hasMaskedBand.or(hasBaseBand);
+      
+      var stats = ee.Algorithms.If(
+        hasAnyAlbedoBand,
+        // If albedo bands exist, process normally
+        ee.Image(
+          ee.Algorithms.If(
+            hasMaskedBand,
+            image.select('broadband_albedo_ren_masked'),
+            image.select('broadband_albedo_ren')
+          )
+        ).rename('albedo').reduceRegion({
+          reducer: ee.Reducer.mean()
+            .combine({reducer2: ee.Reducer.stdDev(), sharedInputs: true})
+            .combine({reducer2: ee.Reducer.min(),    sharedInputs: true})
+            .combine({reducer2: ee.Reducer.max(),    sharedInputs: true})
+            .combine({reducer2: ee.Reducer.count(),  sharedInputs: true}),
+          geometry: region,
+          scale:     config.EXPORT_CONFIG.scale,
+          maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
+          bestEffort: config.EXPORT_CONFIG.bestEffort,
+          tileScale:  config.EXPORT_CONFIG.tileScale
+        }),
+        // If no albedo bands exist, return null dictionary
+        ee.Dictionary({
+          'albedo_mean': null,
+          'albedo_stdDev': null,
+          'albedo_min': null,
+          'albedo_max': null,
+          'albedo_count': null
+        })
+      );
 
       var statsDict = ee.Dictionary(stats);
       var date = ee.Date(image.get('system:time_start'));
       return ee.Feature(null, {
-        'albedo_mean':  statsDict.get('albedo', null),
+        'albedo_mean':  statsDict.get('albedo_mean', null),
         'albedo_std':   statsDict.get('albedo_stdDev', null),
         'albedo_min':   statsDict.get('albedo_min', null),
         'albedo_max':   statsDict.get('albedo_max', null),
