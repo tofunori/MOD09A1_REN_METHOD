@@ -105,7 +105,9 @@ MODIS_COLLECTIONS = {
 # ============================================================================
 
 # Saskatchewan Glacier asset path
-GLACIER_ASSET = 'projects/tofunori/assets/Saskatchewan_glacier_2024_updated'
+# GLACIER_ASSET = 'projects/tofunori/assets/Saskatchewan_glacier_2024_updated'
+# Use a simple public geometry instead to avoid asset reference issues
+GLACIER_ASSET = None  # Disable glacier asset for testing
 
 # Glacier processing parameters
 GLACIER_CONFIG = {

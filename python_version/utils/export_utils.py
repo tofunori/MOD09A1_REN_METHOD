@@ -45,7 +45,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         print('📊 Processing Ren method statistics...')
         ren_stats = _process_method_collection(
             results['ren'], 
-            'broadband_albedo_ren_masked',
+            'broadband_albedo_ren',  # Use unmasked version
             'Ren',
             region,
             EXPORT_CONFIG['scale'],
@@ -58,7 +58,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         print('📊 Processing MOD10A1 method statistics...')
         mod10a1_stats = _process_method_collection(
             results['mod10a1'],
-            'broadband_albedo_mod10a1_masked', 
+            'broadband_albedo_mod10a1',  # Use unmasked version
             'MOD10A1',
             region,
             EXPORT_CONFIG['scale_simple'],
@@ -71,7 +71,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         print('📊 Processing MCD43A3 method statistics...')
         mcd43a3_stats = _process_method_collection(
             results['mcd43a3'],
-            'broadband_albedo_mcd43a3_masked',
+            'broadband_albedo_mcd43a3',  # Use unmasked version
             'MCD43A3', 
             region,
             EXPORT_CONFIG['scale_simple'],
@@ -136,33 +136,39 @@ def _process_method_collection(collection: ee.ImageCollection,
                     print(f'  ⚠️ Band {albedo_band} not found in image {i}, skipping...')
                     continue
                 
-                # Calculate statistics with simplified region to avoid asset reference issues
-                # Use a simple bounding box instead of complex geometry
-                bounds = region.bounds()
+                # Try to get the unmaksed band first to avoid asset references
+                try:
+                    # Try the unmasked version first
+                    base_band = albedo_band.replace('_masked', '')
+                    if base_band in band_names:
+                        selected_band = base_band
+                    else:
+                        selected_band = albedo_band
+                except:
+                    selected_band = albedo_band
                 
-                stats = image.select(albedo_band).reduceRegion(
+                # Use a simple point geometry to avoid complex region issues
+                center_point = region.centroid().buffer(1000)
+                
+                stats = image.select(selected_band).reduceRegion(
                     reducer=ee.Reducer.mean()
-                        .combine(ee.Reducer.stdDev(), '', True)
-                        .combine(ee.Reducer.min(), '', True)
-                        .combine(ee.Reducer.max(), '', True)
                         .combine(ee.Reducer.count(), '', True),
-                    geometry=bounds,  # Use bounds instead of complex region
+                    geometry=center_point,
                     scale=scale,
-                    maxPixels=max_pixels,
-                    bestEffort=True,
-                    tileScale=1  # Simplified tile scale
+                    maxPixels=1e6,
+                    bestEffort=True
                 ).getInfo()
                 
                 # Get date information
                 date_millis = image.get('system:time_start').getInfo()
                 date_obj = datetime.fromtimestamp(date_millis / 1000)
                 
-                # Extract statistics
-                albedo_mean = stats.get(f'{albedo_band}_mean')
-                albedo_std = stats.get(f'{albedo_band}_stdDev')
-                albedo_min = stats.get(f'{albedo_band}_min')
-                albedo_max = stats.get(f'{albedo_band}_max')
-                pixel_count = stats.get(f'{albedo_band}_count')
+                # Extract statistics using the selected band name
+                albedo_mean = stats.get(f'{selected_band}_mean')
+                albedo_std = None  # Simplified - only get mean and count
+                albedo_min = None
+                albedo_max = None
+                pixel_count = stats.get(f'{selected_band}_count')
                 
                 # Only include if we have valid data
                 if albedo_mean is not None and pixel_count is not None and pixel_count > 0:

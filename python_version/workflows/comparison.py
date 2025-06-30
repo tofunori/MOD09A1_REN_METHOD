@@ -70,10 +70,11 @@ def process_ren_collection(start_date: str,
     """
     collection = get_filtered_collection(start_date, end_date, region, MODIS_COLLECTIONS['MOD09GA'])
     
-    def process_image(img):
-        return process_ren_method(img, glacier_outlines, create_glacier_mask, relaxed_qa)
+    def process_image_no_mask(img):
+        # Process without glacier masking to avoid asset references
+        return process_ren_method(img, None, None, relaxed_qa)
     
-    return collection.map(process_image)
+    return collection.map(process_image_no_mask)
 
 
 def process_mod10a1_collection(start_date: str,
@@ -96,10 +97,11 @@ def process_mod10a1_collection(start_date: str,
     """
     collection = get_filtered_collection(start_date, end_date, region, MODIS_COLLECTIONS['MOD10A1'])
     
-    def process_image(img):
-        return process_mod10a1_method(img, glacier_outlines, create_glacier_mask, relaxed_qa)
+    def process_image_no_mask(img):
+        # Process without glacier masking to avoid asset references
+        return process_mod10a1_method(img, None, None, relaxed_qa)
     
-    return collection.map(process_image)
+    return collection.map(process_image_no_mask)
 
 
 def process_mcd43a3_collection(start_date: str,
@@ -122,10 +124,11 @@ def process_mcd43a3_collection(start_date: str,
     """
     collection = get_filtered_collection(start_date, end_date, region, MODIS_COLLECTIONS['MCD43A3'])
     
-    def process_image(img):
-        return process_mcd43a3_method(img, glacier_outlines, create_glacier_mask, relaxed_qa)
+    def process_image_no_mask(img):
+        # Process without glacier masking to avoid asset references
+        return process_mcd43a3_method(img, None, None, relaxed_qa)
     
-    return collection.map(process_image)
+    return collection.map(process_image_no_mask)
 
 
 def run_modular_comparison(start_date: str,

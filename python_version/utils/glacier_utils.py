@@ -22,6 +22,21 @@ def initialize_glacier_data() -> Dict:
     Returns:
         Dictionary containing glacier outlines, geometry, and reference image
     """
+    # Handle case where no glacier asset is defined
+    if GLACIER_ASSET is None:
+        # Use a simple test region (Saskatchewan Glacier area)
+        glacier_geometry = ee.Geometry.Rectangle([-117.5, 51.0, -116.5, 52.0])
+        glacier_outlines = None
+        reference_image = ee.Image.constant(1).clip(glacier_geometry)
+        use_vector = False
+        
+        return {
+            'outlines': glacier_outlines,
+            'geometry': glacier_geometry,
+            'image': reference_image,
+            'use_vector': use_vector
+        }
+    
     # Load glacier asset - can be either FeatureCollection or Image
     try:
         # Try as FeatureCollection first
@@ -67,6 +82,10 @@ def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
     Returns:
         Binary glacier mask image
     """
+    # If no glacier outlines provided or glacier asset disabled, return full mask
+    if glacier_outlines is None or GLACIER_ASSET is None:
+        return ee.Image.constant(1).clip(reference_image.geometry())
+    
     if abundance_threshold is None:
         abundance_threshold = GLACIER_CONFIG['abundance_threshold']
     

@@ -220,15 +220,20 @@ def process_mod10a1_method(image: ee.Image,
     # Use the better albedo product when available
     final_albedo = ee.Image(snow_albedo).rename('broadband_albedo_mod10a1')
     
-    # Create glacier mask and apply to albedo
-    glacier_mask = glacier_mask_func(glacier_outlines, image)
-    masked_albedo = final_albedo.updateMask(glacier_mask).rename('broadband_albedo_mod10a1_masked')
-    
-    # Add bands to original image
-    result = (filtered
-              .addBands(final_albedo)
-              .addBands(masked_albedo)
-              .copyProperties(image, ['system:time_start']))
+    # Create glacier mask and apply to albedo (only if glacier function is provided)
+    if glacier_mask_func is not None and glacier_outlines is not None:
+        glacier_mask = glacier_mask_func(glacier_outlines, image)
+        masked_albedo = final_albedo.updateMask(glacier_mask).rename('broadband_albedo_mod10a1_masked')
+        
+        result = (filtered
+                  .addBands(final_albedo)
+                  .addBands(masked_albedo)
+                  .copyProperties(image, ['system:time_start']))
+    else:
+        # No glacier masking - just return the processed albedo
+        result = (filtered
+                  .addBands(final_albedo)
+                  .copyProperties(image, ['system:time_start']))
     
     return result
 

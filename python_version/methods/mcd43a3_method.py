@@ -182,17 +182,24 @@ def process_mcd43a3_method(image: ee.Image,
     # Use Black-Sky Albedo as primary broadband albedo
     broadband_albedo = black_sky_sw.rename('broadband_albedo_mcd43a3')
     
-    # Create glacier mask and apply to albedo
-    glacier_mask = glacier_mask_func(glacier_outlines, image)
-    masked_albedo = broadband_albedo.updateMask(glacier_mask).rename('broadband_albedo_mcd43a3_masked')
-    
-    # Add both black-sky and white-sky for advanced applications
-    result = (filtered_image
-              .addBands(broadband_albedo)
-              .addBands(masked_albedo)
-              .addBands(black_sky_sw.rename('black_sky_albedo_mcd43a3'))
-              .addBands(white_sky_sw.rename('white_sky_albedo_mcd43a3'))
-              .copyProperties(image, ['system:time_start']))
+    # Create glacier mask and apply to albedo (only if glacier function is provided)
+    if glacier_mask_func is not None and glacier_outlines is not None:
+        glacier_mask = glacier_mask_func(glacier_outlines, image)
+        masked_albedo = broadband_albedo.updateMask(glacier_mask).rename('broadband_albedo_mcd43a3_masked')
+        
+        result = (filtered_image
+                  .addBands(broadband_albedo)
+                  .addBands(masked_albedo)
+                  .addBands(black_sky_sw.rename('black_sky_albedo_mcd43a3'))
+                  .addBands(white_sky_sw.rename('white_sky_albedo_mcd43a3'))
+                  .copyProperties(image, ['system:time_start']))
+    else:
+        # No glacier masking - just return the processed albedo
+        result = (filtered_image
+                  .addBands(broadband_albedo)
+                  .addBands(black_sky_sw.rename('black_sky_albedo_mcd43a3'))
+                  .addBands(white_sky_sw.rename('white_sky_albedo_mcd43a3'))
+                  .copyProperties(image, ['system:time_start']))
     
     return result
 

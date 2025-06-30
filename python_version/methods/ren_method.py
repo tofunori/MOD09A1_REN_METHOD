@@ -82,18 +82,22 @@ def process_ren_method(image: ee.Image,
         print("Warning: Broadband albedo computation failed")
         return filtered  # Return original filtered image if processing fails
     
-    # 6) Glacier mask
-    glacier_mask_raw = create_glacier_mask_func(glacier_outlines, filtered)  # Use filtered image as reference
-    # Reproject mask using the input image projection to avoid mixed-projection errors
-    ref_proj = filtered.projection()
-    glacier_mask = glacier_mask_raw.reproject(ref_proj)
-    
-    masked_albedo = with_bb.select('broadband_albedo_ren').updateMask(glacier_mask)
-    
-    return (filtered
-            .addBands(with_bb)
-            .addBands(masked_albedo.rename('broadband_albedo_ren_masked'))
-            .copyProperties(image, ['system:time_start']))
+    # 6) Glacier mask (only if glacier function is provided)
+    if create_glacier_mask_func is not None and glacier_outlines is not None:
+        glacier_mask_raw = create_glacier_mask_func(glacier_outlines, filtered)
+        ref_proj = filtered.projection()
+        glacier_mask = glacier_mask_raw.reproject(ref_proj)
+        masked_albedo = with_bb.select('broadband_albedo_ren').updateMask(glacier_mask)
+        
+        return (filtered
+                .addBands(with_bb)
+                .addBands(masked_albedo.rename('broadband_albedo_ren_masked'))
+                .copyProperties(image, ['system:time_start']))
+    else:
+        # No glacier masking - just return the processed albedo
+        return (filtered
+                .addBands(with_bb)
+                .copyProperties(image, ['system:time_start']))
 
 
 def topography_correction(image: ee.Image) -> ee.Image:
