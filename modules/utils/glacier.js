@@ -23,7 +23,7 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 function initializeGlacierData() {
   // Load glacier image
   var glacierImage = ee.Image(config.GLACIER_ASSET);
-  var glacierBounds = glacierImage.geometry().bounds();
+  var glacierBounds = glacierImage.geometry().bounds(1); // 1 meter error margin
   
   // Create glacier outlines
   var glacierOutlines = glacierImage.gt(0).selfMask().reduceToVectors({
@@ -50,7 +50,7 @@ function initializeGlacierData() {
 function createGlacierMask(glacierOutlines, glacierImage) {
   if (glacierOutlines) {
     // Create high-resolution glacier map with proper bounds
-    var glacierBounds = glacierOutlines.geometry().bounds();
+    var glacierBounds = glacierOutlines.geometry().bounds(1); // 1 meter error margin
     var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
       .clip(glacierBounds)
       .setDefaultProjection({
@@ -87,7 +87,7 @@ function createGlacierMask(glacierOutlines, glacierImage) {
  */
 function createGlacierFractionMap(glacierOutlines) {
   if (glacierOutlines) {
-    var glacierBounds = glacierOutlines.geometry().bounds();
+    var glacierBounds = glacierOutlines.geometry().bounds(1); // 1 meter error margin
     var glacierMap = ee.Image(0).paint(glacierOutlines, 1).unmask(0)
       .clip(glacierBounds)
       .setDefaultProjection({
@@ -161,14 +161,14 @@ function applyStandardFiltering(collection, startDate, endDate, geometry, meltSe
  * Get glacier center point for map centering
  */
 function getGlacierCenter(glacierGeometry) {
-  return glacierGeometry.centroid();
+  return glacierGeometry.centroid(1); // 1 meter error margin
 }
 
 /**
  * Get appropriate zoom level for glacier viewing
  */
 function getGlacierZoom(glacierGeometry) {
-  var area = glacierGeometry.area();
+  var area = glacierGeometry.area(1); // 1 meter error margin
   // Estimate zoom based on area (simplified)
   return ee.Algorithms.If(area.gt(1e8), 10, 12); // Larger glaciers get lower zoom
 }

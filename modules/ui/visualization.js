@@ -57,8 +57,8 @@ function initializeMap(glacierGeometry) {
   // Clear existing layers
   Map.layers().reset();
   
-  // Center map on glacier region
-  var center = glacierGeometry.centroid();
+  // Center map on glacier region with error margin
+  var center = glacierGeometry.centroid(1); // 1 meter error margin
   Map.centerObject(center, 12);
   
   // Set base map style
@@ -71,7 +71,7 @@ function initializeMap(glacierGeometry) {
  * Set map view to optimal glacier viewing parameters
  */
 function setOptimalGlacierView(glacierGeometry) {
-  var bounds = glacierGeometry.bounds();
+  var bounds = glacierGeometry.bounds(1); // 1 meter error margin
   Map.centerObject(bounds, 11);
   
   // Add glacier outline for reference
