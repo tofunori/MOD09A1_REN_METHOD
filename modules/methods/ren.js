@@ -126,9 +126,10 @@ function processRenMethod(image, glacierOutlines, createGlacierMask) {
   // 1. Apply topographic correction
   var topoCorrect = applyTopographicCorrection(image);
   
-  // 2. Calculate NDSI for snow/ice classification
-  var ndsi = topoCorrect.select('sur_refl_b04_topo').subtract(topoCorrect.select('sur_refl_b06_topo'))
-    .divide(topoCorrect.select('sur_refl_b04_topo').add(topoCorrect.select('sur_refl_b06_topo')))
+  // 2. Calculate NDSI for snow/ice classification using bands 4 (green) and 7 (SWIR)
+  // Note: MOD09GA doesn't have band 6, so we use band 7 for SWIR
+  var ndsi = topoCorrect.select('sur_refl_b04_topo').subtract(topoCorrect.select('sur_refl_b07_topo'))
+    .divide(topoCorrect.select('sur_refl_b04_topo').add(topoCorrect.select('sur_refl_b07_topo')))
     .rename('ndsi');
   
   // 3. Create snow mask (NDSI > 0.4)
