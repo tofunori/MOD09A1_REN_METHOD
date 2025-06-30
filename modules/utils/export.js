@@ -33,8 +33,8 @@ function exportComparisonStats(results, region, description) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
       var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      // Combine existence checks by casting booleans to numbers (0/1) then summing
-      var hasAnyAlbedoBand = ee.Number(hasMaskedBand).add(ee.Number(hasBaseBand)).gt(0);
+      // Combine existence checks using conditional operations (GEE server-side boolean handling)
+      var hasAnyAlbedoBand = hasMaskedBand.or(hasBaseBand);
       
       var stats = ee.Algorithms.If(
         hasAnyAlbedoBand,
