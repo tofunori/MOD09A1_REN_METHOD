@@ -8,7 +8,7 @@ Date: 2025-06-30
 """
 
 import ee
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 try:
     from ..config.settings import GLACIER_ASSET, GLACIER_CONFIG, PROCESSING_CONFIG
 except ImportError:
@@ -126,7 +126,7 @@ def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
 def apply_standard_filtering(collection: ee.ImageCollection,
                            start_date: str,
                            end_date: str,
-                           region: ee.Geometry,
+                           region: Any,
                            melt_season_only: bool = True) -> ee.ImageCollection:
     """
     Apply standard temporal and spatial filtering to MODIS collection.
@@ -210,7 +210,7 @@ def get_glacier_bounds(glacier_outlines: ee.FeatureCollection) -> Dict:
 
 def calculate_glacier_statistics(image: ee.Image,
                                 glacier_mask: ee.Image,
-                                region: ee.Geometry,
+                                region: Any,
                                 scale: Optional[int] = None) -> Dict:
     """
     Calculate statistics for glacier pixels only.
@@ -267,7 +267,7 @@ def filter_glacier_pixels(image: ee.Image,
     return image.updateMask(glacier_mask)
 
 
-def create_elevation_bands(region: ee.Geometry) -> ee.Image:
+def create_elevation_bands(region: Any) -> ee.Image:
     """
     Create elevation-related bands for topographic analysis.
     
@@ -293,7 +293,7 @@ def create_elevation_bands(region: ee.Geometry) -> ee.Image:
 
 def validate_glacier_coverage(image: ee.Image,
                              glacier_mask: ee.Image,
-                             region: ee.Geometry,
+                             region: Any,
                              min_pixel_count: int = 100) -> ee.Image:
     """
     Validate that sufficient glacier pixels are available.

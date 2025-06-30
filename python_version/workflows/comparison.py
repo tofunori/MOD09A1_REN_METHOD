@@ -11,7 +11,7 @@ Date: 2025-06-30
 """
 
 import ee
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, Any
 
 try:
     from ..config.settings import MODIS_COLLECTIONS
@@ -29,7 +29,7 @@ except ImportError:
 
 def get_filtered_collection(start_date: str, 
                            end_date: str, 
-                           region: ee.Geometry,
+                           region: Any,
                            collection: Optional[str] = None) -> ee.ImageCollection:
     """
     Get filtered MODIS collection for processing.
@@ -52,7 +52,7 @@ def get_filtered_collection(start_date: str,
 
 def process_ren_collection(start_date: str,
                           end_date: str, 
-                          region: ee.Geometry,
+                          region: Any,
                           glacier_outlines: ee.FeatureCollection,
                           relaxed_qa: bool = False) -> ee.ImageCollection:
     """
@@ -79,7 +79,7 @@ def process_ren_collection(start_date: str,
 
 def process_mod10a1_collection(start_date: str,
                               end_date: str,
-                              region: ee.Geometry, 
+                              region: Any, 
                               glacier_outlines: ee.FeatureCollection,
                               relaxed_qa: bool = False) -> ee.ImageCollection:
     """
@@ -106,7 +106,7 @@ def process_mod10a1_collection(start_date: str,
 
 def process_mcd43a3_collection(start_date: str,
                               end_date: str,
-                              region: ee.Geometry,
+                              region: Any,
                               glacier_outlines: ee.FeatureCollection,
                               relaxed_qa: bool = False) -> ee.ImageCollection:
     """
@@ -135,7 +135,7 @@ def run_modular_comparison(start_date: str,
                           end_date: str,
                           methods: Dict[str, bool],
                           glacier_outlines: ee.FeatureCollection,
-                          region: ee.Geometry,
+                          region: Any,
                           relaxed_qa: bool = False) -> Dict[str, ee.ImageCollection]:
     """
     Run modular comparison processing all selected methods.
@@ -208,7 +208,7 @@ def run_modular_comparison(start_date: str,
 def export_comparison_results(start_date: str,
                              end_date: str,
                              results: Dict[str, ee.ImageCollection],
-                             region: ee.Geometry) -> None:
+                             region: Any) -> None:
     """
     Export comparison results (placeholder for compatibility).
     
@@ -224,7 +224,7 @@ def export_comparison_results(start_date: str,
 def run_qa_profile_comparison(start_date: str,
                              end_date: str,
                              glacier_outlines: ee.FeatureCollection,
-                             region: ee.Geometry) -> Dict:
+                             region: Any) -> Dict:
     """
     Run QA profile comparison analysis (placeholder).
     

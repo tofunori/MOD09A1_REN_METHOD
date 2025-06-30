@@ -9,7 +9,7 @@ Date: 2025-06-30
 """
 
 import ee
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 try:
     from ..config.settings import MODIS_COLLECTIONS
     from ..utils.glacier_utils import create_glacier_mask
@@ -297,7 +297,7 @@ def get_available_albedo_bands(image: ee.Image) -> List[str]:
 
 def validate_mcd43a3_processing(image: ee.Image,
                                glacier_outlines: ee.FeatureCollection,
-                               region: ee.Geometry) -> Dict:
+                               region: Any) -> Dict:
     """
     Validate MCD43A3 processing results.
     

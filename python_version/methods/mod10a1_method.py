@@ -9,7 +9,7 @@ Date: 2025-06-30
 """
 
 import ee
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 try:
     from ..config.settings import MODIS_COLLECTIONS
     from ..utils.glacier_utils import create_glacier_mask
@@ -302,7 +302,7 @@ def create_mod10a1_collection_processor(glacier_outlines: ee.FeatureCollection,
 
 def validate_mod10a1_processing(image: ee.Image, 
                                glacier_outlines: ee.FeatureCollection,
-                               region: ee.Geometry) -> Dict:
+                               region: Any) -> Dict:
     """
     Validate MOD10A1 processing results.
     

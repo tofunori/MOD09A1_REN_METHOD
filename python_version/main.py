@@ -53,7 +53,7 @@ def authenticate_ee():
 def export_robust_collection(collection: ee.ImageCollection, 
                              albedo_band: str, 
                              method_name: str,
-                             region: ee.Geometry) -> pd.DataFrame:
+                             region: Any) -> pd.DataFrame:
     """
     Robust collection export that handles collection size properly.
     
@@ -70,7 +70,12 @@ def export_robust_collection(collection: ee.ImageCollection,
     
     try:
         # Get actual collection size first
-        collection_size = collection.size().getInfo()
+        collection_size_raw = collection.size().getInfo()
+        if collection_size_raw is None:
+            print(f'  ⚠️ Cannot determine collection size for {method_name}')
+            return pd.DataFrame()
+            
+        collection_size: int = int(collection_size_raw)
         print(f'  Collection size: {collection_size} images')
         
         if collection_size == 0:
