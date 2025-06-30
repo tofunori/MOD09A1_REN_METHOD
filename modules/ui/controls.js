@@ -172,7 +172,7 @@ function createActionButtons() {
   });
 
   var qaAnalysisButton = ui.Button({
-    label: 'QA Observation Counts',
+    label: 'Simple Albedo Export',
     style: {
       backgroundColor: '#ff9800',
       color: 'white',
@@ -232,21 +232,21 @@ function setupEventHandlers(uiComponents, processCallback, exportCallback, qaAna
     });
   });
 
-  // QA Analysis button event handler
+  // Simple Albedo Export button event handler
   uiComponents.buttons.qaAnalysisButton.onClick(function() {
     var startDate = uiComponents.dateControls.startBox.getValue();
     var endDate = uiComponents.dateControls.endBox.getValue();
 
     // Update status
-    updateStatus(uiComponents.statusLabel, '🔢 Counting QA observations...', 'orange');
+    updateStatus(uiComponents.statusLabel, '📊 Exporting simple albedo statistics...', 'orange');
 
-    // Call the QA analysis callback
+    // Call the QA analysis callback (reusing same callback but with simpler functionality)
     qaAnalysisCallback(startDate, endDate, function(results) {
       // Success callback
-      updateStatus(uiComponents.statusLabel, '✅ QA observation counts complete! Check CSV for results.', 'green');
+      updateStatus(uiComponents.statusLabel, '✅ Simple albedo export complete! Check CSV for results.', 'green');
     }, function(error) {
       // Error callback
-      updateStatus(uiComponents.statusLabel, '❌ QA Analysis failed: ' + error, 'red');
+      updateStatus(uiComponents.statusLabel, '❌ Albedo export failed: ' + error, 'red');
     });
   });
 }

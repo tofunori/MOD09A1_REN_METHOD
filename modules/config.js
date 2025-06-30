@@ -115,88 +115,17 @@ var QA_CONFIG = {
  * Each level progressively relaxes constraints with expected gain/risk metrics
  */
 var QA_PROFILES = {
-  // Strict configuration (current implementation)
   strict: {
     name: 'Strict',
-    description: 'Current implementation - maximum quality, minimum observations',
-    cloudState: 1,                    // Accept only 00,01 (clear, probably clear)
-    allowShadow: false,               // Reject cloud shadow pixels
-    allowCirrus: false,               // Reject cirrus pixels  
-    allowInternalCloud: false,        // Reject internal cloud mask
-    snowIceConfidence: [0, 3],        // Accept only 00 (unknown) and 11 (high confidence)
-    solarZenithMax: 80,               // Maximum solar zenith angle
-    expectedGain: '0%',               // Baseline
+    description: 'Fixed QA filter identical to legacy full_script',
+    cloudState: 1,
+    allowShadow: false,
+    allowCirrus: false,
+    allowInternalCloud: false,
+    snowIceConfidence: [0, 3],
+    solarZenithMax: 80,
+    expectedGain: '0%',
     risk: 'Minimal'
-  },
-  
-  // Level 1: Keep "maybe snow/ice" confidence
-  level1: {
-    name: 'Level 1',
-    description: 'Add maybe snow/ice confidence (bits 12-13 = 10)',
-    cloudState: 1,                    // Accept only 00,01
-    allowShadow: false,               // Reject cloud shadow
-    allowCirrus: false,               // Reject cirrus
-    allowInternalCloud: false,        // Reject internal cloud
-    snowIceConfidence: [0, 2, 3],     // Accept 00,10,11 (reject only "no snow/ice")
-    solarZenithMax: 80,               // Current threshold
-    expectedGain: '10-15%',           // Typical gain in valid observations
-    risk: 'Very small - code 10 means algorithm uncertain, not wrong'
-  },
-  
-  // Level 2: Relax solar zenith threshold
-  level2: {
-    name: 'Level 2', 
-    description: 'Relax solar zenith to 85° (adds early morning/late afternoon)',
-    cloudState: 1,                    // Accept only 00,01
-    allowShadow: false,               // Reject cloud shadow
-    allowCirrus: false,               // Reject cirrus
-    allowInternalCloud: false,        // Reject internal cloud
-    snowIceConfidence: [0, 2, 3],     // Keep Level 1 snow/ice confidence
-    solarZenithMax: 85,               // Relaxed threshold
-    expectedGain: '5-10%',            // Additional gain from Level 1
-    risk: 'Small - anisotropy increases beyond 80°, slight bias growth'
-  },
-  
-  // Level 3: Drop cirrus screen
-  level3: {
-    name: 'Level 3',
-    description: 'Ignore cirrus detection flag (bit 8)',
-    cloudState: 1,                    // Accept only 00,01
-    allowShadow: false,               // Reject cloud shadow
-    allowCirrus: true,                // Allow cirrus pixels
-    allowInternalCloud: false,        // Reject internal cloud
-    snowIceConfidence: [0, 2, 3],     // Keep Level 1 snow/ice confidence
-    solarZenithMax: 85,               // Keep Level 2 solar zenith
-    expectedGain: '3-7%',             // Additional gain from Level 2
-    risk: 'Low - thin cirrus lowers albedo 2-4%, artifacts in bright snow possible'
-  },
-  
-  // Level 4: Ignore cloud shadow flag
-  level4: {
-    name: 'Level 4',
-    description: 'Ignore cloud shadow flag (bit 2)',
-    cloudState: 1,                    // Accept only 00,01
-    allowShadow: true,                // Allow shadow pixels
-    allowCirrus: true,                // Allow cirrus pixels
-    allowInternalCloud: false,        // Reject internal cloud
-    snowIceConfidence: [0, 2, 3],     // Keep Level 1 snow/ice confidence
-    solarZenithMax: 85,               // Keep Level 2 solar zenith
-    expectedGain: '2-4%',             // Additional gain from Level 3
-    risk: 'Medium - shadows strongly darken pixels, consider terrain-based filtering'
-  },
-  
-  // Level 5: Accept mixed cloud state
-  level5: {
-    name: 'Level 5',
-    description: 'Accept mixed cloud state (bits 0-1 = 10)',
-    cloudState: 2,                    // Accept 00,01,10 (reject only 11)
-    allowShadow: true,                // Allow shadow pixels
-    allowCirrus: true,                // Allow cirrus pixels
-    allowInternalCloud: false,        // Reject internal cloud
-    snowIceConfidence: [0, 2, 3],     // Keep Level 1 snow/ice confidence
-    solarZenithMax: 85,               // Keep Level 2 solar zenith
-    expectedGain: 'Variable',         // High in monsoon seasons
-    risk: 'High - cloudy pixels give artificially low albedo, requires post-filtering'
   }
 };
 

@@ -324,13 +324,13 @@ function performCorrelationAnalysis(results, region) {
 
 /**
  * Execute QA profile comparison workflow for Ren method optimization
- * Generates comprehensive CSV exports comparing all 6 QA filter configurations
+ * Generates CSV exports comparing the single QA filter configuration
  */
 function runQAProfileComparison(startDate, endDate, glacierOutlines, region, successCallback, errorCallback) {
   try {
     print('📊 Starting QA Profile Comparison Workflow...');
     print('📅 Date range: ' + startDate + ' to ' + endDate);
-    print('🔬 Analyzing 6 QA filter configurations: Strict → Level 5');
+    print('🔬 Analyzing 1 QA filter configuration: Strict');
     
     // Load MOD09GA collection for Ren method
     var collection = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA);
@@ -349,22 +349,27 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
       'qa_profile_analysis', startDate, endDate
     );
     
-    // Export comprehensive QA profile comparison - SINGLE CSV with everything
-    exportUtils.exportQAProfileComparison(
-      filtered, glacierOutlines, createGlacierMask, region, description
+    // Process Ren method first
+    var renProcessed = filtered.map(function(image) {
+      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask);
+    });
+    
+    // Export simple albedo results
+    exportUtils.exportAlbedoComparison(
+      renProcessed, glacierOutlines, region, description
     );
     
-    print('✅ QA Profile Comparison workflow initiated');
+    print('✅ Simple albedo analysis workflow initiated');
     print('📁 Simple CSV output:');
-    print('  • ' + description + '_qa_observation_counts.csv (total observation counts per QA level)');
+    print('  • ' + description + '_albedo_results.csv (basic albedo statistics)');
     
     if (successCallback) {
       successCallback({
         description: description,
-        profileCount: 6,
+        profileCount: 1,
         qualityAssessmentEnabled: false,
         expectedOutputs: [
-          description + '_qa_observation_counts.csv'
+          description + '_albedo_results.csv'
         ]
       });
     }
@@ -454,7 +459,7 @@ function runEnhancedQAProfileComparison(startDate, endDate, glacierOutlines, reg
     
     print('🔬 Starting Enhanced QA Profile Comparison with Quality Assessment...');
     print('📅 Date range: ' + startDate + ' to ' + endDate);
-    print('📊 Analyzing 6 QA filter configurations + quality controls');
+    print('📊 Analyzing 1 QA filter configuration + quality controls');
     print('🔍 Quality filtering enabled: ' + enableQualityFiltering);
     if (enableQualityFiltering) {
       print('  • Albedo bounds: [' + boundsOptions.lowerBound + ', ' + boundsOptions.upperBound + ']');
@@ -501,7 +506,7 @@ function runEnhancedQAProfileComparison(startDate, endDate, glacierOutlines, reg
     if (successCallback) {
       successCallback({
         description: description,
-        profileCount: 6,
+        profileCount: 1,
         qualityAssessmentEnabled: enableQualityFiltering,
         expectedOutputs: [
           description + '_qa_profile_enhanced.csv',

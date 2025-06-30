@@ -301,142 +301,57 @@ function generateExportDescription(prefix, startDate, endDate) {
 }
 
 // ============================================================================
-// QA PROFILE COMPARATIVE EXPORT FUNCTIONS
+// SINGLE ALBEDO COMPARISON EXPORT FUNCTIONS
 // ============================================================================
 
 /**
- * Export simple QA observation counts - count pixels with valid albedo per QA level
- * FIXED: Count valid PIXELS with albedo data, not just images
+ * Export albedo comparison results to CSV
+ * Simple single-method export as originally intended
  */
-function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
-  print('📊 Starting QA Count Analysis - Counting Valid Pixels...');
+function exportAlbedoComparison(renResults, glacierOutlines, region, description) {
+  print('📊 Starting albedo export...');
   
-  // Helper function to count valid pixels for each QA level
-  function countValidPixels(qaType) {
-    var totalPixels = 0;
-    
-    return collection.map(function(image) {
-      // Apply QA filtering based on level (hard-coded to match config)
-      var qa = image.select('state_1km');
-      var cloudState = qa.bitwiseAnd(0x3);
-      var shadowFlag = qa.bitwiseAnd(1<<2).rightShift(2);
-      var cirrusFlag = qa.bitwiseAnd(1<<8).rightShift(8);
-      var sza = image.select('SolarZenith').multiply(0.01);
-      var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
-      
-      var validQA;
-      if (qaType === 'strict') {
-        // Strict: cloud=0, shadow=0, cirrus=0, sza<70, snow>=2 (high confidence)
-        validQA = cloudState.eq(0).and(shadowFlag.eq(0)).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(2));
-      } else if (qaType === 'level1') {
-        // Level1: Allow maybe snow/ice (confidence >= 1) 
-        validQA = cloudState.eq(0).and(shadowFlag.eq(0)).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(1));
-      } else if (qaType === 'level2') {
-        // Level2: Allow shadow pixels
-        validQA = cloudState.eq(0).and(cirrusFlag.eq(0)).and(sza.lt(70)).and(snowIceConf.gte(1));
-      } else if (qaType === 'level3') {
-        // Level3: Allow cirrus pixels  
-        validQA = cloudState.eq(0).and(sza.lt(70)).and(snowIceConf.gte(1));
-      } else if (qaType === 'level4') {
-        // Level4: Increase solar zenith to 85°
-        validQA = cloudState.eq(0).and(sza.lt(85)).and(snowIceConf.gte(1));
-      } else if (qaType === 'level5') {
-        // Level5: Allow uncertain cloud state (cloud <= 1)
-        validQA = cloudState.lte(1).and(sza.lt(85)).and(snowIceConf.gte(1));
-      }
-      
-      // Apply glacier mask to focus on glacier pixels only
-      var glacierMask = createGlacierMask(glacierOutlines, image);
-      var finalMask = validQA.and(glacierMask);
-      
-      // Count valid pixels in this image
-      var pixelCount = finalMask.reduceRegion({
-        reducer: ee.Reducer.sum(),
-        geometry: region,
-        scale: 463, // MOD09GA native resolution
-        maxPixels: 1e9,
-        bestEffort: true
-      }).get('state_1km');
-      
-      // Return feature with pixel count for this image
-      return ee.Feature(null, {
-        'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd'),
-        'pixel_count': pixelCount,
-        'qa_type': qaType
-      });
-    });
-  }
+  // Calculate statistics for the Ren method results
+  var stats = renResults.select('broadband_albedo_ren').reduceRegion({
+    reducer: ee.Reducer.mean()
+      .combine(ee.Reducer.median(), '', true)
+      .combine(ee.Reducer.stdDev(), '', true)
+      .combine(ee.Reducer.count(), '', true),
+    geometry: region,
+    scale: 463,
+    maxPixels: 1e9,
+    bestEffort: true
+  });
   
-  // Process each QA level and get pixel counts
-  print('⚡ Counting valid pixels for each QA level...');
-  
-  var strictPixels = countValidPixels('strict');
-  var level1Pixels = countValidPixels('level1');
-  var level2Pixels = countValidPixels('level2');
-  var level3Pixels = countValidPixels('level3');
-  var level4Pixels = countValidPixels('level4');
-  var level5Pixels = countValidPixels('level5');
-  
-  // Calculate total pixels for each QA level
-  var strictTotal = strictPixels.aggregate_sum('pixel_count');
-  var level1Total = level1Pixels.aggregate_sum('pixel_count');
-  var level2Total = level2Pixels.aggregate_sum('pixel_count');
-  var level3Total = level3Pixels.aggregate_sum('pixel_count');
-  var level4Total = level4Pixels.aggregate_sum('pixel_count');
-  var level5Total = level5Pixels.aggregate_sum('pixel_count');
-  
-  // Create summary features
+  // Create feature with statistics
   var results = ee.FeatureCollection([
     ee.Feature(null, {
-      'qa_level': 'Strict',
-      'description': 'cloud=0,shadow=0,cirrus=0,sza<70,snow>=2',
-      'total_pixels': strictTotal
-    }),
-    ee.Feature(null, {
-      'qa_level': 'Level1', 
-      'description': 'cloud=0,shadow=0,cirrus=0,sza<70,snow>=1',
-      'total_pixels': level1Total
-    }),
-    ee.Feature(null, {
-      'qa_level': 'Level2',
-      'description': 'cloud=0,cirrus=0,sza<70,snow>=1 (allow shadow)', 
-      'total_pixels': level2Total
-    }),
-    ee.Feature(null, {
-      'qa_level': 'Level3',
-      'description': 'cloud=0,sza<70,snow>=1 (allow cirrus)',
-      'total_pixels': level3Total
-    }),
-    ee.Feature(null, {
-      'qa_level': 'Level4',
-      'description': 'cloud=0,sza<85,snow>=1 (higher SZA)',
-      'total_pixels': level4Total
-    }),
-    ee.Feature(null, {
-      'qa_level': 'Level5',
-      'description': 'cloud<=1,sza<85,snow>=1 (uncertain cloud)',
-      'total_pixels': level5Total
+      'method': 'Ren_BRDF_Corrected',
+      'mean_albedo': stats.get('broadband_albedo_ren_mean'),
+      'median_albedo': stats.get('broadband_albedo_ren_median'),
+      'std_albedo': stats.get('broadband_albedo_ren_stdDev'),
+      'pixel_count': stats.get('broadband_albedo_ren_count'),
+      'description': description
     })
   ]);
   
-  // Export results
+  // Export simple results
   Export.table.toDrive({
     collection: results,
-    description: description + '_qa_pixel_counts',
-    folder: 'albedo_method_comparison', 
+    description: description + '_albedo_results',
+    folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
   });
   
-  print('✅ QA pixel count export initiated: ' + description + '_qa_pixel_counts');
-  print('📁 CSV with total valid glacier pixels per QA level');
-  print('📊 This should show increasing pixel counts with relaxed QA levels');
+  print('✅ Albedo export initiated: ' + description + '_albedo_results');
+  print('📁 Simple CSV with albedo statistics');
 }
 
 /**
  * Generate summary statistics for QA profile comparison
  */
 function generateQAProfileSummary(results, description) {
-  var profiles = ['Strict', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'];
+  var profiles = ['Strict'];
   
   var summaryStats = profiles.map(function(profileName) {
     var profileData = results.filter(ee.Filter.eq('qa_profile', profileName));
@@ -627,7 +542,7 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
   
   print('📊 Starting Enhanced QA Profile Analysis with Quality Assessment...');
   
-  var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
+  var profiles = ['Strict'];
   var allResults = ee.FeatureCollection([]);
   
   // Process collection with each QA profile
@@ -733,7 +648,7 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
  * Generate enhanced summary statistics with quality metrics
  */
 function generateEnhancedQAProfileSummary(results, description) {
-  var profiles = ['Strict', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'];
+  var profiles = ['Strict'];
   
   var summaryStats = profiles.map(function(profileName) {
     var profileData = results.filter(ee.Filter.eq('qa_profile', profileName));

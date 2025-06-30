@@ -27,59 +27,27 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
  * @param {Object} qaProfile - QA configuration profile (optional, defaults to strict)
  * @returns {ee.Image} Quality-filtered image
  */
-function qualityFilter(image, qaProfile) {
-  // Default to strict profile if none provided
-  qaProfile = qaProfile || config.QA_PROFILES.strict;
-  
-  // Use state_1km QA band for Ren et al. complete filtering
+function qualityFilter(image /*, qaProfile */) {
+  // Fixed QA mask identical to legacy full_script.js
   var qa = image.select('state_1km');
-  
-  // 1. Cloud State (Bits 0-1): Configurable acceptance levels
-  var clearSky = qa.bitwiseAnd(0x3).lte(qaProfile.cloudState);
-  
-  // 2. Cloud Shadow (Bit 2): Configurable shadow tolerance
-  var shadowFree = qaProfile.allowShadow ? 
-    ee.Image(1) : qa.bitwiseAnd(1<<2).eq(0);
-  
-  // 3. Cirrus Detection (Bit 8): Configurable cirrus tolerance
-  var noCirrus = qaProfile.allowCirrus ? 
-    ee.Image(1) : qa.bitwiseAnd(1<<8).eq(0);
-  
-  // 4. Internal Cloud Mask (Bit 10): Configurable internal cloud tolerance
-  var clearInternal = qaProfile.allowInternalCloud ? 
-    ee.Image(1) : qa.bitwiseAnd(1<<10).eq(0);
-  
-  // 5. Snow/ice confidence (bits 12-13): Configurable confidence levels
-  var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
-  var validSnowIce = ee.Image(0); // Start with reject all
-  
-  // Build snow/ice confidence mask based on profile
-  for (var i = 0; i < qaProfile.snowIceConfidence.length; i++) {
-    validSnowIce = validSnowIce.or(snowIceConf.eq(qaProfile.snowIceConfidence[i]));
-  }
-  
-  // 6. Solar zenith angle constraint: Configurable threshold
-  var solarZenith = image.select('SolarZenith').multiply(0.01);
-  var lowSolarZenith = solarZenith.lt(qaProfile.solarZenithMax);
-  
-  // Combine all configurable QA filters
-  var qualityMask = clearSky
-    .and(shadowFree)
-    .and(noCirrus)
-    .and(clearInternal)
-    .and(validSnowIce)
-    .and(lowSolarZenith);
-  
-  // Add QA profile information as image properties for tracking
-  var maskedImage = image.updateMask(qualityMask);
-  maskedImage = maskedImage.set({
-    'qa_profile_name': qaProfile.name,
-    'qa_profile_description': qaProfile.description,
-    'qa_expected_gain': qaProfile.expectedGain,
-    'qa_risk_level': qaProfile.risk
-  });
-  
-  return maskedImage;
+
+  var clearSky      = qa.bitwiseAnd(0x3).eq(0);          // Bits 0-1 = 00
+  var shadowFree    = qa.bitwiseAnd(1 << 2).eq(0);       // Bit 2   = 0
+  var noCirrus      = qa.bitwiseAnd(1 << 8).eq(0);       // Bit 8   = 0 (ignore bit 9)
+  var clearInternal = qa.bitwiseAnd(1 << 10).eq(0);      // Bit 10  = 0
+
+  // Snow / ice confidence bits 12-13: accept 00 (unknown) or 11 (high)
+  var snowIceConf   = qa.bitwiseAnd(0x3000).rightShift(12);
+  var validSnowIce  = snowIceConf.eq(0).or(snowIceConf.eq(3));
+
+  // Solar zenith < 70°
+  var solarZenith   = image.select('SolarZenith').multiply(0.01);
+  var lowSZA        = solarZenith.lt(70);
+
+  var mask = clearSky.and(shadowFree).and(noCirrus)
+                     .and(clearInternal).and(validSnowIce).and(lowSZA);
+
+  return image.updateMask(mask);
 }
 
 // ============================================================================
@@ -346,7 +314,7 @@ function computeBroadbandAlbedo(image) {
  */
 function processRenMethod(image, glacierOutlines, createGlacierMask, qaProfile) {
   // 1) QA & topography
-  var filtered   = qualityFilter(image, qaProfile);
+  var filtered   = qualityFilter(image /*, qaProfile */);
   var topoImg    = topographyCorrection(filtered);
 
   // 2) Snow/ice classification
