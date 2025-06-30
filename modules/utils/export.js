@@ -33,8 +33,12 @@ function exportComparisonStats(results, region, description) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
       var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      // Use logical OR to check if any albedo band exists
-      var hasAnyAlbedoBand = hasMaskedBand.or(hasBaseBand);
+      // Check if any albedo band exists using conditional logic
+      var hasAnyAlbedoBand = ee.Algorithms.If(
+        hasMaskedBand,
+        true,
+        hasBaseBand
+      );
       
       var stats = ee.Algorithms.If(
         hasAnyAlbedoBand,
