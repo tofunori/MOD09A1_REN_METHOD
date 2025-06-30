@@ -69,7 +69,7 @@ function processCallback(startDate, endDate, successCallback, errorCallback) {
       function(results) {
         // Success: Store results and update UI
         lastProcessingResults = results;
-        uiSetup.updateUIAfterProcessing(uiSystem.components, results);
+        uiSetup.updateUIAfterProcessing(uiSystem.components, results, uiSystem.glacierData);
         if (successCallback) successCallback(results);
       },
       function(error) {

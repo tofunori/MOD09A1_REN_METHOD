@@ -89,40 +89,50 @@ function setOptimalGlacierView(glacierGeometry) {
 /**
  * Add albedo comparison layers to map
  */
-function addComparisonLayers(results, layerConfig) {
+function addComparisonLayers(results, layerConfig, glacierMask) {
   print('🎨 Adding comparison layers to map...');
   
-  // Add individual method layers
+  // Add individual method layers with glacier mask
   if (results.ren && layerConfig.showRen) {
-    addMethodLayer(results.ren, 'broadband_albedo_ren', 'Ren Method', VIS_PARAMS.albedo);
+    addMethodLayer(results.ren, 'broadband_albedo_ren', 'Ren Method', VIS_PARAMS.albedo, glacierMask);
   }
   
   if (results.mod10a1 && layerConfig.showMOD10A1) {
-    addMethodLayer(results.mod10a1, 'broadband_albedo_mod10a1', 'MOD10A1', VIS_PARAMS.albedo);
+    addMethodLayer(results.mod10a1, 'broadband_albedo_mod10a1', 'MOD10A1', VIS_PARAMS.albedo, glacierMask);
   }
   
   if (results.mcd43a3 && layerConfig.showMCD43A3) {
-    addMethodLayer(results.mcd43a3, 'broadband_albedo_mcd43a3', 'MCD43A3', VIS_PARAMS.albedo);
+    addMethodLayer(results.mcd43a3, 'broadband_albedo_mcd43a3', 'MCD43A3', VIS_PARAMS.albedo, glacierMask);
   }
   
   // Add difference layers if requested
   if (layerConfig.showDifferences) {
-    addDifferenceLayers(results);
+    addDifferenceLayers(results, glacierMask);
   }
   
   print('✅ Comparison layers added to map');
 }
 
 /**
- * Add individual method layer to map
+ * Add individual method layer to map with proper glacier masking
  */
-function addMethodLayer(collection, bandName, methodName, visParams) {
+function addMethodLayer(collection, bandName, methodName, visParams, glacierMask) {
   if (collection && collection.size().getInfo() > 0) {
-    // Use the most recent image or create a median composite
+    // Create median composite
     var image = collection.median().select(bandName);
     
+    // Apply glacier mask if provided, otherwise try to preserve existing mask
+    var maskedImage;
+    if (glacierMask) {
+      maskedImage = image.updateMask(glacierMask);
+    } else {
+      // Try to preserve mask from the collection
+      var sampleMask = collection.first().mask();
+      maskedImage = image.updateMask(sampleMask);
+    }
+    
     Map.addLayer(
-      image,
+      maskedImage,
       visParams,
       methodName + ' (Median)',
       true, // visible
@@ -136,12 +146,13 @@ function addMethodLayer(collection, bandName, methodName, visParams) {
 /**
  * Add difference layers between methods
  */
-function addDifferenceLayers(results) {
+function addDifferenceLayers(results, glacierMask) {
   // Ren vs MOD10A1 difference
   if (results.ren && results.mod10a1) {
     var renMOD10Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
-      results.mod10a1, 'broadband_albedo_mod10a1'
+      results.mod10a1, 'broadband_albedo_mod10a1',
+      glacierMask
     );
     
     Map.addLayer(
@@ -157,7 +168,8 @@ function addDifferenceLayers(results) {
   if (results.ren && results.mcd43a3) {
     var renMCD43Diff = createDifferenceImage(
       results.ren, 'broadband_albedo_ren',
-      results.mcd43a3, 'broadband_albedo_mcd43a3'
+      results.mcd43a3, 'broadband_albedo_mcd43a3',
+      glacierMask
     );
     
     Map.addLayer(
@@ -173,7 +185,8 @@ function addDifferenceLayers(results) {
   if (results.mod10a1 && results.mcd43a3) {
     var mod10MCD43Diff = createDifferenceImage(
       results.mod10a1, 'broadband_albedo_mod10a1',
-      results.mcd43a3, 'broadband_albedo_mcd43a3'
+      results.mcd43a3, 'broadband_albedo_mcd43a3',
+      glacierMask
     );
     
     Map.addLayer(
@@ -189,13 +202,18 @@ function addDifferenceLayers(results) {
 /**
  * Create difference image between two collections
  */
-function createDifferenceImage(collection1, band1, collection2, band2) {
+function createDifferenceImage(collection1, band1, collection2, band2, glacierMask) {
   // Create median composites for comparison
   var median1 = collection1.median().select(band1);
   var median2 = collection2.median().select(band2);
   
   // Calculate difference
   var difference = median1.subtract(median2).rename('albedo_difference');
+  
+  // Apply glacier mask if provided
+  if (glacierMask) {
+    difference = difference.updateMask(glacierMask);
+  }
   
   return difference;
 }

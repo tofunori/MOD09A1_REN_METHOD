@@ -66,7 +66,7 @@ function initializeUI(processCallback, exportCallback) {
 /**
  * Update UI after processing completion
  */
-function updateUIAfterProcessing(uiComponents, results) {
+function updateUIAfterProcessing(uiComponents, results, glacierData) {
   // Update status
   controls.updateStatus(uiComponents.statusLabel, '✅ Processing complete! Check map layers.', 'green');
   
@@ -84,8 +84,11 @@ function updateUIAfterProcessing(uiComponents, results) {
     showDifferences: true // Always show differences for comparison
   };
   
-  // Add new layers
-  visualization.addComparisonLayers(results, layerConfig);
+  // Create glacier mask for visualization
+  var glacierMask = glacierUtils.createGlacierMask(glacierData.outlines, glacierData.image);
+  
+  // Add new layers with glacier mask
+  visualization.addComparisonLayers(results, layerConfig, glacierMask);
   
   // Optionally add QA layers for debugging
   if (config.DEBUG_MODE) {
