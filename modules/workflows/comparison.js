@@ -1,10 +1,8 @@
 /**
- * Simplified Workflow – Ren Method Only
+ * Comparison Workflow – Ren Method with Full Export
  *
- * Provides the minimal set of functions expected by main.js
- * after the original (complex) comparison workflow was removed.
- *
- * Only the Ren method is processed; other methods are ignored.
+ * Processes the Ren method and provides full CSV export functionality
+ * for comprehensive albedo analysis results.
  */
 
 // ============================================================================
@@ -15,6 +13,7 @@
 var config      = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 var glacierUtils= require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
 var renMethod   = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/export.js');
 
 // ============================================================================
 // HELPER
@@ -56,19 +55,37 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
 }
 
 /**
- * Stub for export – not needed in simplified workflow.
+ * Export comparison results to CSV
  */
 function exportComparisonResults(startDate, endDate, results, region, successCb, errorCb) {
-  print('ℹ️ exportComparisonResults: feature disabled in simplified workflow');
-  if (successCb) successCb();
+  try {
+    var description = exportUtils.generateExportDescription('modular_albedo_comparison', startDate, endDate);
+    exportUtils.exportComparisonStats(results, region, description);
+    print('✅ CSV export completed: ' + description);
+    if (successCb) successCb();
+  } catch (err) {
+    print('❌ CSV export failed: ' + err.toString());
+    if (errorCb) errorCb(err.toString());
+  }
 }
 
 /**
- * Stub for QA profile comparison – disabled.
+ * Run QA profile comparison analysis
  */
 function runQAProfileComparison(startDate, endDate, glacierOutlines, region, successCb, errorCb) {
-  print('ℹ️ runQAProfileComparison: feature disabled in simplified workflow');
-  if (successCb) successCb({ expectedOutputs: [] });
+  try {
+    var filtered = getFilteredCollection(startDate, endDate, region);
+    var createGlacierMask = glacierUtils.createGlacierMask;
+    var description = exportUtils.generateExportDescription('qa_profile_comparison', startDate, endDate);
+    
+    exportUtils.exportQAProfileComparison(filtered, glacierOutlines, createGlacierMask, region, description);
+    print('✅ QA Profile comparison export completed: ' + description);
+    
+    if (successCb) successCb({ expectedOutputs: [description + '_qa_profile_comparison'] });
+  } catch (err) {
+    print('❌ QA Profile comparison failed: ' + err.toString());
+    if (errorCb) errorCb(err.toString());
+  }
 }
 
 // ============================================================================
