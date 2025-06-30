@@ -1,0 +1,6 @@
+method,date,albedo_mean,pixel_count,band_used,image_index,export_timestamp
+Ren,2020-06-07,-0.118748,3,broadband_albedo_ren,7,2025-06-30T16:31:26.053460
+MOD10A1,2020-05-31,0.110694,29,broadband_albedo_mod10a1,0,2025-06-30T16:31:26.053460
+MOD10A1,2020-06-01,0.164696,2,broadband_albedo_mod10a1,1,2025-06-30T16:31:26.053460
+MOD10A1,2020-06-07,0.076243,35,broadband_albedo_mod10a1,7,2025-06-30T16:31:26.053460
+MOD10A1,2020-06-08,0.12,1,broadband_albedo_mod10a1,8,2025-06-30T16:31:26.053460
