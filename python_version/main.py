@@ -11,7 +11,7 @@ Version: 2.0 - Python Implementation
 
 import ee
 import pandas as pd
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any, Union
 import sys
 import os
 from datetime import datetime
@@ -89,12 +89,21 @@ def export_robust_collection(collection: ee.ImageCollection,
                 image = ee.Image(collection_list.get(i))
                 
                 # Get image date
-                date_millis = image.get('system:time_start').getInfo()
+                date_millis_raw = image.get('system:time_start').getInfo()
+                if date_millis_raw is None:
+                    print(f'  ⚠️ No time stamp available in image {i}')
+                    continue
+                date_millis: int = int(date_millis_raw)
                 date_obj = datetime.fromtimestamp(date_millis / 1000)
                 
                 # Check if band exists
-                band_names = image.bandNames().getInfo()
-                available_band = None
+                band_names_raw = image.bandNames().getInfo()
+                if not band_names_raw:  # Handle None or empty list
+                    print(f'  ⚠️ No band names available in image {i}')
+                    continue
+                
+                band_names: List[str] = list(band_names_raw)
+                available_band: Optional[str] = None
                 
                 # Try different band name variations
                 for band_candidate in [albedo_band, albedo_band.replace('_masked', ''), f'{albedo_band}_masked']:
@@ -110,7 +119,7 @@ def export_robust_collection(collection: ee.ImageCollection,
                 center = region.centroid()
                 study_area = center.buffer(2000)  # 2km buffer around center
                 
-                stats = image.select(available_band).reduceRegion(
+                stats_raw = image.select(available_band).reduceRegion(
                     reducer=ee.Reducer.mean().combine(ee.Reducer.count(), '', True),
                     geometry=study_area,
                     scale=500,
@@ -118,21 +127,29 @@ def export_robust_collection(collection: ee.ImageCollection,
                     bestEffort=True
                 ).getInfo()
                 
+                if stats_raw is None:
+                    print(f'  ⚠️ No statistics available for image {i}')
+                    continue
+                
+                stats: Dict[str, Any] = dict(stats_raw)
                 mean_key = f'{available_band}_mean'
                 count_key = f'{available_band}_count'
                 
-                if stats.get(mean_key) is not None:
+                mean_value = stats.get(mean_key)
+                count_value = stats.get(count_key, 0)
+                
+                if mean_value is not None:
                     results.append({
                         'method': method_name,
                         'date': date_obj.strftime('%Y-%m-%d'),
                         'year': date_obj.year,
                         'month': date_obj.month,
                         'day_of_year': date_obj.timetuple().tm_yday,
-                        'albedo_mean': round(float(stats.get(mean_key, 0)), 6),
-                        'pixel_count': int(stats.get(count_key, 0)),
+                        'albedo_mean': round(float(mean_value), 6),
+                        'pixel_count': int(count_value),
                         'system_time_start': date_millis
                     })
-                    print(f'  ✅ Image {i}: albedo={stats.get(mean_key, 0):.4f}, pixels={stats.get(count_key, 0)}')
+                    print(f'  ✅ Image {i}: albedo={mean_value:.4f}, pixels={count_value}')
                 else:
                     print(f'  ⚠️ No valid data in image {i}')
                     
