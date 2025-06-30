@@ -136,7 +136,7 @@ function addMethodLayer(collection, bandName, methodName, visParams, glacierMask
     
     // Strictly clip to glacier outlines if provided (removes any residual outside pixels)
     if (glacierOutlines) {
-      maskedImage = maskedImage.clip(glacierOutlines);
+      maskedImage = maskedImage.clip(glacierOutlines.geometry());
     }
     
     Map.addLayer(
@@ -228,7 +228,7 @@ function createDifferenceImage(collection1, band1, collection2, band2, glacierMa
   }
   
   if (glacierOutlines) {
-    difference = difference.clip(glacierOutlines);
+    difference = difference.clip(glacierOutlines.geometry());
   }
   
   return difference;
