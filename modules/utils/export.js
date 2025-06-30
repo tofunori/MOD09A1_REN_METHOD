@@ -311,7 +311,7 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
   print('📊 Starting Simple QA Observation Count Analysis...');
   
   var profiles = ['strict', 'level1', 'level2', 'level3', 'level4', 'level5'];
-  var summaryResults = [];
+  var allResults = ee.FeatureCollection([]);
   
   // Process each QA profile and count total observations
   profiles.forEach(function(profileKey) {
@@ -324,7 +324,7 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
     });
     
-    // Filter to only valid observations and count
+    // Filter to only valid observations
     var validObservations = processed.filter(function(image) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
@@ -335,7 +335,7 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
     // Count observations for this profile
     var observationCount = validObservations.size();
     
-    // Create summary feature
+    // Create summary feature with server-side operations
     var summaryFeature = ee.Feature(null, {
       'qa_profile': profile.name,
       'qa_description': profile.description,
@@ -348,15 +348,13 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       'total_observations': observationCount
     });
     
-    summaryResults.push(summaryFeature);
+    // Add to collection using merge
+    allResults = allResults.merge(ee.FeatureCollection([summaryFeature]));
   });
-  
-  // Create collection from summary results
-  var summaryCollection = ee.FeatureCollection(summaryResults);
   
   // Export simple summary CSV
   Export.table.toDrive({
-    collection: summaryCollection,
+    collection: allResults,
     description: description + '_qa_observation_counts',
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
