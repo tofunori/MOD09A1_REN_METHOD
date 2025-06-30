@@ -29,7 +29,7 @@ def debug_assets():
         
         # Try as FeatureCollection
         try:
-            fc = ee.FeatureCollection(asset_path)
+            fc = Any(asset_path)
             count = fc.size().getInfo()
             print(f"✅ FeatureCollection: {count} features")
         except Exception as e:

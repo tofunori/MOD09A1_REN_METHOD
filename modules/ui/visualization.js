@@ -94,7 +94,7 @@ function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines)
   
   // Add individual method layers with glacier mask
   if (results.ren && layerConfig.showRen) {
-    addMethodLayer(results.ren, 'broadband_albedo_ren', 'Ren Method', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
+    addMethodLayer(results.ren, 'broadband_albedo_ren', 'MOD09A1 Method', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
   }
   
   if (results.mod10a1 && layerConfig.showMOD10A1) {
@@ -179,7 +179,7 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
     Map.addLayer(
       renMOD10Diff,
       VIS_PARAMS.albedo_difference,
-      'Ren - MOD10A1 Difference',
+      'MOD09A1 - MOD10A1 Difference',
       false, // initially hidden
       0.7
     );
@@ -197,7 +197,7 @@ function addDifferenceLayers(results, glacierMask, glacierOutlines) {
     Map.addLayer(
       renMCD43Diff,
       VIS_PARAMS.albedo_difference,
-      'Ren - MCD43A3 Difference',
+      'MOD09A1 - MCD43A3 Difference',
       false, // initially hidden
       0.7
     );

@@ -38,7 +38,7 @@ function createMainInterface() {
 
   // Description
   var description = ui.Label({
-    value: '🏗️ MODULAR ARCHITECTURE\n\nCompare three MODIS albedo methods:\n1. MOD09A1 Ren Method (Complete)\n2. MOD10A1 Snow Albedo (Advanced QA)\n3. MCD43A3 BRDF/Albedo (Collection 6.1)\n\n📁 Structure: /modules/{methods,ui,utils,workflows}\n💾 CSV EXPORT: Comprehensive statistics\n🔥 MELT SEASON: Jun-Sep only',
+    value: '🏗️ MODULAR ARCHITECTURE\n\nCompare three MODIS albedo methods:\n1. MOD09A1 Method (Complete)\n2. MOD10A1 Snow Albedo (Advanced QA)\n3. MCD43A3 BRDF/Albedo (Collection 6.1)\n\n📁 Structure: /modules/{methods,ui,utils,workflows}\n💾 CSV EXPORT: Comprehensive statistics\n🔥 MELT SEASON: Jun-Sep only',
     style: {
       fontSize: '12px',
       margin: '0px 0px 10px 0px'
@@ -121,7 +121,7 @@ function createMethodControls() {
   var methodsLabel = ui.Label('Methods to Compare:');
 
   var renCheckbox = ui.Checkbox({
-    label: 'MOD09A1 Ren Method',
+    label: 'MOD09A1 Method',
     value: true,
     style: {margin: '2px'}
   });

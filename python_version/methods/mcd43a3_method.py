@@ -55,7 +55,7 @@ QA_CONFIG_RELAXED = {
 # QUALITY FILTERING FUNCTIONS
 # ============================================================================
 
-def create_mcd43a3_quality_mask(image: ee.Image, relaxed: bool = False) -> ee.Image:
+def create_mcd43a3_quality_mask(image: Any, relaxed: bool = False) -> ee.Image:
     """
     Create quality mask for MCD43A3 using mandatory QA bands.
     Accepts both full BRDF inversions (0) and magnitude inversions (1) for more data.
@@ -100,7 +100,7 @@ def create_mcd43a3_quality_mask(image: ee.Image, relaxed: bool = False) -> ee.Im
     return quality_mask.And(multi_spectral_quality)
 
 
-def create_advanced_quality_mask(image: ee.Image) -> ee.Image:
+def create_advanced_quality_mask(image: Any) -> ee.Image:
     """
     Advanced quality filtering using companion MCD43A2 data (if available).
     This would require loading MCD43A2 alongside MCD43A3 for comprehensive QA.
@@ -117,7 +117,7 @@ def create_advanced_quality_mask(image: ee.Image) -> ee.Image:
     return create_mcd43a3_quality_mask(image)
 
 
-def create_standard_quality_mask(image: ee.Image) -> ee.Image:
+def create_standard_quality_mask(image: Any) -> ee.Image:
     """
     Create standard quality mask for MCD43A3 exports.
     
@@ -130,7 +130,7 @@ def create_standard_quality_mask(image: ee.Image) -> ee.Image:
     return create_mcd43a3_quality_mask(image, relaxed=False)
 
 
-def create_relaxed_quality_mask(image: ee.Image) -> ee.Image:
+def create_relaxed_quality_mask(image: Any) -> ee.Image:
     """
     Create relaxed quality mask for glacier applications.
     
@@ -147,8 +147,8 @@ def create_relaxed_quality_mask(image: ee.Image) -> ee.Image:
 # MAIN PROCESSING FUNCTION
 # ============================================================================
 
-def process_mcd43a3_method(image: ee.Image,
-                          glacier_outlines: ee.FeatureCollection,
+def process_mcd43a3_method(image: Any,
+                          glacier_outlines: Any,
                           glacier_mask_func: callable,
                           relaxed_qa: bool = False) -> ee.Image:
     """
@@ -204,7 +204,7 @@ def process_mcd43a3_method(image: ee.Image,
     return result
 
 
-def apply_mcd43a3_quality_filter(image: ee.Image, 
+def apply_mcd43a3_quality_filter(image: Any, 
                                 config: Optional[Dict] = None) -> ee.Image:
     """
     Apply MCD43A3 specific quality filtering.
@@ -221,7 +221,7 @@ def apply_mcd43a3_quality_filter(image: ee.Image,
     return image.updateMask(quality_mask)
 
 
-def get_mcd43a3_band_info(image: ee.Image) -> Dict:
+def get_mcd43a3_band_info(image: Any) -> Dict:
     """
     Get information about available MCD43A3 bands.
     
@@ -243,7 +243,7 @@ def get_mcd43a3_band_info(image: ee.Image) -> Dict:
     }
 
 
-def create_mcd43a3_collection_processor(glacier_outlines: ee.FeatureCollection,
+def create_mcd43a3_collection_processor(glacier_outlines: Any,
                                        relaxed_qa: bool = False) -> callable:
     """
     Create a processing function for MCD43A3 image collections.
@@ -261,7 +261,7 @@ def create_mcd43a3_collection_processor(glacier_outlines: ee.FeatureCollection,
     return process_image
 
 
-def get_available_albedo_bands(image: ee.Image) -> List[str]:
+def get_available_albedo_bands(image: Any) -> List[str]:
     """
     Get list of available albedo bands in MCD43A3 image.
     
@@ -295,8 +295,8 @@ def get_available_albedo_bands(image: ee.Image) -> List[str]:
 # VALIDATION AND TESTING FUNCTIONS
 # ============================================================================
 
-def validate_mcd43a3_processing(image: ee.Image,
-                               glacier_outlines: ee.FeatureCollection,
+def validate_mcd43a3_processing(image: Any,
+                               glacier_outlines: Any,
                                region: Any) -> Dict:
     """
     Validate MCD43A3 processing results.

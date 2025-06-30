@@ -14,6 +14,11 @@
 // ============================================================================
 
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var topoHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren/topography.js');
+var brdfHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren/brdf.js');
+var albedoHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren/albedo.js');
+var qaHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren/qa.js');
+var classifyHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren/classify.js');
 
 // ============================================================================
 // QUALITY FILTERING FUNCTIONS (EXACT from full_script.js)
@@ -371,15 +376,15 @@ function computeBroadbandAlbedo(image) {
  */
 function processRenMethod(image, glacierOutlines, createGlacierMask) {
   // 1) QA & topography
-  var filtered   = qualityFilter(image);
-  var topoImg    = topographyCorrection(filtered);
+  var filtered   = qaHelper.qualityFilter(image);
+  var topoImg    = topoHelper.topographyCorrection(filtered);
 
   // 2) Snow/ice classification
-  var classified = classifySnowIce(topoImg);
+  var classified = classifyHelper.classifySnowIce(topoImg);
 
   // 3) Apply P1 & P2 separately
-  var nbSnow = applyBRDFAnisotropicCorrection(classified, 'snow');
-  var nbIce  = applyBRDFAnisotropicCorrection(classified, 'ice');
+  var nbSnow = brdfHelper.applyBRDFAnisotropicCorrection(classified, 'snow');
+  var nbIce  = brdfHelper.applyBRDFAnisotropicCorrection(classified, 'ice');
 
   // 4) Merge narrow-band albedos using the snow mask
   var snowMask = classified.select('snow_mask');
@@ -396,7 +401,7 @@ function processRenMethod(image, glacierOutlines, createGlacierMask) {
   var withNB = classified.addBands(ee.Image.cat(mergedNB));
 
   // 5) Broadband albedo
-  var withBB = computeBroadbandAlbedo(withNB);
+  var withBB = albedoHelper.computeBroadbandAlbedo(withNB);
 
   // 6) Glacier mask
   var glacierMaskRaw = createGlacierMask(glacierOutlines, null);
@@ -417,8 +422,8 @@ function processRenMethod(image, glacierOutlines, createGlacierMask) {
 // ============================================================================
 
 exports.processRenMethod = processRenMethod;
-exports.qualityFilter = qualityFilter;
-exports.topographyCorrection = topographyCorrection;
-exports.applyBRDFAnisotropicCorrection = applyBRDFAnisotropicCorrection;
-exports.classifySnowIce = classifySnowIce;
-exports.computeBroadbandAlbedo = computeBroadbandAlbedo;
+exports.qualityFilter = qaHelper.qualityFilter;
+exports.topographyCorrection = topoHelper.topographyCorrection;
+exports.applyBRDFAnisotropicCorrection = brdfHelper.applyBRDFAnisotropicCorrection;
+exports.classifySnowIce = classifyHelper.classifySnowIce;
+exports.computeBroadbandAlbedo = albedoHelper.computeBroadbandAlbedo;

@@ -50,7 +50,7 @@ def authenticate_ee():
     return True
 
 
-def export_robust_collection(collection: ee.ImageCollection, 
+def export_robust_collection(collection: Any, 
                              albedo_band: str, 
                              method_name: str,
                              region: Any) -> pd.DataFrame:

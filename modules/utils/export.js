@@ -83,7 +83,7 @@ function exportComparisonStats(results, region, description) {
         'year':         date.get('year'),
         'month':        date.get('month'),
         'day_of_year':  date.getRelative('day', 'year'),
-        'method':       'Ren',
+        'method':       'MOD09A1',
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -556,8 +556,8 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
     
     // Apply Ren method with specific QA profile
     var processed = collection.map(function(image) {
-      var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
+      var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
+      return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);
     });
     
     // Generate statistics for this profile
@@ -667,8 +667,8 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
     
     // Apply Ren method with specific QA profile
     var processed = collection.map(function(image) {
-      var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-      return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, profile);
+      var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
+      return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);
     });
     
     // Apply quality assessment if enabled

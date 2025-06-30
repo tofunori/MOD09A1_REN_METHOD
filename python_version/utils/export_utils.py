@@ -95,7 +95,7 @@ def export_comparison_stats_to_dataframe(results: Dict[str, ee.ImageCollection],
         return pd.DataFrame()
 
 
-def _process_method_collection(collection: ee.ImageCollection,
+def _process_method_collection(collection: Any,
                               albedo_band: str,
                               method_name: str,
                               region: ee.Geometry,
@@ -243,7 +243,7 @@ def export_dataframe_to_csv(df: pd.DataFrame,
     return full_path
 
 
-def export_to_google_drive(collection: ee.FeatureCollection,
+def export_to_google_drive(collection: Any,
                           description: str,
                           folder: str = 'albedo_method_comparison') -> ee.batch.Task:
     """
@@ -351,7 +351,7 @@ def create_summary_statistics(df: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
-def export_individual_method(collection: ee.ImageCollection,
+def export_individual_method(collection: Any,
                             band_name: str,
                             method_name: str, 
                             region: ee.Geometry,

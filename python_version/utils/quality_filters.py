@@ -10,10 +10,10 @@ Date: 2025-06-30
 
 import ee
 import math
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 
 
-def quality_filter_mod09a1(image: ee.Image, 
+def quality_filter_mod09a1(image: Any, 
                           relaxed: bool = False,
                           custom_params: Optional[Dict] = None) -> ee.Image:
     """
@@ -135,7 +135,7 @@ def quality_filter_mod09a1(image: ee.Image,
     return image.updateMask(mask)
 
 
-def quality_filter_mod10a1(image: ee.Image, 
+def quality_filter_mod10a1(image: Any, 
                           qa_config: Optional[Dict] = None) -> ee.Image:
     """
     Quality filtering for MOD10A1 snow products with advanced QA handling.
@@ -198,7 +198,7 @@ def quality_filter_mod10a1(image: ee.Image,
     return image.updateMask(mask)
 
 
-def quality_filter_mcd43a3(image: ee.Image, 
+def quality_filter_mcd43a3(image: Any, 
                           qa_config: Optional[Dict] = None) -> ee.Image:
     """
     Quality filtering for MCD43A3 BRDF/Albedo products with Collection 6.1 QA.
@@ -272,10 +272,10 @@ def create_relaxed_filter_preset(preset_name: str) -> Dict:
     return presets.get(preset_name, presets['moderate'])
 
 
-def apply_temporal_filter(collection: ee.ImageCollection,
+def apply_temporal_filter(collection: Any,
                          start_date: str,
                          end_date: str,
-                         melt_season_only: bool = True) -> ee.ImageCollection:
+                         melt_season_only: bool = True) -> Any:
     """
     Apply temporal filtering to image collection.
     
@@ -298,7 +298,7 @@ def apply_temporal_filter(collection: ee.ImageCollection,
     return filtered
 
 
-def get_quality_summary(image: ee.Image, 
+def get_quality_summary(image: Any, 
                        region: ee.Geometry,
                        scale: int = 500) -> Dict:
     """

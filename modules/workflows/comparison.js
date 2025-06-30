@@ -14,7 +14,7 @@
 // global `ee` provided by Earth Engine runtime
 var config      = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 var glacierUtils= require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
-var renMethod   = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
+var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
 var mod10a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1.js');
 var mcd43a3Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3.js');
 var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/export.js');
@@ -34,7 +34,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 function processRenCollection(collection, glacierOutlines) {
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
-    return renMethod.processRenMethod(img, glacierOutlines, createGlacierMask);
+    return mod09a1Method.processMOD09A1Method(img, glacierOutlines, createGlacierMask);
   });
 }
 
@@ -67,7 +67,7 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
 
     // Process Ren method if selected (uses MOD09GA)
     if (methods.ren) {
-      print('🔬 Processing Ren method (MOD09GA)...');
+      print('🔬 Processing MOD09A1 method (MOD09GA)...');
       var filtered = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD09GA);
       resultsObj.ren = processRenCollection(filtered, glacierOutlines);
     }

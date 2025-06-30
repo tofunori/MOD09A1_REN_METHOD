@@ -79,7 +79,7 @@ def export_fixed_comparison_stats(results: Dict[str, ee.ImageCollection],
         return pd.DataFrame()
 
 
-def _process_collection_fixed(collection: ee.ImageCollection,
+def _process_collection_fixed(collection: Any,
                              albedo_band: str,
                              method_name: str,
                              region: ee.Geometry,

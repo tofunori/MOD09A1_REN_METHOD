@@ -238,8 +238,8 @@ function createLayerControlPanel() {
  * Create individual layer toggle controls
  */
 function createLayerToggles() {
-  var methodLayers = ['Ren Method', 'MOD10A1', 'MCD43A3'];
-  var differenceLayers = ['Ren - MOD10A1 Difference', 'Ren - MCD43A3 Difference'];
+  var methodLayers = ['MOD09A1 Method', 'MOD10A1', 'MCD43A3'];
+  var differenceLayers = ['MOD09A1 - MOD10A1 Difference', 'MOD09A1 - MCD43A3 Difference'];
   
   var toggles = [];
   

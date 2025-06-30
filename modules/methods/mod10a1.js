@@ -13,6 +13,7 @@
 // ============================================================================
 
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var qaHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1/qa.js');
 
 // ============================================================================
 // QA CONFIGURATION (from MODIS_Albedo project)
@@ -120,7 +121,7 @@ function createStandardQualityMask(img) {
  */
 function processMOD10A1(image, glacierOutlines, createGlacierMask) {
   // Apply sophisticated quality filtering
-  var qualityMask = createStandardQualityMask(image);
+  var qualityMask = qaHelper.createStandardQualityMask(image);
   var filtered = image.updateMask(qualityMask);
   
   // Extract NDSI snow cover data with quality filtering applied
@@ -163,7 +164,7 @@ function processMOD10A1(image, glacierOutlines, createGlacierMask) {
 // ============================================================================
 
 exports.processMOD10A1 = processMOD10A1;
-exports.createStandardQualityMask = createStandardQualityMask;
-exports.getBasicQAMask = getBasicQAMask;
-exports.getAlgorithmFlagsMask = getAlgorithmFlagsMask;
-exports.QA_CONFIG = QA_CONFIG;
+exports.createStandardQualityMask = qaHelper.createStandardQualityMask;
+exports.getBasicQAMask = qaHelper.getBasicQAMask;
+exports.getAlgorithmFlagsMask = qaHelper.getAlgorithmFlagsMask;
+exports.QA_CONFIG = qaHelper.QA_CONFIG;

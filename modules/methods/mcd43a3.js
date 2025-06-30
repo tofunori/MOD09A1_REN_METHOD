@@ -13,6 +13,7 @@
 // ============================================================================
 
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var qaHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3/qa.js');
 
 // ============================================================================
 // QUALITY FILTERING CONFIGURATION
@@ -98,7 +99,7 @@ function createAdvancedQualityMask(image) {
  */
 function processMCD43A3(image, glacierOutlines, createGlacierMask) {
   // Apply quality filtering for Collection 6.1
-  var qualityMask = createMCD43A3QualityMask(image);
+  var qualityMask = qaHelper.createMCD43A3QualityMask(image);
   var filteredImage = image.updateMask(qualityMask);
   
   // Extract shortwave broadband albedo (Black-Sky Albedo)
@@ -142,5 +143,5 @@ function processMCD43A3(image, glacierOutlines, createGlacierMask) {
 // ============================================================================
 
 exports.processMCD43A3 = processMCD43A3;
-exports.createMCD43A3QualityMask = createMCD43A3QualityMask;
-exports.createAdvancedQualityMask = createAdvancedQualityMask;
+exports.createMCD43A3QualityMask = qaHelper.createMCD43A3QualityMask;
+exports.createAdvancedQualityMask = qaHelper.createAdvancedQualityMask;

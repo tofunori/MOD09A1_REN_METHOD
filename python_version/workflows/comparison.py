@@ -30,7 +30,7 @@ except ImportError:
 def get_filtered_collection(start_date: str, 
                            end_date: str, 
                            region: Any,
-                           collection: Optional[str] = None) -> ee.ImageCollection:
+                           collection: Optional[str] = None) -> Any:
     """
     Get filtered MODIS collection for processing.
     
@@ -53,8 +53,8 @@ def get_filtered_collection(start_date: str,
 def process_ren_collection(start_date: str,
                           end_date: str, 
                           region: Any,
-                          glacier_outlines: ee.FeatureCollection,
-                          relaxed_qa: bool = False) -> ee.ImageCollection:
+                          glacier_outlines: Any,
+                          relaxed_qa: bool = False) -> Any:
     """
     Process Ren method collection.
     
@@ -80,8 +80,8 @@ def process_ren_collection(start_date: str,
 def process_mod10a1_collection(start_date: str,
                               end_date: str,
                               region: Any, 
-                              glacier_outlines: ee.FeatureCollection,
-                              relaxed_qa: bool = False) -> ee.ImageCollection:
+                              glacier_outlines: Any,
+                              relaxed_qa: bool = False) -> Any:
     """
     Process MOD10A1 method collection with full implementation.
     
@@ -107,8 +107,8 @@ def process_mod10a1_collection(start_date: str,
 def process_mcd43a3_collection(start_date: str,
                               end_date: str,
                               region: Any,
-                              glacier_outlines: ee.FeatureCollection,
-                              relaxed_qa: bool = False) -> ee.ImageCollection:
+                              glacier_outlines: Any,
+                              relaxed_qa: bool = False) -> Any:
     """
     Process MCD43A3 method collection with full implementation.
     
@@ -134,9 +134,9 @@ def process_mcd43a3_collection(start_date: str,
 def run_modular_comparison(start_date: str,
                           end_date: str,
                           methods: Dict[str, bool],
-                          glacier_outlines: ee.FeatureCollection,
+                          glacier_outlines: Any,
                           region: Any,
-                          relaxed_qa: bool = False) -> Dict[str, ee.ImageCollection]:
+                          relaxed_qa: bool = False) -> Dict[str, Any]:
     """
     Run modular comparison processing all selected methods.
     
@@ -223,7 +223,7 @@ def export_comparison_results(start_date: str,
 
 def run_qa_profile_comparison(start_date: str,
                              end_date: str,
-                             glacier_outlines: ee.FeatureCollection,
+                             glacier_outlines: Any,
                              region: Any) -> Dict:
     """
     Run QA profile comparison analysis (placeholder).

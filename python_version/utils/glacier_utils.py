@@ -68,8 +68,8 @@ def initialize_glacier_data() -> Dict:
     }
 
 
-def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
-                       reference_image: ee.Image,
+def create_glacier_mask(glacier_outlines: Any,
+                       reference_image: Any,
                        abundance_threshold: Optional[float] = None) -> ee.Image:
     """
     Create glacier abundance mask for MODIS pixel filtering.
@@ -123,11 +123,11 @@ def create_glacier_mask(glacier_outlines: ee.FeatureCollection,
     return glacier_mask
 
 
-def apply_standard_filtering(collection: ee.ImageCollection,
+def apply_standard_filtering(collection: Any,
                            start_date: str,
                            end_date: str,
                            region: Any,
-                           melt_season_only: bool = True) -> ee.ImageCollection:
+                           melt_season_only: bool = True) -> Any:
     """
     Apply standard temporal and spatial filtering to MODIS collection.
     
@@ -154,7 +154,7 @@ def apply_standard_filtering(collection: ee.ImageCollection,
     return filtered
 
 
-def create_glacier_fraction_map(glacier_outlines: ee.FeatureCollection,
+def create_glacier_fraction_map(glacier_outlines: Any,
                                scale: Optional[int] = None) -> ee.Image:
     """
     Create glacier fraction map for visualization and analysis.
@@ -187,7 +187,7 @@ def create_glacier_fraction_map(glacier_outlines: ee.FeatureCollection,
     return glacier_fraction.rename('glacier_fraction')
 
 
-def get_glacier_bounds(glacier_outlines: ee.FeatureCollection) -> Dict:
+def get_glacier_bounds(glacier_outlines: Any) -> Dict:
     """
     Get bounding box coordinates for glacier region.
     
@@ -208,8 +208,8 @@ def get_glacier_bounds(glacier_outlines: ee.FeatureCollection) -> Dict:
     }
 
 
-def calculate_glacier_statistics(image: ee.Image,
-                                glacier_mask: ee.Image,
+def calculate_glacier_statistics(image: Any,
+                                glacier_mask: Any,
                                 region: Any,
                                 scale: Optional[int] = None) -> Dict:
     """
@@ -246,8 +246,8 @@ def calculate_glacier_statistics(image: ee.Image,
     return stats
 
 
-def filter_glacier_pixels(image: ee.Image,
-                         glacier_outlines: ee.FeatureCollection,
+def filter_glacier_pixels(image: Any,
+                         glacier_outlines: Any,
                          abundance_threshold: Optional[float] = None) -> ee.Image:
     """
     Filter image to glacier pixels only based on abundance threshold.
@@ -291,8 +291,8 @@ def create_elevation_bands(region: Any) -> ee.Image:
     ])
 
 
-def validate_glacier_coverage(image: ee.Image,
-                             glacier_mask: ee.Image,
+def validate_glacier_coverage(image: Any,
+                             glacier_mask: Any,
                              region: Any,
                              min_pixel_count: int = 100) -> ee.Image:
     """
@@ -325,8 +325,8 @@ def validate_glacier_coverage(image: ee.Image,
     return image.updateMask(validation_mask)
 
 
-def get_glacier_time_series_mask(collection: ee.ImageCollection,
-                                glacier_outlines: ee.FeatureCollection) -> ee.ImageCollection:
+def get_glacier_time_series_mask(collection: Any,
+                                glacier_outlines: Any) -> Any:
     """
     Apply glacier masking to entire image collection.
     

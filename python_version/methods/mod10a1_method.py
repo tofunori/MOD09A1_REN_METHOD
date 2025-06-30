@@ -70,7 +70,7 @@ QA_CONFIG_RELAXED = {
 # QUALITY FILTERING FUNCTIONS
 # ============================================================================
 
-def get_basic_qa_mask(img: ee.Image, level: str = 'good') -> ee.Image:
+def get_basic_qa_mask(img: Any, level: str = 'good') -> ee.Image:
     """
     Create Basic QA mask based on quality level.
     
@@ -104,7 +104,7 @@ def get_basic_qa_mask(img: ee.Image, level: str = 'good') -> ee.Image:
     return quality_mask.And(exclude_mask)
 
 
-def get_algorithm_flags_mask(img: ee.Image, flags: Dict[str, bool]) -> ee.Image:
+def get_algorithm_flags_mask(img: Any, flags: Dict[str, bool]) -> ee.Image:
     """
     Create Algorithm Flags QA mask based on flag configuration.
     
@@ -128,7 +128,7 @@ def get_algorithm_flags_mask(img: ee.Image, flags: Dict[str, bool]) -> ee.Image:
     return mask
 
 
-def create_comprehensive_quality_mask(img: ee.Image, qa_config: Optional[Dict] = None) -> ee.Image:
+def create_comprehensive_quality_mask(img: Any, qa_config: Optional[Dict] = None) -> ee.Image:
     """
     Create comprehensive quality mask combining Basic QA and Algorithm Flags.
     
@@ -148,7 +148,7 @@ def create_comprehensive_quality_mask(img: ee.Image, qa_config: Optional[Dict] =
     return basic_mask.And(flags_mask)
 
 
-def create_standard_quality_mask(img: ee.Image) -> ee.Image:
+def create_standard_quality_mask(img: Any) -> ee.Image:
     """
     Create standard quality mask for exports (uses conservative configuration).
     
@@ -161,7 +161,7 @@ def create_standard_quality_mask(img: ee.Image) -> ee.Image:
     return create_comprehensive_quality_mask(img, QA_CONFIG['STANDARD'])
 
 
-def create_relaxed_quality_mask(img: ee.Image) -> ee.Image:
+def create_relaxed_quality_mask(img: Any) -> ee.Image:
     """
     Create relaxed quality mask for glacier applications.
     
@@ -178,8 +178,8 @@ def create_relaxed_quality_mask(img: ee.Image) -> ee.Image:
 # MAIN PROCESSING FUNCTION
 # ============================================================================
 
-def process_mod10a1_method(image: ee.Image, 
-                          glacier_outlines: ee.FeatureCollection,
+def process_mod10a1_method(image: Any, 
+                          glacier_outlines: Any,
                           glacier_mask_func: callable,
                           relaxed_qa: bool = False) -> ee.Image:
     """
@@ -238,7 +238,7 @@ def process_mod10a1_method(image: ee.Image,
     return result
 
 
-def apply_mod10a1_quality_filter(image: ee.Image, 
+def apply_mod10a1_quality_filter(image: Any, 
                                 config: Optional[Dict] = None) -> ee.Image:
     """
     Apply MOD10A1 specific quality filtering.
@@ -257,7 +257,7 @@ def apply_mod10a1_quality_filter(image: ee.Image,
     return image.updateMask(quality_mask)
 
 
-def get_mod10a1_band_info(image: ee.Image) -> Dict:
+def get_mod10a1_band_info(image: Any) -> Dict:
     """
     Get information about available MOD10A1 bands.
     
@@ -278,7 +278,7 @@ def get_mod10a1_band_info(image: ee.Image) -> Dict:
     }
 
 
-def create_mod10a1_collection_processor(glacier_outlines: ee.FeatureCollection,
+def create_mod10a1_collection_processor(glacier_outlines: Any,
                                        relaxed_qa: bool = False) -> callable:
     """
     Create a processing function for MOD10A1 image collections.
@@ -300,8 +300,8 @@ def create_mod10a1_collection_processor(glacier_outlines: ee.FeatureCollection,
 # VALIDATION AND TESTING FUNCTIONS
 # ============================================================================
 
-def validate_mod10a1_processing(image: ee.Image, 
-                               glacier_outlines: ee.FeatureCollection,
+def validate_mod10a1_processing(image: Any, 
+                               glacier_outlines: Any,
                                region: Any) -> Dict:
     """
     Validate MOD10A1 processing results.

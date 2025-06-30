@@ -11,7 +11,7 @@ Source: Ren et al. (2021/2023) methodology - EXACT implementation
 
 import ee
 import math
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, Any
 try:
     from ..config.settings import (
         REFL_BANDS, TOPO_BANDS_ALL, TOPO_BANDS_SNOW, NARROWBAND_ALL, NARROWBAND_SNOW,
@@ -30,8 +30,8 @@ except ImportError:
     from utils.glacier_utils import create_glacier_mask
 
 
-def process_ren_method(image: ee.Image, 
-                      glacier_outlines: ee.FeatureCollection,
+def process_ren_method(image: Any, 
+                      glacier_outlines: Any,
                       create_glacier_mask_func: callable,
                       relaxed_qa: bool = False) -> ee.Image:
     """
@@ -100,7 +100,7 @@ def process_ren_method(image: ee.Image,
                 .copyProperties(image, ['system:time_start']))
 
 
-def topography_correction(image: ee.Image) -> ee.Image:
+def topography_correction(image: Any) -> ee.Image:
     """
     Apply topography correction to MODIS surface reflectance
     Following exact methodology from Ren et al. (2021) Equations 3a and 3b
@@ -163,7 +163,7 @@ def topography_correction(image: ee.Image) -> ee.Image:
     return topo_image
 
 
-def apply_brdf_anisotropic_correction(image: ee.Image, surface_type: str) -> ee.Image:
+def apply_brdf_anisotropic_correction(image: Any, surface_type: str) -> ee.Image:
     """
     Apply BRDF anisotropic correction using P1 (snow) and P2 (ice) models
     EXACT implementation from Ren et al. (2021/2023) Table 4 coefficients
@@ -228,7 +228,7 @@ def apply_brdf_anisotropic_correction(image: ee.Image, surface_type: str) -> ee.
     return image.addBands(ee.Image.cat(corrected_bands))
 
 
-def classify_snow_ice(image: ee.Image) -> ee.Image:
+def classify_snow_ice(image: Any) -> ee.Image:
     """
     Classify glacier surface as snow or ice using NDSI threshold
     Following Ren et al. (2021) methodology with NDSI thresholds
@@ -274,7 +274,7 @@ def classify_snow_ice(image: ee.Image) -> ee.Image:
     return image.addBands([ndsi, snow_mask])
 
 
-def compute_broadband_albedo(image: ee.Image) -> ee.Image:
+def compute_broadband_albedo(image: Any) -> ee.Image:
     """
     Compute broadband albedo using Ren et al. (2021) empirical coefficients
     EXACT coefficients from Equations 8 & 9
