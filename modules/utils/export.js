@@ -306,153 +306,162 @@ function generateExportDescription(prefix, startDate, endDate) {
 
 /**
  * Export simple QA observation counts - just total observations per QA level
+ * COMPLETELY REWRITTEN to avoid encoding errors - no complex object passing
  */
 function exportQAProfileComparison(collection, glacierOutlines, createGlacierMask, region, description) {
-  print('📊 Starting Simple QA Observation Count Analysis...');
+  print('📊 Starting Simple QA Count Analysis (Hard-coded approach)...');
   
-  // Process strict profile
-  var strictProfile = config.QA_PROFILES.strict;
-  print('⚡ Counting observations for ' + strictProfile.name + ' profile...');
-  var strictProcessed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, strictProfile);
-  });
-  var strictValid = strictProcessed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var strictFeature = ee.Feature(null, {
-    'qa_profile': strictProfile.name,
-    'qa_description': strictProfile.description,
-    'qa_expected_gain': strictProfile.expectedGain,
-    'qa_risk_level': strictProfile.risk,
-    'total_observations': strictValid.size()
-  });
+  // Process current/strict level (no special QA - just standard filtering)
+  print('⚡ Counting Strict QA observations...');
+  var strictCount = collection.map(function(image) {
+    // Apply standard QA filtering directly (avoiding object parameters)
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var shadowFlag = qa.bitwiseAnd(1<<2).rightShift(2);
+    var cirrusFlag = qa.bitwiseAnd(1<<8).rightShift(8);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Current strict filters
+    var validQA = cloudState.eq(0)
+      .and(shadowFlag.eq(0))
+      .and(cirrusFlag.eq(0))
+      .and(sza.lt(70))
+      .and(snowIceConf.gte(2));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Process level1 profile
-  var level1Profile = config.QA_PROFILES.level1;
-  print('⚡ Counting observations for ' + level1Profile.name + ' profile...');
-  var level1Processed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level1Profile);
-  });
-  var level1Valid = level1Processed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var level1Feature = ee.Feature(null, {
-    'qa_profile': level1Profile.name,
-    'qa_description': level1Profile.description,
-    'qa_expected_gain': level1Profile.expectedGain,
-    'qa_risk_level': level1Profile.risk,
-    'total_observations': level1Valid.size()
-  });
+  // Process Level 1 (add maybe snow/ice)
+  print('⚡ Counting Level 1 QA observations...');
+  var level1Count = collection.map(function(image) {
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var shadowFlag = qa.bitwiseAnd(1<<2).rightShift(2);
+    var cirrusFlag = qa.bitwiseAnd(1<<8).rightShift(8);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Level 1: Allow maybe snow/ice (confidence >= 1)
+    var validQA = cloudState.eq(0)
+      .and(shadowFlag.eq(0))
+      .and(cirrusFlag.eq(0))
+      .and(sza.lt(70))
+      .and(snowIceConf.gte(1));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Process level2 profile
-  var level2Profile = config.QA_PROFILES.level2;
-  print('⚡ Counting observations for ' + level2Profile.name + ' profile...');
-  var level2Processed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level2Profile);
-  });
-  var level2Valid = level2Processed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var level2Feature = ee.Feature(null, {
-    'qa_profile': level2Profile.name,
-    'qa_description': level2Profile.description,
-    'qa_expected_gain': level2Profile.expectedGain,
-    'qa_risk_level': level2Profile.risk,
-    'total_observations': level2Valid.size()
-  });
+  // Process Level 2 (allow shadow)
+  print('⚡ Counting Level 2 QA observations...');
+  var level2Count = collection.map(function(image) {
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var cirrusFlag = qa.bitwiseAnd(1<<8).rightShift(8);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Level 2: Remove shadow filter
+    var validQA = cloudState.eq(0)
+      .and(cirrusFlag.eq(0))
+      .and(sza.lt(70))
+      .and(snowIceConf.gte(1));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Process level3 profile
-  var level3Profile = config.QA_PROFILES.level3;
-  print('⚡ Counting observations for ' + level3Profile.name + ' profile...');
-  var level3Processed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level3Profile);
-  });
-  var level3Valid = level3Processed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var level3Feature = ee.Feature(null, {
-    'qa_profile': level3Profile.name,
-    'qa_description': level3Profile.description,
-    'qa_expected_gain': level3Profile.expectedGain,
-    'qa_risk_level': level3Profile.risk,
-    'total_observations': level3Valid.size()
-  });
+  // Process Level 3 (allow cirrus)
+  print('⚡ Counting Level 3 QA observations...');
+  var level3Count = collection.map(function(image) {
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Level 3: Remove cirrus filter too
+    var validQA = cloudState.eq(0)
+      .and(sza.lt(70))
+      .and(snowIceConf.gte(1));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Process level4 profile
-  var level4Profile = config.QA_PROFILES.level4;
-  print('⚡ Counting observations for ' + level4Profile.name + ' profile...');
-  var level4Processed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level4Profile);
-  });
-  var level4Valid = level4Processed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var level4Feature = ee.Feature(null, {
-    'qa_profile': level4Profile.name,
-    'qa_description': level4Profile.description,
-    'qa_expected_gain': level4Profile.expectedGain,
-    'qa_risk_level': level4Profile.risk,
-    'total_observations': level4Valid.size()
-  });
+  // Process Level 4 (increase solar zenith)
+  print('⚡ Counting Level 4 QA observations...');
+  var level4Count = collection.map(function(image) {
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Level 4: Increase solar zenith to 85°
+    var validQA = cloudState.eq(0)
+      .and(sza.lt(85))
+      .and(snowIceConf.gte(1));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Process level5 profile
-  var level5Profile = config.QA_PROFILES.level5;
-  print('⚡ Counting observations for ' + level5Profile.name + ' profile...');
-  var level5Processed = collection.map(function(image) {
-    var renMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/ren.js');
-    return renMethod.processRenMethod(image, glacierOutlines, createGlacierMask, level5Profile);
-  });
-  var level5Valid = level5Processed.filter(function(image) {
-    var bandNames = image.bandNames();
-    var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-    var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-    return ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
-  });
-  var level5Feature = ee.Feature(null, {
-    'qa_profile': level5Profile.name,
-    'qa_description': level5Profile.description,
-    'qa_expected_gain': level5Profile.expectedGain,
-    'qa_risk_level': level5Profile.risk,
-    'total_observations': level5Valid.size()
-  });
+  // Process Level 5 (allow uncertain cloud)
+  print('⚡ Counting Level 5 QA observations...');
+  var level5Count = collection.map(function(image) {
+    var qa = image.select('state_1km');
+    var cloudState = qa.bitwiseAnd(0x3);
+    var sza = image.select('SolarZenith').multiply(0.01);
+    var snowIceConf = qa.bitwiseAnd(0x3000).rightShift(12);
+    
+    // Level 5: Allow uncertain cloud state (0 or 1)
+    var validQA = cloudState.lte(1)
+      .and(sza.lt(85))
+      .and(snowIceConf.gte(1));
+    
+    return image.updateMask(validQA);
+  }).filter(ee.Filter.listContains('system:band_names', 'sur_refl_b01')).size();
   
-  // Create final collection
-  var allResults = ee.FeatureCollection([
-    strictFeature, level1Feature, level2Feature, 
-    level3Feature, level4Feature, level5Feature
+  // Create simple features with counts (no complex operations)
+  var results = ee.FeatureCollection([
+    ee.Feature(null, {
+      'qa_level': 'Strict',
+      'description': 'Current strict QA',
+      'total_observations': strictCount
+    }),
+    ee.Feature(null, {
+      'qa_level': 'Level1', 
+      'description': 'Add maybe snow/ice',
+      'total_observations': level1Count
+    }),
+    ee.Feature(null, {
+      'qa_level': 'Level2',
+      'description': 'Allow shadow pixels', 
+      'total_observations': level2Count
+    }),
+    ee.Feature(null, {
+      'qa_level': 'Level3',
+      'description': 'Allow cirrus pixels',
+      'total_observations': level3Count
+    }),
+    ee.Feature(null, {
+      'qa_level': 'Level4',
+      'description': 'Solar zenith to 85°',
+      'total_observations': level4Count
+    }),
+    ee.Feature(null, {
+      'qa_level': 'Level5',
+      'description': 'Allow uncertain cloud',
+      'total_observations': level5Count
+    })
   ]);
   
-  // Export simple summary CSV
+  // Export simple CSV
   Export.table.toDrive({
-    collection: allResults,
-    description: description + '_qa_observation_counts',
-    folder: 'albedo_method_comparison',
+    collection: results,
+    description: description + '_qa_counts_simple',
+    folder: 'albedo_method_comparison', 
     fileFormat: 'CSV'
   });
   
-  print('✅ Simple QA Observation Count export initiated: ' + description + '_qa_observation_counts');
-  print('📁 Simple CSV with total observation counts per QA level');
-  print('📁 Check Google Drive folder: albedo_method_comparison');
+  print('✅ Simple QA count export initiated: ' + description + '_qa_counts_simple');
+  print('📁 CSV with observation counts per QA level');
 }
 
 /**
