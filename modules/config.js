@@ -136,3 +136,7 @@ exports.GLACIER_CONFIG = GLACIER_CONFIG;
 exports.PROCESSING_CONFIG = PROCESSING_CONFIG;
 exports.DEBUG_MODE = DEBUG_MODE;
 exports.EXPORT_CONFIG = EXPORT_CONFIG;
+
+// Legacy uppercase aliases for backward-compatibility
+exports.ICE_COEFFICIENTS = iceCoefficients;
+exports.SNOW_COEFFICIENTS = snowCoefficients;
