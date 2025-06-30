@@ -97,4 +97,4 @@ The CSV export provides one record per product & date containing:
 
 ---
 
-**Version 2.1 – 2025-06-30**  ·  Author: *Modular Comparison Framework*
+**Version 2.1 – 2025-06-30**  ·  Author: *Modular Comparison Framework*# Test sync
