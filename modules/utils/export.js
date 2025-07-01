@@ -175,9 +175,16 @@ function exportComparisonStats(results, region, description) {
     allStats = allStats.merge(mcd43Stats);
   }
   
+  // Deduplicate by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
+  // Sort by date and method so MOD09GA comes before MYD09GA for same date
+  allStats = allStats.sort(['date', 'method']);
+  
+  // Client-side deduplication to keep first occurrence per date
+  var dedupStats = allStats.distinct('date');
+  
   // Export to CSV
   Export.table.toDrive({
-    collection: allStats,
+    collection: dedupStats,
     description: description,
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
