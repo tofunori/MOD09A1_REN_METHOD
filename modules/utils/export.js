@@ -195,49 +195,21 @@ function exportComparisonStats(results, region, description) {
  * Print data counts for verification
  */
 function printDataCounts(results) {
-  var safeCount = function(col, label) {
-    try {
-      print('🔍 Debug: Starting safeCount for ' + label);
-      var collection = ee.ImageCollection(col);
-      print('🔍 Debug: Collection created for ' + label);
-      var count = collection.size();
-      print('🔍 Debug: Size operation called for ' + label);
-      count.evaluate(function(n, error) {
-        if (error) {
-          print(label + ' observations: Error - ' + error);
-        } else {
-          print(label + ' observations: ' + n);
-        }
+  var printCount = function(collection, label) {
+    if (collection) {
+      ee.ImageCollection(collection).size().evaluate(function(count) {
+        print(label + ' observations: ' + count);
       }, function(error) {
-        print(label + ' observations: Evaluate failed - ' + error);
+        print(label + ' observations: Error');
       });
-      print('🔍 Debug: Evaluate called for ' + label);
-    } catch (e) {
-      print(label + ' observations: Exception - ' + e.toString());
+    } else {
+      print(label + ' collection missing');
     }
   };
 
-  print('🔍 Debug: printDataCounts invoked');
-  print('🔍 Debug: results keys = ' + Object.keys(results).join(', '));
-  
-  if (results.ren_count) {
-    results.ren_count.evaluate(function(n, error) {
-      if (error) {
-        print('MOD09GA method observations: Error - ' + error);
-      } else {
-        print('MOD09GA method observations: ' + n);
-      }
-    });
-  } else if (results.ren) {
-    safeCount(results.ren, 'MOD09GA method');
-  } else {
-    print('MOD09GA method collection missing');
-  }
-  
-  if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
-  else                  print('MOD10A1 method collection missing');
-  if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
-  else                  print('MCD43A3 method collection missing');
+  printCount(results.ren, 'MOD09GA method');
+  printCount(results.mod10a1, 'MOD10A1 method');
+  printCount(results.mcd43a3, 'MCD43A3 method');
 }
 
 /**
