@@ -77,19 +77,27 @@ function exportComparisonStats(results, region, description) {
         tileScale: config.EXPORT_CONFIG.tileScale
       }).get('SolarZenith');
 
-      // (2) Scene-mean NDSI (computed from MODIS bands 4 and 6)
-      var ndsiImg = image.expression(' (b4 - b6) / (b4 + b6) ', {
-        'b4': image.select('sur_refl_b04').multiply(0.0001),
-        'b6': image.select('sur_refl_b06').multiply(0.0001)
-      }).rename('NDSI');
-      var ndsiMean = ndsiImg.reduceRegion({
-        reducer: ee.Reducer.mean(),
-        geometry: region,
-        scale: config.EXPORT_CONFIG.scale,
-        maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
-        bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale: config.EXPORT_CONFIG.tileScale
-      }).get('NDSI');
+      // (2) Scene-mean NDSI – only possible if surface-reflectance bands exist.
+      var hasB4 = bandNames.contains('sur_refl_b04');
+      var hasB6 = bandNames.contains('sur_refl_b06');
+      var ndsiMean = ee.Algorithms.If(
+        hasB4.and(hasB6),
+        (function() {
+          var ndsiImg = image.expression(' (b4 - b6) / (b4 + b6) ', {
+            'b4': image.select('sur_refl_b04').multiply(0.0001),
+            'b6': image.select('sur_refl_b06').multiply(0.0001)
+          }).rename('NDSI');
+          return ndsiImg.reduceRegion({
+            reducer: ee.Reducer.mean(),
+            geometry: region,
+            scale: config.EXPORT_CONFIG.scale_simple,
+            maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
+            bestEffort: config.EXPORT_CONFIG.bestEffort,
+            tileScale: config.EXPORT_CONFIG.tileScale
+          }).get('NDSI');
+        })(),
+        null
+      );
 
       return ee.Feature(null, {
         'albedo_mean':  statsDict.get('albedo_mean', null),
@@ -156,19 +164,27 @@ function exportComparisonStats(results, region, description) {
         tileScale: config.EXPORT_CONFIG.tileScale
       }).get('SolarZenith');
 
-      // (2) Scene-mean NDSI (computed from MODIS bands 4 and 6)
-      var ndsiImg = image.expression(' (b4 - b6) / (b4 + b6) ', {
-        'b4': image.select('sur_refl_b04').multiply(0.0001),
-        'b6': image.select('sur_refl_b06').multiply(0.0001)
-      }).rename('NDSI');
-      var ndsiMean = ndsiImg.reduceRegion({
-        reducer: ee.Reducer.mean(),
-        geometry: region,
-        scale: config.EXPORT_CONFIG.scale_simple,
-        maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
-        bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale: config.EXPORT_CONFIG.tileScale
-      }).get('NDSI');
+      // (2) Scene-mean NDSI – only possible if surface-reflectance bands exist.
+      var hasB4 = bandNames.contains('sur_refl_b04');
+      var hasB6 = bandNames.contains('sur_refl_b06');
+      var ndsiMean = ee.Algorithms.If(
+        hasB4.and(hasB6),
+        (function() {
+          var ndsiImg = image.expression(' (b4 - b6) / (b4 + b6) ', {
+            'b4': image.select('sur_refl_b04').multiply(0.0001),
+            'b6': image.select('sur_refl_b06').multiply(0.0001)
+          }).rename('NDSI');
+          return ndsiImg.reduceRegion({
+            reducer: ee.Reducer.mean(),
+            geometry: region,
+            scale: config.EXPORT_CONFIG.scale_simple,
+            maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
+            bestEffort: config.EXPORT_CONFIG.bestEffort,
+            tileScale: config.EXPORT_CONFIG.tileScale
+          }).get('NDSI');
+        })(),
+        null
+      );
 
       return ee.Feature(null, {
         'albedo_mean': ee.Dictionary(stats).get('broadband_albedo_mod10a1_mean'),

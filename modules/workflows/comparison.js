@@ -46,7 +46,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
   var col = buildCollection(collection);
 
-  // Apply temporal / spatial filters
+  // Apply temporal and spatial filters
   col = glacierUtils.applyStandardFiltering(
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
