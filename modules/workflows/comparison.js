@@ -46,6 +46,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
   // Default behaviour: merge Terra + Aqua surface-reflectance collections
   var isDefaultTerraAquaMerge = false; // flag to know if daily compositing needed
+  var col;
+  
   if (!collection) {
     // Build Terra and Aqua collections separately, then mark them
     var terraCol = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA).map(function(img) {
