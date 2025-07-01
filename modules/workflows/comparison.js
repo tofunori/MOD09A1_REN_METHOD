@@ -63,39 +63,14 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
   // -------------------------------------------------------------------
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
+  // Per CLAUDE.md: avoid distinct() - use simple merge/sort approach
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     
-    // Use join approach to prioritize Terra over Aqua without distinct()
-    // Add date property for joining
-    terra = terra.map(function(img) {
-      return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
-    });
-    aqua = aqua.map(function(img) {
-      return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
-    });
-    
-    // Left join: keep Terra images and matching Aqua dates
-    var leftJoin = ee.Join.leftJoin();
-    var filter = ee.Filter.equals({leftField: 'date_str', rightField: 'date_str'});
-    var joined = leftJoin.apply(terra, aqua, filter);
-    
-    // Extract Terra images (all Terra dates are kept)
-    var terraOnly = joined.map(function(feature) {
-      return ee.Image(feature.get('primary'));
-    });
-    
-    // Find Aqua images with no Terra match by inverting the join
-    var rightJoin = ee.Join.leftJoin();
-    var aquaJoined = rightJoin.apply(aqua, terra, filter);
-    var aquaOnly = aquaJoined.filter(ee.Filter.isNull('primary')).map(function(feature) {
-      return ee.Image(feature);
-    });
-    
-    // Combine Terra (priority) with Aqua-only (fallback)
-    col = terraOnly.merge(aquaOnly).sort('system:time_start');
+    // Simple merge approach: Terra first ensures priority when both exist
+    col = terra.merge(aqua).sort('system:time_start');
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
