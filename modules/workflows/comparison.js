@@ -23,6 +23,9 @@ var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/expor
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Filter MODIS collection by date, region, and apply Terra/Aqua daily compositing
+ */
 function getFilteredCollection(startDate, endDate, region, collection) {
   // Helper → turn a single ID or an array of IDs into one merged collection
   function buildCollection(ids) {
@@ -86,6 +89,9 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   return col;
 }
 
+/**
+ * Process MOD09GA collection using Ren method with topographic and BRDF correction
+ */
 function processRenCollection(collection, glacierOutlines) {
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
@@ -93,6 +99,9 @@ function processRenCollection(collection, glacierOutlines) {
   });
 }
 
+/**
+ * Process MOD10A1 snow albedo collection with advanced QA filtering
+ */
 function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
   var collection = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD10A1);
   var createGlacierMask = glacierUtils.createGlacierMask;
@@ -101,6 +110,9 @@ function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
   });
 }
 
+/**
+ * Process MCD43A3 BRDF/Albedo product with Collection 6.1 QA filtering
+ */
 function processMCD43A3Collection(startDate, endDate, region, glacierOutlines) {
   var collection = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MCD43A3);
   var createGlacierMask = glacierUtils.createGlacierMask;
@@ -178,11 +190,11 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
 // ============================================================================
 
 /**
- * Export the MOD09A1-Ren broadband albedo for a single date (Terra+Aqua merged).
- * @param {string}            date        ISO string 'YYYY-MM-DD'.
- * @param {ee.FeatureCollection} glacierOutlines   Glacier polygons (or null to use default mask).
- * @param {ee.Geometry}       region      Region of interest for export (geometry or bounds).
- * @param {Object}            options     { description, scale, maxPixels }
+ * Export single-date MOD09GA albedo map as GeoTIFF using Ren method
+ * @param {string} date ISO string 'YYYY-MM-DD'
+ * @param {ee.FeatureCollection} glacierOutlines Glacier polygons
+ * @param {ee.Geometry} region Region of interest for export
+ * @param {Object} options Export parameters (description, scale, maxPixels)
  */
 function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
   options = options || {};

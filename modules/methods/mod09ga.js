@@ -26,22 +26,37 @@ var classifyHelper  = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods
 // Lightweight wrappers around helper functions (public API)
 // ---------------------------------------------------------------------------
 
+/**
+ * Apply MODIS quality assessment filtering to remove poor quality pixels
+ */
 function qualityFilter(image) {
   return qaHelper.qualityFilter(image);
 }
 
+/**
+ * Apply topographic correction to surface reflectance using slope and aspect
+ */
 function topographyCorrection(image) {
   return topoHelper.topographyCorrection(image);
 }
 
+/**
+ * Apply BRDF anisotropic correction for snow and ice surface types
+ */
 function applyBRDFAnisotropicCorrection(image, surfaceType) {
   return brdfHelper.applyBRDFAnisotropicCorrection(image, surfaceType);
 }
 
+/**
+ * Classify pixels as snow or ice using NDSI threshold method
+ */
 function classifySnowIce(image) {
   return classifyHelper.classifySnowIce(image);
 }
 
+/**
+ * Convert narrow-band albedo to broadband albedo using linear coefficients
+ */
 function computeBroadbandAlbedo(image) {
   return albedoHelper.computeBroadbandAlbedo(image);
 }

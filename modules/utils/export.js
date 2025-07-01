@@ -18,7 +18,7 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 // ============================================================================
 
 /**
- * Export comprehensive statistics for all methods to CSV
+ * Export statistical comparison of all three albedo methods to CSV
  * Includes mean, std, min, max, count for each method and date
  */
 function exportComparisonStats(results, region, description) {
@@ -195,7 +195,7 @@ function printDataCounts(results) {
 }
 
 /**
- * Generate export description with timestamp
+ * Generate timestamped export description for file naming
  */
 function generateExportDescription(prefix, startDate, endDate) {
   var now = new Date();
