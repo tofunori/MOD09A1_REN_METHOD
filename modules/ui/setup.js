@@ -1,286 +1,413 @@
 /**
- * UI Setup Module
+ * Calendar UI Setup and Initialization Module
  * 
- * Main UI orchestrator that coordinates controls and visualization
+ * Orchestrates the calendar visualization setup, glacier data initialization,
+ * and integrates all UI components for the MODIS albedo calendar view
  * 
- * Author: Modular Comparison Framework
- * Date: 2025-06-30
+ * Author: Calendar Visualization Framework  
+ * Date: 2025-07-01
+ * Version: 1.0 - Calendar UI Integration
  */
 
 // ============================================================================
 // MODULE IMPORTS
 // ============================================================================
 
-var controls = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/controls.js');
-var visualization = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/visualization.js');
-var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
+var calendar = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/calendar.js');
+var glacierStats = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/glacier-stats.js');
 
 // ============================================================================
-// MAIN UI INITIALIZATION
+// GLOBAL UI VARIABLES
+// ============================================================================
+
+var calendarSystem = null;
+var glacierData = null;
+var chartPanel = null;
+var selectedDayData = null;
+
+// ============================================================================
+// CALENDAR INITIALIZATION FUNCTIONS
 // ============================================================================
 
 /**
- * Initialize complete UI system
+ * Initialize the complete calendar visualization system
  */
-function initializeUI(processCallback, exportCallback) {
-  print('🚀 Initializing modular UI system...');
-  
-  // Initialize glacier data for map setup
-  var glacierData = glacierUtils.initializeGlacierData();
-  
-  // Setup map visualization
-  visualization.initializeMap(glacierData.geometry);
-  visualization.setOptimalGlacierView(glacierData.geometry);
-  
-  // Create main UI interface
-  var uiComponents = controls.createMainInterface();
-  
-  // Setup event handlers with callbacks
-  controls.setupEventHandlers(uiComponents, processCallback, exportCallback);
-  
-  // Add legend
-  var legend = visualization.createAlbedoLegend();
-  
-  // Add glacier fraction layer for context
-  var glacierFraction = glacierUtils.createGlacierFractionMap(glacierData.outlines);
-  if (glacierFraction) {
-    visualization.addGlacierFractionLayer(glacierFraction);
+function initializeCalendarUI() {
+  try {
+    print('🏗️ MODIS ALBEDO CALENDAR VISUALIZATION SYSTEM');
+    print('📅 Initializing calendar interface...');
+    
+    // Initialize glacier data
+    glacierData = initializeGlacierData();
+    print('✅ Glacier data initialized');
+    
+    // Create glacier mask for pixel extraction
+    var glacierMask = glacierUtils.createGlacierMask(
+      glacierData.outlines, 
+      glacierData.image
+    );
+    glacierData.mask = glacierMask;
+    
+    // Initialize calendar with day selection callback
+    var calendarPanel = calendar.initializeCalendar(glacierData, onDaySelected);
+    print('✅ Calendar panel created');
+    
+    // Create chart panel for time series
+    chartPanel = createChartPanel();
+    
+    // Create main UI layout
+    var mainPanel = createMainLayout(calendarPanel, chartPanel);
+    
+    // Add to map
+    Map.add(mainPanel);
+    
+    // Center map on glacier region
+    Map.centerObject(glacierData.geometry, 12);
+    Map.setOptions('HYBRID');
+    
+    calendarSystem = {
+      calendarPanel: calendarPanel,
+      chartPanel: chartPanel,
+      glacierData: glacierData
+    };
+    
+    print('✅ Calendar visualization system ready');
+    return calendarSystem;
+    
+  } catch (error) {
+    print('❌ Error initializing calendar UI: ' + error);
+    throw error;
   }
-  
-  print('✅ UI system initialized successfully');
-  print('📍 Map centered on glacier region');
-  print('🎛️ Control panel ready for user input');
-  
-  return {
-    components: uiComponents,
-    glacierData: glacierData,
-    legend: legend
-  };
-}
-
-// ============================================================================
-// UI UPDATE FUNCTIONS
-// ============================================================================
-
-/**
- * Update UI after processing completion
- */
-function updateUIAfterProcessing(uiComponents, results, glacierData) {
-  // Update status
-  controls.updateStatus(uiComponents.statusLabel, '✅ Processing complete! Check map layers.', 'green');
-  
-  // Clear existing layers
-  visualization.clearComparisonLayers();
-  
-  // Get current configuration
-  var currentConfig = controls.getCurrentConfig(uiComponents);
-  
-  // Create layer configuration based on UI selections
-  var layerConfig = {
-    showRen: currentConfig.methods.ren,
-    showMOD10A1: currentConfig.methods.mod10a1,
-    showMCD43A3: currentConfig.methods.mcd43a3,
-    showDifferences: true // Always show differences for comparison
-  };
-  
-  // Create glacier mask for visualization
-  var glacierMask = glacierUtils.createGlacierMask(glacierData.outlines, glacierData.image);
-  
-  // Add new layers with glacier mask
-  visualization.addComparisonLayers(results, layerConfig, glacierMask, glacierData.outlines);
-  
-  // Optionally add QA layers for debugging
-  if (config.DEBUG_MODE) {
-    visualization.addQALayers(results);
-  }
-  
-  print('🎨 Map updated with new results');
 }
 
 /**
- * Update UI after export completion
+ * Initialize glacier data and geometry
  */
-function updateUIAfterExport(uiComponents, exportDescription) {
-  controls.updateStatus(
-    uiComponents.statusLabel, 
-    '✅ CSV export complete: ' + exportDescription, 
-    'green'
-  );
-  
-  print('📤 Export completed: ' + exportDescription);
+function initializeGlacierData() {
+  return glacierUtils.initializeGlacierData();
 }
 
 /**
- * Update UI with error message
+ * Create chart panel for time series visualization
  */
-function updateUIWithError(uiComponents, errorMessage) {
-  controls.updateStatus(
-    uiComponents.statusLabel, 
-    '❌ Error: ' + errorMessage, 
-    'red'
-  );
-  
-  print('❌ Error occurred: ' + errorMessage);
-}
-
-// ============================================================================
-// UI HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Validate UI inputs before processing
- */
-function validateUIInputs(uiComponents) {
-  var currentConfig = controls.getCurrentConfig(uiComponents);
-  
-  // Validate dates
-  var dateValidation = controls.validateInputs(
-    currentConfig.startDate, 
-    currentConfig.endDate
-  );
-  
-  if (!dateValidation.isValid) {
-    var errorMsg = 'Input validation failed: ' + dateValidation.errors.join(', ');
-    updateUIWithError(uiComponents, errorMsg);
-    return false;
-  }
-  
-  // Validate that at least one method is selected
-  var methodsSelected = currentConfig.methods.ren || 
-                       currentConfig.methods.mod10a1 || 
-                       currentConfig.methods.mcd43a3;
-  
-  if (!methodsSelected) {
-    updateUIWithError(uiComponents, 'Please select at least one method to compare');
-    return false;
-  }
-  
-  return true;
-}
-
-/**
- * Get processing parameters from UI
- */
-function getProcessingParameters(uiComponents, glacierData) {
-  var currentConfig = controls.getCurrentConfig(uiComponents);
-  
-  return {
-    startDate: currentConfig.startDate,
-    endDate: currentConfig.endDate,
-    methods: currentConfig.methods,
-    glacierOutlines: glacierData.outlines,
-    glacierGeometry: glacierData.geometry,
-    region: glacierData.geometry
-  };
-}
-
-/**
- * Reset UI to initial state
- */
-function resetUI(uiComponents) {
-  // Clear map layers
-  visualization.clearComparisonLayers();
-  
-  // Reset status
-  controls.updateStatus(
-    uiComponents.statusLabel, 
-    '🏗️ MODULAR READY: Clean modules/ architecture with .js paths!', 
-    'blue'
-  );
-  
-  print('🔄 UI reset to initial state');
-}
-
-
-// ============================================================================
-// LAYER MANAGEMENT INTERFACE
-// ============================================================================
-
-/**
- * Create layer control panel
- */
-function createLayerControlPanel() {
-  var layerPanel = ui.Panel({
-    layout: ui.Panel.Layout.flow('vertical'),
+function createChartPanel() {
+  var panel = ui.Panel({
     style: {
-      width: '200px',
-      position: 'top-right',
-      padding: '8px',
-      backgroundColor: 'rgba(255, 255, 255, 0.9)'
+      width: '600px',
+      height: '400px',
+      position: 'bottom-right',
+      backgroundColor: 'white',
+      border: '2px solid #666',
+      padding: '10px'
+    },
+    layout: ui.Panel.Layout.flow('vertical')
+  });
+  
+  var titleLabel = ui.Label({
+    value: 'Daily Glacier Analysis',
+    style: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      textAlign: 'center'
     }
   });
   
-  // Title
-  var title = ui.Label({
-    value: 'Layer Control',
+  var instructionLabel = ui.Label({
+    value: 'Click on a calendar day to view glacier albedo data',
+    style: {
+      fontSize: '12px',
+      textAlign: 'center',
+      color: '#666'
+    }
+  });
+  
+  panel.add(titleLabel);
+  panel.add(instructionLabel);
+  
+  return panel;
+}
+
+/**
+ * Create main UI layout combining calendar and charts
+ */
+function createMainLayout(calendarPanel, chartPanel) {
+  var mainPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {padding: '10px'}
+  });
+  
+  mainPanel.add(calendarPanel);
+  mainPanel.add(chartPanel);
+  
+  return mainPanel;
+}
+
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+/**
+ * Handle day selection from calendar
+ */
+function onDaySelected(dateString, dayStats) {
+  try {
+    print('📅 Selected date: ' + dateString);
+    selectedDayData = {date: dateString, stats: dayStats};
+    
+    // Clear previous map layers
+    clearMapLayers();
+    
+    // Add glacier albedo layers for available methods
+    addGlacierAlbedoLayers(dateString, dayStats);
+    
+    // Update chart panel with day analysis
+    updateChartPanel(dateString, dayStats);
+    
+    // Create time series chart around selected date
+    createTimeSeriesChart(dateString);
+    
+  } catch (error) {
+    print('❌ Error handling day selection: ' + error);
+  }
+}
+
+/**
+ * Clear existing map layers
+ */
+function clearMapLayers() {
+  Map.layers().reset();
+  
+  // Add glacier outlines back
+  Map.addLayer(glacierData.outlines, {color: 'yellow'}, 'Glacier Outlines', true, 0.7);
+}
+
+/**
+ * Add glacier albedo layers for the selected day
+ */
+function addGlacierAlbedoLayers(dateString, dayStats) {
+  var layerCount = 0;
+  
+  Object.keys(dayStats).forEach(function(method) {
+    var stats = dayStats[method];
+    
+    if (stats.available && stats.count > 0) {
+      try {
+        var startDate = ee.Date(dateString);
+        var endDate = startDate.advance(1, 'day');
+        
+        var image = glacierStats.getImageForDateAndMethod(
+          startDate, endDate, method, glacierData.outlines
+        );
+        
+        if (image) {
+          var maskedImage = image.updateMask(glacierData.mask);
+          var albedoBand = glacierStats.getAlbedoBandForMethod(method);
+          
+          var visParams = getVisualizationParams(method);
+          
+          Map.addLayer(
+            maskedImage.select(albedoBand),
+            visParams,
+            method.toUpperCase() + ' - ' + dateString,
+            layerCount === 0, // Show first layer by default
+            0.8
+          );
+          
+          layerCount++;
+        }
+      } catch (error) {
+        print('Warning: Could not load ' + method + ' for ' + dateString + ': ' + error);
+      }
+    }
+  });
+  
+  if (layerCount === 0) {
+    print('No albedo data available for ' + dateString);
+  }
+}
+
+/**
+ * Get visualization parameters for each method
+ */
+function getVisualizationParams(method) {
+  switch (method) {
+    case 'ren':
+      return {
+        min: 0, max: 1,
+        palette: ['8c2d04', 'cc4c02', 'ec7014', 'fe9929', 'fed98e', 'ffffbf',
+                  'c7e9b4', '7fcdbb', '41b6c4', '2c7fb8', '253494']
+      };
+    case 'mod10a1':
+      return {
+        min: 0, max: 100,
+        palette: ['red', 'yellow', 'white', 'cyan', 'blue']
+      };
+    case 'mcd43a3':
+      return {
+        min: 0, max: 0.4,
+        palette: ['darkblue', 'blue', 'lightblue', 'white', 'yellow', 'orange', 'red']
+      };
+    default:
+      return {min: 0, max: 1, palette: ['black', 'white']};
+  }
+}
+
+/**
+ * Update chart panel with selected day analysis
+ */
+function updateChartPanel(dateString, dayStats) {
+  // Clear existing widgets except title
+  chartPanel.clear();
+  
+  var titleLabel = ui.Label({
+    value: 'Glacier Analysis - ' + dateString,
+    style: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      textAlign: 'center'
+    }
+  });
+  chartPanel.add(titleLabel);
+  
+  // Add method statistics
+  Object.keys(dayStats).forEach(function(method) {
+    var stats = dayStats[method];
+    
+    if (stats.available && stats.count > 0) {
+      var statsText = method.toUpperCase() + ':\n' +
+        '  Pixels: ' + stats.count + '\n' +
+        '  Mean: ' + (stats.mean ? stats.mean.getInfo().toFixed(3) : 'N/A') + '\n' +
+        '  Std Dev: ' + (stats.stdDev ? stats.stdDev.getInfo().toFixed(3) : 'N/A');
+      
+      var methodLabel = ui.Label({
+        value: statsText,
+        style: {
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          backgroundColor: '#f0f0f0',
+          padding: '5px',
+          margin: '5px'
+        }
+      });
+      
+      chartPanel.add(methodLabel);
+    }
+  });
+  
+  // Add export button
+  var exportButton = ui.Button({
+    label: 'Export Day Data',
+    style: {width: '150px'},
+    onClick: function() {
+      exportDayData(dateString, dayStats);
+    }
+  });
+  chartPanel.add(exportButton);
+}
+
+/**
+ * Create time series chart around selected date
+ */
+function createTimeSeriesChart(centerDate) {
+  var centerDateObj = ee.Date(centerDate);
+  var startDate = centerDateObj.advance(-15, 'day');
+  var endDate = centerDateObj.advance(15, 'day');
+  
+  // Create a simple chart showing glacier pixel counts over time
+  var dateList = ee.List.sequence(0, 30).map(function(day) {
+    return startDate.advance(day, 'day');
+  });
+  
+  // This would be expanded to create actual time series charts
+  // For now, add a placeholder
+  var chartLabel = ui.Label({
+    value: 'Time Series Chart (' + startDate.format('yyyy-MM-dd').getInfo() + 
+           ' to ' + endDate.format('yyyy-MM-dd').getInfo() + ')',
     style: {
       fontSize: '14px',
-      fontWeight: 'bold',
-      margin: '0 0 8px 0'
+      fontStyle: 'italic',
+      textAlign: 'center',
+      margin: '10px'
     }
   });
-  layerPanel.add(title);
   
-  // Add layer toggle controls
-  var toggles = createLayerToggles();
-  toggles.forEach(function(toggle) {
-    layerPanel.add(toggle);
-  });
-  
-  // Add to map
-  Map.add(layerPanel);
-  
-  return layerPanel;
+  chartPanel.add(chartLabel);
 }
 
 /**
- * Create individual layer toggle controls
+ * Export day data to CSV
  */
-function createLayerToggles() {
-  var methodLayers = ['MOD09A1 Method', 'MOD10A1', 'MCD43A3'];
-  var differenceLayers = ['MOD09A1 - MOD10A1 Difference', 'MOD09A1 - MCD43A3 Difference'];
+function exportDayData(dateString, dayStats) {
+  print('Exporting data for ' + dateString + '...');
   
-  var toggles = [];
+  // Create a feature collection with the day's glacier statistics
+  var features = [];
   
-  // Method layer toggles
-  methodLayers.forEach(function(layerName) {
-    var checkbox = ui.Checkbox({
-      label: layerName,
-      value: true,
-      onChange: function(checked) {
-        visualization.toggleLayer(layerName + ' (Median)', checked);
-      },
-      style: {margin: '2px 0'}
-    });
-    toggles.push(checkbox);
+  Object.keys(dayStats).forEach(function(method) {
+    var stats = dayStats[method];
+    if (stats.available) {
+      var feature = ee.Feature(null, {
+        date: dateString,
+        method: method,
+        pixel_count: stats.count,
+        mean_albedo: stats.mean,
+        std_dev: stats.stdDev,
+        min_albedo: stats.min,
+        max_albedo: stats.max
+      });
+      features.push(feature);
+    }
   });
   
-  // Difference layer toggles (initially off)
-  differenceLayers.forEach(function(layerName) {
-    var checkbox = ui.Checkbox({
-      label: layerName.replace(' Difference', ''),
-      value: false,
-      onChange: function(checked) {
-        visualization.toggleLayer(layerName, checked);
-      },
-      style: {margin: '2px 0', fontSize: '11px'}
+  if (features.length > 0) {
+    var exportCollection = ee.FeatureCollection(features);
+    
+    Export.table.toDrive({
+      collection: exportCollection,
+      description: 'glacier_albedo_' + dateString.replace(/-/g, ''),
+      fileFormat: 'CSV'
     });
-    toggles.push(checkbox);
-  });
-  
-  return toggles;
+    
+    print('✅ Export task started for ' + dateString);
+  } else {
+    print('❌ No data available for export on ' + dateString);
+  }
+}
+
+// ============================================================================
+// PUBLIC API
+// ============================================================================
+
+/**
+ * Get current calendar system state
+ */
+function getCalendarSystem() {
+  return calendarSystem;
+}
+
+/**
+ * Set calendar to specific date
+ */
+function setCalendarDate(year, month) {
+  if (calendarSystem) {
+    calendar.setCalendarDate(year, month);
+  }
+}
+
+/**
+ * Get selected day data
+ */
+function getSelectedDayData() {
+  return selectedDayData;
 }
 
 // ============================================================================
 // EXPORTS
 // ============================================================================
 
-exports.initializeUI = initializeUI;
-exports.updateUIAfterProcessing = updateUIAfterProcessing;
-exports.updateUIAfterExport = updateUIAfterExport;
-exports.updateUIWithError = updateUIWithError;
-exports.validateUIInputs = validateUIInputs;
-exports.getProcessingParameters = getProcessingParameters;
-exports.resetUI = resetUI;
-exports.createLayerControlPanel = createLayerControlPanel;
+exports.initializeCalendarUI = initializeCalendarUI;
+exports.getCalendarSystem = getCalendarSystem;
+exports.setCalendarDate = setCalendarDate;
+exports.getSelectedDayData = getSelectedDayData;

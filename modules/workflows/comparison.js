@@ -239,6 +239,269 @@ function exportRenAlbedoSingleDateNative(date, glacierOutlines, region, options)
 }
 
 // ============================================================================
+// DAILY GLACIER DATA FUNCTIONS FOR CALENDAR INTEGRATION
+// ============================================================================
+
+/**
+ * Get daily glacier pixel statistics for calendar visualization
+ */
+function getDailyGlacierStats(date, methods, glacierOutlines, glacierMask) {
+  var stats = {};
+  var startDate = ee.Date(date);
+  var endDate = startDate.advance(1, 'day');
+  
+  methods.forEach(function(method) {
+    try {
+      var collection, image, albedoBand;
+      var createGlacierMask = glacierUtils.createGlacierMask;
+      
+      if (method === 'ren') {
+        collection = getFilteredCollection(startDate, endDate, glacierOutlines.geometry());
+        if (collection.size().getInfo() > 0) {
+          image = processRenCollection(collection, glacierOutlines).first();
+          albedoBand = 'broadband_albedo_ren_masked';
+        }
+      } else if (method === 'mod10a1') {
+        collection = processMOD10A1Collection(startDate, endDate, glacierOutlines.geometry(), glacierOutlines);
+        if (collection.size().getInfo() > 0) {
+          image = collection.first();
+          albedoBand = 'NDSI_Snow_Cover';
+        }
+      } else if (method === 'mcd43a3') {
+        collection = processMCD43A3Collection(startDate, endDate, glacierOutlines.geometry(), glacierOutlines);
+        if (collection.size().getInfo() > 0) {
+          image = collection.first();
+          albedoBand = 'Albedo_BSA_vis';
+        }
+      }
+      
+      if (image && albedoBand) {
+        var maskedImage = image.updateMask(glacierMask);
+        var pixelStats = maskedImage.select(albedoBand).reduceRegion({
+          reducer: ee.Reducer.mean()
+            .combine(ee.Reducer.count(), '', true)
+            .combine(ee.Reducer.stdDev(), '', true)
+            .combine(ee.Reducer.min(), '', true)
+            .combine(ee.Reducer.max(), '', true),
+          geometry: glacierOutlines.geometry(),
+          scale: 500,
+          maxPixels: 1e9,
+          bestEffort: true
+        });
+        
+        stats[method] = {
+          mean: pixelStats.get(albedoBand + '_mean'),
+          count: pixelStats.get(albedoBand + '_count'),
+          stdDev: pixelStats.get(albedoBand + '_stdDev'),
+          min: pixelStats.get(albedoBand + '_min'),
+          max: pixelStats.get(albedoBand + '_max'),
+          available: true
+        };
+      } else {
+        stats[method] = {
+          mean: null,
+          count: 0,
+          stdDev: null,
+          min: null,
+          max: null,
+          available: false
+        };
+      }
+      
+    } catch (error) {
+      print('Error processing ' + method + ' for ' + date + ': ' + error);
+      stats[method] = {
+        mean: null,
+        count: 0,
+        stdDev: null,
+        min: null,
+        max: null,
+        available: false
+      };
+    }
+  });
+  
+  return stats;
+}
+
+/**
+ * Create time series analysis around a selected date
+ */
+function createGlacierTimeSeries(centerDate, windowDays, methods, glacierOutlines, glacierMask) {
+  var centerDateObj = ee.Date(centerDate);
+  var startDate = centerDateObj.advance(-windowDays, 'day');
+  var endDate = centerDateObj.advance(windowDays, 'day');
+  
+  var dateList = ee.List.sequence(0, windowDays * 2).map(function(day) {
+    return startDate.advance(day, 'day');
+  });
+  
+  var timeSeriesData = [];
+  
+  dateList.getInfo().forEach(function(dateMillis) {
+    var currentDate = ee.Date(dateMillis).format('YYYY-MM-dd').getInfo();
+    var dayStats = getDailyGlacierStats(currentDate, methods, glacierOutlines, glacierMask);
+    
+    timeSeriesData.push({
+      date: currentDate,
+      stats: dayStats
+    });
+  });
+  
+  return timeSeriesData;
+}
+
+/**
+ * Export daily glacier data for calendar system
+ */
+function exportDailyGlacierData(date, methods, glacierOutlines, glacierMask, description) {
+  var dailyStats = getDailyGlacierStats(date, methods, glacierOutlines, glacierMask);
+  
+  var features = [];
+  Object.keys(dailyStats).forEach(function(method) {
+    var stats = dailyStats[method];
+    if (stats.available) {
+      var feature = ee.Feature(null, {
+        date: date,
+        method: method,
+        pixel_count: stats.count,
+        mean_albedo: stats.mean,
+        std_dev: stats.stdDev,
+        min_albedo: stats.min,
+        max_albedo: stats.max,
+        geometry_type: 'glacier_pixels'
+      });
+      features.push(feature);
+    }
+  });
+  
+  if (features.length > 0) {
+    var exportCollection = ee.FeatureCollection(features);
+    
+    Export.table.toDrive({
+      collection: exportCollection,
+      description: description || ('glacier_daily_' + date.replace(/-/g, '')),
+      fileFormat: 'CSV',
+      folder: 'GEE_Calendar_Exports'
+    });
+    
+    print('✅ Daily glacier export started: ' + date);
+    return true;
+  } else {
+    print('❌ No glacier data available for export on ' + date);
+    return false;
+  }
+}
+
+/**
+ * Generate monthly glacier coverage report
+ */
+function generateMonthlyGlacierReport(year, month, methods, glacierOutlines, glacierMask) {
+  var startDate = ee.Date.fromYMD(year, month, 1);
+  var endDate = startDate.advance(1, 'month');
+  var daysInMonth = endDate.difference(startDate, 'day').getInfo();
+  
+  var report = {
+    year: year,
+    month: month,
+    totalDays: daysInMonth,
+    daysWithData: 0,
+    methodStats: {}
+  };
+  
+  methods.forEach(function(method) {
+    report.methodStats[method] = {
+      availableDays: 0,
+      totalPixels: 0,
+      averagePixels: 0,
+      bestDay: null,
+      bestPixelCount: 0
+    };
+  });
+  
+  for (var day = 1; day <= daysInMonth; day++) {
+    var currentDate = startDate.advance(day - 1, 'day').format('YYYY-MM-dd').getInfo();
+    var dayStats = getDailyGlacierStats(currentDate, methods, glacierOutlines, glacierMask);
+    
+    var hasAnyData = false;
+    Object.keys(dayStats).forEach(function(method) {
+      var stats = dayStats[method];
+      if (stats.available && stats.count > 0) {
+        report.methodStats[method].availableDays++;
+        report.methodStats[method].totalPixels += stats.count;
+        
+        if (stats.count > report.methodStats[method].bestPixelCount) {
+          report.methodStats[method].bestDay = currentDate;
+          report.methodStats[method].bestPixelCount = stats.count;
+        }
+        
+        hasAnyData = true;
+      }
+    });
+    
+    if (hasAnyData) {
+      report.daysWithData++;
+    }
+  }
+  
+  // Calculate averages
+  methods.forEach(function(method) {
+    var methodStats = report.methodStats[method];
+    if (methodStats.availableDays > 0) {
+      methodStats.averagePixels = Math.round(methodStats.totalPixels / methodStats.availableDays);
+    }
+  });
+  
+  return report;
+}
+
+/**
+ * Create pixel availability heatmap data for calendar
+ */
+function createPixelAvailabilityHeatmap(year, month, methods, glacierOutlines, glacierMask) {
+  var startDate = ee.Date.fromYMD(year, month, 1);
+  var endDate = startDate.advance(1, 'month');
+  var daysInMonth = endDate.difference(startDate, 'day').getInfo();
+  
+  var heatmapData = {};
+  
+  for (var day = 1; day <= daysInMonth; day++) {
+    var currentDate = startDate.advance(day - 1, 'day').format('YYYY-MM-dd').getInfo();
+    var dayStats = getDailyGlacierStats(currentDate, methods, glacierOutlines, glacierMask);
+    
+    var availableMethods = 0;
+    var totalPixels = 0;
+    
+    Object.keys(dayStats).forEach(function(method) {
+      if (dayStats[method].available && dayStats[method].count > 0) {
+        availableMethods++;
+        totalPixels += dayStats[method].count;
+      }
+    });
+    
+    heatmapData[currentDate] = {
+      methodCount: availableMethods,
+      pixelCount: totalPixels,
+      quality: getDataQualityScore(availableMethods, totalPixels)
+    };
+  }
+  
+  return heatmapData;
+}
+
+/**
+ * Get data quality score for calendar color coding
+ */
+function getDataQualityScore(methodCount, pixelCount) {
+  if (methodCount === 3 && pixelCount > 150) return 'excellent';
+  if (methodCount === 3 && pixelCount > 75) return 'good';
+  if (methodCount === 3) return 'fair';
+  if (methodCount === 2) return 'partial';
+  if (methodCount === 1) return 'limited';
+  return 'none';
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -246,4 +509,11 @@ exports.runModularComparison     = runModularComparison;
 exports.exportComparisonResults  = exportComparisonResults;
 exports.runQAProfileComparison   = runQAProfileComparison;
 exports.exportRenAlbedoSingleDate = exportRenAlbedoSingleDate;
-exports.exportRenAlbedoSingleDateNative = exportRenAlbedoSingleDateNative; 
+exports.exportRenAlbedoSingleDateNative = exportRenAlbedoSingleDateNative;
+
+// Calendar integration functions
+exports.getDailyGlacierStats = getDailyGlacierStats;
+exports.createGlacierTimeSeries = createGlacierTimeSeries;
+exports.exportDailyGlacierData = exportDailyGlacierData;
+exports.generateMonthlyGlacierReport = generateMonthlyGlacierReport;
+exports.createPixelAvailabilityHeatmap = createPixelAvailabilityHeatmap; 

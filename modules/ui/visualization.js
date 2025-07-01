@@ -1,10 +1,12 @@
 /**
- * Map Visualization Module
+ * Visualization and Map Display Module
  * 
- * Functions for map display, layer management, and visual styling
+ * Enhanced map visualization functions for glacier albedo data display,
+ * including custom legends, color schemes, and interactive map controls
  * 
- * Author: Modular Comparison Framework
- * Date: 2025-06-30
+ * Author: Calendar Visualization Framework
+ * Date: 2025-07-01
+ * Version: 1.0 - Enhanced Map Visualization
  */
 
 // ============================================================================
@@ -14,431 +16,427 @@
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 // ============================================================================
-// VISUALIZATION PARAMETERS
+// VISUALIZATION CONSTANTS
 // ============================================================================
 
-/**
- * Albedo visualization parameters for consistent display
- */
-var VIS_PARAMS = {
-  albedo: {
-    min: 0.0,
-    max: 1.0,
-    palette: ['black', 'blue', 'purple', 'cyan', 'green', 'yellow', 'red']
-  },
-  
-  albedo_difference: {
-    min: -0.5,
-    max: 0.5,
-    palette: ['red', 'orange', 'yellow', 'white', 'cyan', 'blue', 'purple']
-  },
-  
-  glacier_fraction: {
+var VISUALIZATION_PALETTES = {
+  albedo_blue_white_red: ['#000080', '#4169E1', '#87CEEB', '#FFFFFF', '#FFB6C1', '#FF69B4', '#FF0000'],
+  albedo_spectral: ['#8c2d04', 'cc4c02', 'ec7014', 'fe9929', 'fed98e', 'ffffbf', 
+                    'c7e9b4', '7fcdbb', '41b6c4', '2c7fb8', '253494'],
+  snow_cover: ['#8B0000', '#FF0000', '#FF4500', '#FFA500', '#FFFF00', '#ADFF2F', 
+               '#00FF00', '#00FFFF', '#0000FF', '#FFFFFF'],
+  terrain: ['#543005', '#8c510a', '#bf812d', '#dfc27d', '#f6e8c3', '#f5f5f5',
+            '#c7eae5', '#80cdc1', '#35978f', '#01665e', '#003c30']
+};
+
+var METHOD_CONFIGS = {
+  ren: {
+    displayName: 'Ren Method (MOD09A1)',
+    band: 'broadband_albedo_ren_masked',
+    palette: VISUALIZATION_PALETTES.albedo_spectral,
     min: 0,
     max: 1,
-    palette: ['white', 'lightblue', 'blue', 'darkblue']
+    units: 'Albedo (0-1)'
   },
-  
-  qa_mask: {
+  mod10a1: {
+    displayName: 'MOD10A1 Snow Cover',
+    band: 'NDSI_Snow_Cover',
+    palette: VISUALIZATION_PALETTES.snow_cover,
     min: 0,
-    max: 1,
-    palette: ['red', 'green']
+    max: 100,
+    units: 'Snow Cover (%)'
+  },
+  mcd43a3: {
+    displayName: 'MCD43A3 BRDF Albedo',
+    band: 'Albedo_BSA_vis',
+    palette: VISUALIZATION_PALETTES.albedo_blue_white_red,
+    min: 0,
+    max: 0.4,
+    units: 'Visible Albedo'
   }
 };
 
 // ============================================================================
-// MAP SETUP FUNCTIONS
+// LEGEND CREATION FUNCTIONS
 // ============================================================================
 
 /**
- * Initialize map with glacier region
+ * Create a color legend panel for albedo visualization
  */
-function initializeMap(glacierGeometry) {
-  // Clear existing layers
-  Map.layers().reset();
+function createLegendPanel(method) {
+  var methodConfig = METHOD_CONFIGS[method];
   
-  // Center map on glacier region with error margin
-  var center = glacierGeometry.centroid(1); // 1 meter error margin
-  Map.centerObject(center, 12);
+  var legendPanel = ui.Panel({
+    style: {
+      position: 'bottom-left',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      border: '1px solid black',
+      padding: '8px'
+    }
+  });
   
-  // Set base map style
-  Map.setOptions('HYBRID'); // Shows both satellite and terrain
+  // Title
+  var titleLabel = ui.Label({
+    value: methodConfig.displayName,
+    style: {fontWeight: 'bold', fontSize: '14px'}
+  });
+  legendPanel.add(titleLabel);
   
-  print('🗺️ Map initialized and centered on glacier region');
+  // Create color bar
+  var colorBar = createColorBar(methodConfig.palette, methodConfig.min, methodConfig.max);
+  legendPanel.add(colorBar);
+  
+  // Units label
+  var unitsLabel = ui.Label({
+    value: methodConfig.units,
+    style: {fontSize: '11px', textAlign: 'center'}
+  });
+  legendPanel.add(unitsLabel);
+  
+  return legendPanel;
 }
 
 /**
- * Set map view to optimal glacier viewing parameters
+ * Create horizontal color bar with labels
  */
-function setOptimalGlacierView(glacierGeometry) {
-  var bounds = glacierGeometry.bounds(1); // 1 meter error margin
-  Map.centerObject(bounds, 11);
+function createColorBar(palette, min, max) {
+  var colorBarPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {margin: '4px 0px'}
+  });
   
-  // Add glacier outline for reference
-  Map.addLayer(
-    ee.Image().paint(glacierGeometry, 1, 2),
-    {palette: ['yellow'], opacity: 0.7},
-    'Glacier Outline'
-  );
+  // Create color segments
+  var numSegments = palette.length;
+  var segmentWidth = '20px';
+  
+  for (var i = 0; i < numSegments; i++) {
+    var colorBox = ui.Label({
+      value: ' ',
+      style: {
+        backgroundColor: palette[i],
+        width: segmentWidth,
+        height: '20px',
+        border: '1px solid #000',
+        margin: '0px'
+      }
+    });
+    colorBarPanel.add(colorBox);
+  }
+  
+  // Add value labels
+  var labelsPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style: {margin: '2px 0px'}
+  });
+  
+  var minLabel = ui.Label({
+    value: min.toFixed(2),
+    style: {fontSize: '10px', width: '30px', textAlign: 'left'}
+  });
+  
+  var maxLabel = ui.Label({
+    value: max.toFixed(2), 
+    style: {fontSize: '10px', width: '30px', textAlign: 'right', margin: '0px 0px 0px 120px'}
+  });
+  
+  labelsPanel.add(minLabel);
+  labelsPanel.add(maxLabel);
+  
+  var legendContainer = ui.Panel([colorBarPanel, labelsPanel]);
+  return legendContainer;
 }
 
 // ============================================================================
-// LAYER MANAGEMENT FUNCTIONS
+// MAP LAYER MANAGEMENT
 // ============================================================================
 
 /**
- * Add albedo comparison layers to map
+ * Add glacier albedo layer with enhanced visualization
  */
-function addComparisonLayers(results, layerConfig, glacierMask, glacierOutlines) {
-  print('🎨 Adding comparison layers to map...');
+function addGlacierAlbedoLayer(image, method, dateString, glacierMask, visible) {
+  visible = visible !== undefined ? visible : true;
   
-  // Add individual method layers with glacier mask
-  if (results.ren && layerConfig.showRen) {
-    addMethodLayer(results.ren, 'broadband_albedo_ren', 'MOD09A1 Method', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
+  var methodConfig = METHOD_CONFIGS[method];
+  if (!methodConfig) {
+    print('Unknown method: ' + method);
+    return null;
   }
   
-  if (results.mod10a1 && layerConfig.showMOD10A1) {
-    addMethodLayer(results.mod10a1, 'broadband_albedo_mod10a1', 'MOD10A1', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
-  }
-  
-  if (results.mcd43a3 && layerConfig.showMCD43A3) {
-    addMethodLayer(results.mcd43a3, 'broadband_albedo_mcd43a3', 'MCD43A3', VIS_PARAMS.albedo, glacierMask, glacierOutlines);
-  }
-  
-  // Add difference layers if requested
-  if (layerConfig.showDifferences) {
-    addDifferenceLayers(results, glacierMask, glacierOutlines);
-  }
-  
-  print('✅ Comparison layers added to map');
-}
-
-/**
- * Add individual method layer to map with proper glacier masking
- */
-function addMethodLayer(collection, bandName, methodName, visParams, glacierMask, glacierOutlines) {
-  if (collection && collection.size().getInfo() > 0) {
-    // Create median composite and handle band selection gracefully
-    var median = collection.median();
+  try {
+    // Apply glacier mask
+    var maskedImage = image.updateMask(glacierMask);
+    var bandImage = maskedImage.select(methodConfig.band);
     
-    // Create image with preferred band or fallback to masked version
-    var bandNames = median.bandNames();
-    var hasPrimaryBand = bandNames.contains(bandName);
-    var hasMaskedBand = bandNames.contains(bandName + '_masked');
+    // Create visualization parameters
+    var visParams = {
+      min: methodConfig.min,
+      max: methodConfig.max,
+      palette: methodConfig.palette
+    };
     
-    // Select the band using a server-side conditional approach
-    var primaryImage = ee.Image(ee.Algorithms.If(hasPrimaryBand, median.select(bandName), ee.Image.constant(0).updateMask(0)));
-    var maskedImage = ee.Image(ee.Algorithms.If(hasMaskedBand, median.select(bandName + '_masked'), ee.Image.constant(0).updateMask(0)));
+    // Add layer to map
+    var layerName = methodConfig.displayName + ' - ' + dateString;
+    Map.addLayer(bandImage, visParams, layerName, visible, 0.8);
     
-    // Combine: use primary if available, otherwise use masked
-    var image = ee.Image(ee.Algorithms.If(hasPrimaryBand, primaryImage, maskedImage));
-    
-    // Optionally reproject glacier mask to the image projection to ensure alignment
-    var projectedMask = glacierMask ? glacierMask.reproject(image.projection()) : null;
-    
-    // Apply glacier mask if provided, otherwise try to preserve existing mask
-    var maskedImage;
-    if (projectedMask) {
-      maskedImage = image.updateMask(projectedMask);
-    } else {
-      // Try to preserve mask from the collection
-      var sampleMask = collection.first().mask();
-      maskedImage = image.updateMask(sampleMask);
+    // Add legend if this is the visible layer
+    if (visible) {
+      var legend = createLegendPanel(method);
+      Map.add(legend);
     }
     
-    // Strictly clip to glacier outlines if provided (removes any residual outside pixels)
-    if (glacierOutlines) {
-      maskedImage = maskedImage.clip(glacierOutlines.geometry());
+    return {
+      image: bandImage,
+      params: visParams,
+      name: layerName
+    };
+    
+  } catch (error) {
+    print('Error adding layer for ' + method + ': ' + error);
+    return null;
+  }
+}
+
+/**
+ * Create comparison panel showing multiple methods side by side
+ */
+function createMethodComparisonPanel(dateString, methodData) {
+  var comparisonPanel = ui.Panel({
+    style: {
+      position: 'top-right',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      border: '2px solid #333',
+      padding: '10px',
+      width: '300px'
     }
+  });
+  
+  var titleLabel = ui.Label({
+    value: 'Method Comparison - ' + dateString,
+    style: {fontWeight: 'bold', fontSize: '14px', textAlign: 'center'}
+  });
+  comparisonPanel.add(titleLabel);
+  
+  // Add method statistics
+  Object.keys(methodData).forEach(function(method) {
+    var data = methodData[method];
     
-    Map.addLayer(
-      maskedImage,
-      visParams,
-      methodName + ' (Median)',
-      true, // visible
-      0.8   // opacity
-    );
-    
-    print('📍 Added layer: ' + methodName);
-  }
+    if (data.available && data.count > 0) {
+      var methodPanel = createMethodStatsPanel(method, data);
+      comparisonPanel.add(methodPanel);
+    }
+  });
+  
+  return comparisonPanel;
 }
 
 /**
- * Add difference layers between methods
+ * Create individual method statistics panel
  */
-function addDifferenceLayers(results, glacierMask, glacierOutlines) {
-  // MOD09A1 vs MOD10A1 difference
-  if (results.ren && results.mod10a1) {
-    var renMOD10Diff = createDifferenceImage(
-      results.ren, 'broadband_albedo_ren',
-      results.mod10a1, 'broadband_albedo_mod10a1',
-      glacierMask,
-      glacierOutlines
-    );
-    
-    Map.addLayer(
-      renMOD10Diff,
-      VIS_PARAMS.albedo_difference,
-      'MOD09A1 - MOD10A1 Difference',
-      false, // initially hidden
-      0.7
-    );
-  }
+function createMethodStatsPanel(method, stats) {
+  var methodConfig = METHOD_CONFIGS[method];
   
-  // MOD09A1 vs MCD43A3 difference
-  if (results.ren && results.mcd43a3) {
-    var renMCD43Diff = createDifferenceImage(
-      results.ren, 'broadband_albedo_ren',
-      results.mcd43a3, 'broadband_albedo_mcd43a3',
-      glacierMask,
-      glacierOutlines
-    );
-    
-    Map.addLayer(
-      renMCD43Diff,
-      VIS_PARAMS.albedo_difference,
-      'MOD09A1 - MCD43A3 Difference',
-      false, // initially hidden
-      0.7
-    );
-  }
+  var methodPanel = ui.Panel({
+    style: {
+      backgroundColor: '#f0f0f0',
+      border: '1px solid #ccc',
+      padding: '5px',
+      margin: '3px 0px'
+    }
+  });
   
-  // MOD10A1 vs MCD43A3 difference
-  if (results.mod10a1 && results.mcd43a3) {
-    var mod10MCD43Diff = createDifferenceImage(
-      results.mod10a1, 'broadband_albedo_mod10a1',
-      results.mcd43a3, 'broadband_albedo_mcd43a3',
-      glacierMask,
-      glacierOutlines
-    );
-    
-    Map.addLayer(
-      mod10MCD43Diff,
-      VIS_PARAMS.albedo_difference,
-      'MOD10A1 - MCD43A3 Difference',
-      false, // initially hidden
-      0.7
-    );
-  }
+  var methodLabel = ui.Label({
+    value: methodConfig.displayName,
+    style: {fontWeight: 'bold', fontSize: '12px'}
+  });
+  methodPanel.add(methodLabel);
+  
+  var statsText = 'Pixels: ' + stats.count + '\n' +
+                  'Mean: ' + (stats.mean ? stats.mean.getInfo().toFixed(3) : 'N/A') + '\n' +
+                  'Std: ' + (stats.stdDev ? stats.stdDev.getInfo().toFixed(3) : 'N/A');
+  
+  var statsLabel = ui.Label({
+    value: statsText,
+    style: {fontSize: '10px', fontFamily: 'monospace'}
+  });
+  methodPanel.add(statsLabel);
+  
+  // Add visibility toggle
+  var toggleButton = ui.Button({
+    label: 'Show/Hide',
+    style: {width: '80px', fontSize: '10px'},
+    onClick: function() {
+      toggleLayerVisibility(methodConfig.displayName);
+    }
+  });
+  methodPanel.add(toggleButton);
+  
+  return methodPanel;
 }
 
 /**
- * Create difference image between two collections
+ * Toggle layer visibility by name
  */
-function createDifferenceImage(collection1, band1, collection2, band2, glacierMask, glacierOutlines) {
-  // Create median composites for comparison using server-side band selection
-  var median1 = collection1.median();
-  var median2 = collection2.median();
-  
-  // Handle band selection for first collection
-  var bandNames1 = median1.bandNames();
-  var hasPrimary1 = bandNames1.contains(band1);
-  var hasMasked1 = bandNames1.contains(band1 + '_masked');
-  var primary1 = ee.Image(ee.Algorithms.If(hasPrimary1, median1.select(band1), ee.Image.constant(0).updateMask(0)));
-  var masked1 = ee.Image(ee.Algorithms.If(hasMasked1, median1.select(band1 + '_masked'), ee.Image.constant(0).updateMask(0)));
-  var image1 = ee.Image(ee.Algorithms.If(hasPrimary1, primary1, masked1));
-  
-  // Handle band selection for second collection
-  var bandNames2 = median2.bandNames();
-  var hasPrimary2 = bandNames2.contains(band2);
-  var hasMasked2 = bandNames2.contains(band2 + '_masked');
-  var primary2 = ee.Image(ee.Algorithms.If(hasPrimary2, median2.select(band2), ee.Image.constant(0).updateMask(0)));
-  var masked2 = ee.Image(ee.Algorithms.If(hasMasked2, median2.select(band2 + '_masked'), ee.Image.constant(0).updateMask(0)));
-  var image2 = ee.Image(ee.Algorithms.If(hasPrimary2, primary2, masked2));
-  
-  // Calculate difference
-  var difference = image1.subtract(image2).rename('albedo_difference');
-  
-  // Apply glacier mask if provided
-  if (glacierMask) {
-    var projectedMask = glacierMask.reproject(difference.projection());
-    difference = difference.updateMask(projectedMask);
-  }
-  
-  if (glacierOutlines) {
-    difference = difference.clip(glacierOutlines.geometry());
-  }
-  
-  return difference;
-}
-
-// ============================================================================
-// LAYER CONTROL FUNCTIONS
-// ============================================================================
-
-/**
- * Toggle layer visibility
- */
-function toggleLayer(layerName, visible) {
+function toggleLayerVisibility(layerName) {
   var layers = Map.layers();
   
-  for (var i = 0; i < layers.length(); i++) {
-    var layer = layers.get(i);
-    if (layer.getName() === layerName) {
-      layer.setShown(visible);
-      break;
-    }
-  }
-}
-
-/**
- * Set layer opacity
- */
-function setLayerOpacity(layerName, opacity) {
-  var layers = Map.layers();
-  
-  for (var i = 0; i < layers.length(); i++) {
-    var layer = layers.get(i);
-    if (layer.getName() === layerName) {
-      layer.setOpacity(opacity);
-      break;
-    }
-  }
-}
-
-/**
- * Remove all comparison layers
- */
-function clearComparisonLayers() {
-  var layers = Map.layers();
-  var layersToRemove = [];
-  
-  // Identify comparison layers
-  for (var i = 0; i < layers.length(); i++) {
+  for (var i = 0; i < layers.length().getInfo(); i++) {
     var layer = layers.get(i);
     var name = layer.getName();
     
-    if (name.indexOf('MOD09A1') !== -1 || 
-        name.indexOf('Ren') !== -1 || 
-        name.indexOf('MOD10A1') !== -1 ||
-        name.indexOf('MCD43A3') !== -1 ||
-        name.indexOf('Difference') !== -1) {
-      layersToRemove.push(i);
+    if (name && name.indexOf(layerName) !== -1) {
+      layer.setShown(!layer.getShown());
+      break;
     }
   }
-  
-  // Remove layers (in reverse order to maintain indices)
-  for (var i = layersToRemove.length - 1; i >= 0; i--) {
-    layers.remove(layers.get(layersToRemove[i]));
-  }
-  
-  print('🧹 Cleared existing comparison layers');
 }
 
 // ============================================================================
-// AUXILIARY VISUALIZATION FUNCTIONS
+// ENHANCED VISUALIZATION FUNCTIONS
 // ============================================================================
 
 /**
- * Add glacier fraction layer for context
+ * Create glacier outline enhancement
  */
-function addGlacierFractionLayer(glacierFraction) {
-  if (glacierFraction) {
-    Map.addLayer(
-      glacierFraction,
-      VIS_PARAMS.glacier_fraction,
-      'Glacier Fraction',
-      false, // initially hidden
-      0.6
-    );
+function addGlacierOutlineLayer(glacierOutlines, style) {
+  style = style || {
+    color: '#FFFF00',
+    width: 2,
+    fillColor: '00000000'  // Transparent fill
+  };
+  
+  Map.addLayer(glacierOutlines, style, 'Glacier Boundaries', true, 0.9);
+}
+
+/**
+ * Create elevation hillshade background
+ */
+function addElevationHillshade(region) {
+  try {
+    var elevation = ee.Image('USGS/SRTMGL1_003').clip(region);
+    var hillshade = ee.Terrain.hillshade(elevation);
     
-    print('❄️ Added glacier fraction layer');
+    Map.addLayer(hillshade, {
+      min: 150,
+      max: 255,
+      palette: ['000000', 'ffffff']
+    }, 'Elevation Hillshade', false, 0.3);
+    
+  } catch (error) {
+    print('Could not add hillshade: ' + error);
   }
 }
 
 /**
- * Add quality assessment layers for debugging
+ * Create interactive pixel inspector
  */
-function addQALayers(results) {
-  print('🔍 Adding QA layers for debugging...');
+function createPixelInspector() {
+  var inspectorPanel = ui.Panel({
+    style: {
+      position: 'bottom-right',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      border: '1px solid black',
+      padding: '8px',
+      width: '200px'
+    }
+  });
   
-  if (results.ren) {
-    var renQA = results.ren.first().select('QA_mask').selfMask();
-    Map.addLayer(renQA, VIS_PARAMS.qa_mask, 'MOD09A1 QA Mask', false);
-  }
+  var titleLabel = ui.Label({
+    value: 'Pixel Inspector',
+    style: {fontWeight: 'bold', fontSize: '12px'}
+  });
+  inspectorPanel.add(titleLabel);
   
-  if (results.mod10a1) {
-    // MOD10A1 has multiple QA bands
-    var mod10QA = results.mod10a1.first().select('NDSI_Snow_Cover_Basic_QA');
-    Map.addLayer(mod10QA, {min: 0, max: 3, palette: ['green', 'yellow', 'orange', 'red']}, 'MOD10A1 Basic QA', false);
-  }
+  var valueLabel = ui.Label({
+    value: 'Click on map to inspect pixel values',
+    style: {fontSize: '10px'}
+  });
+  inspectorPanel.add(valueLabel);
   
-  if (results.mcd43a3) {
-    var mcd43QA = results.mcd43a3.first().select('BRDF_Albedo_Band_Mandatory_Quality_shortwave');
-    Map.addLayer(mcd43QA, {min: 0, max: 1, palette: ['green', 'orange']}, 'MCD43A3 QA', false);
-  }
+  // Add click listener to map
+  Map.onClick(function(coords) {
+    var point = ee.Geometry.Point([coords.lon, coords.lat]);
+    valueLabel.setValue('Lat: ' + coords.lat.toFixed(4) + '\nLon: ' + coords.lon.toFixed(4));
+  });
+  
+  return inspectorPanel;
 }
 
 /**
- * Create legend for albedo values
+ * Create custom map controls panel
  */
-function createAlbedoLegend() {
-  // Create legend panel
-  var legend = ui.Panel({
+function createMapControlsPanel() {
+  var controlsPanel = ui.Panel({
     style: {
-      position: 'bottom-left',
-      padding: '8px 15px'
+      position: 'top-left',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      border: '1px solid black',
+      padding: '8px'
     }
   });
   
-  // Legend title
-  var legendTitle = ui.Label({
-    value: 'Albedo Scale',
-    style: {
-      fontWeight: 'bold',
-      fontSize: '16px',
-      margin: '0 0 4px 0'
+  var titleLabel = ui.Label({
+    value: 'Map Controls',
+    style: {fontWeight: 'bold', fontSize: '12px'}
+  });
+  controlsPanel.add(titleLabel);
+  
+  // Zoom to glacier button
+  var zoomButton = ui.Button({
+    label: 'Zoom to Glacier',
+    style: {width: '120px', fontSize: '10px'},
+    onClick: function() {
+      // This would be connected to glacier data
+      print('Zooming to glacier...');
     }
   });
-  legend.add(legendTitle);
+  controlsPanel.add(zoomButton);
   
-  // Create color bar
-  var palette = VIS_PARAMS.albedo.palette;
-  var colorBar = ui.Thumbnail({
-    image: ee.Image.pixelLonLat().select(0),
-    params: {
-      bbox: [0, 0, 1, 0.1],
-      dimensions: '200x20',
-      format: 'png',
-      min: 0,
-      max: 1,
-      palette: palette
-    },
-    style: {margin: '0px 8px'}
+  // Clear layers button
+  var clearButton = ui.Button({
+    label: 'Clear Layers',
+    style: {width: '120px', fontSize: '10px'},
+    onClick: function() {
+      Map.layers().reset();
+    }
   });
-  legend.add(colorBar);
+  controlsPanel.add(clearButton);
   
-  // Add labels
-  var labels = ui.Panel({
-    widgets: [
-      ui.Label('0.0', {margin: '4px 8px', textAlign: 'left', stretch: 'horizontal'}),
-      ui.Label('0.5', {margin: '4px 20px', textAlign: 'center', stretch: 'horizontal'}),
-      ui.Label('1.0', {margin: '4px 8px', textAlign: 'right', stretch: 'horizontal'})
-    ],
-    layout: ui.Panel.Layout.flow('horizontal'),
-    style: {stretch: 'horizontal'}
-  });
-  legend.add(labels);
+  return controlsPanel;
+}
+
+// ============================================================================
+// EXPORT FUNCTIONS
+// ============================================================================
+
+/**
+ * Export visualization as image
+ */
+function exportVisualization(image, region, description) {
+  var visParams = {
+    dimensions: 1024,
+    region: region,
+    crs: 'EPSG:4326',
+    format: 'png'
+  };
   
-  // Add legend to map
-  Map.add(legend);
+  var url = image.getThumbURL(visParams);
   
-  return legend;
+  print('Visualization URL: ' + url);
+  
+  return url;
 }
 
 // ============================================================================
 // EXPORTS
 // ============================================================================
 
-exports.initializeMap = initializeMap;
-exports.setOptimalGlacierView = setOptimalGlacierView;
-exports.addComparisonLayers = addComparisonLayers;
-exports.addMethodLayer = addMethodLayer;
-exports.addDifferenceLayers = addDifferenceLayers;
-exports.toggleLayer = toggleLayer;
-exports.setLayerOpacity = setLayerOpacity;
-exports.clearComparisonLayers = clearComparisonLayers;
-exports.addGlacierFractionLayer = addGlacierFractionLayer;
-exports.addQALayers = addQALayers;
-exports.createAlbedoLegend = createAlbedoLegend;
-exports.VIS_PARAMS = VIS_PARAMS;
+exports.createLegendPanel = createLegendPanel;
+exports.addGlacierAlbedoLayer = addGlacierAlbedoLayer;
+exports.createMethodComparisonPanel = createMethodComparisonPanel;
+exports.addGlacierOutlineLayer = addGlacierOutlineLayer;
+exports.addElevationHillshade = addElevationHillshade;
+exports.createPixelInspector = createPixelInspector;
+exports.createMapControlsPanel = createMapControlsPanel;
+exports.exportVisualization = exportVisualization;
+exports.toggleLayerVisibility = toggleLayerVisibility;
+exports.METHOD_CONFIGS = METHOD_CONFIGS;
