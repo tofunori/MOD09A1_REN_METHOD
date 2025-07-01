@@ -202,15 +202,3 @@ function getLastResults() {
 // Execute main application automatically
 main();
 
-// ============================================================================
-// USAGE EXAMPLES
-// ============================================================================
-
-print('');
-print('📝 USAGE EXAMPLES:');
-print('• exportComparisonCSV("2017-06-01", "2024-09-30") - Export full 2017-2024 comparison');
-print('• setDateRange("2023-06-01", "2023-09-30") - Process 2023 melt season only');
-print('• processSelectedMethods("2020-06-01", "2020-09-30", ["ren", "mod10a1"]) - Selected methods');
-print('• exportQAComparison() - Export QA profiles (2017-2024)');
-print('• exportSingleDate("2022-07-15") - Single date export');
-print('');
