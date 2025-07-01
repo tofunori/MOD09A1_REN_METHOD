@@ -77,7 +77,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     tagged = tagged.sort(['simple_date', 'platform_pref']);
 
     col = tagged
-            .distinct('simple_date')
+            .distinct(['simple_date'])
             .sort('system:time_start'); // keep chronological order
   }
 
