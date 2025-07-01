@@ -78,6 +78,13 @@ function exportComparisonStats(results, region, description) {
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
+    
+    // Deduplicate Ren method by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
+    // Sort by date then method to ensure MOD09GA comes before MYD09GA
+    renStats = renStats.sort('date').sort('method');
+    // Keep first occurrence per date (Terra priority)
+    renStats = renStats.distinct('date');
+    
     allStats = allStats.merge(renStats);
   }
   
@@ -175,16 +182,9 @@ function exportComparisonStats(results, region, description) {
     allStats = allStats.merge(mcd43Stats);
   }
   
-  // Deduplicate by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
-  // First sort by date, then by method to ensure MOD09GA comes before MYD09GA
-  allStats = allStats.sort('date').sort('method');
-  
-  // Client-side deduplication to keep first occurrence per date
-  var dedupStats = allStats.distinct('date');
-  
   // Export to CSV
   Export.table.toDrive({
-    collection: dedupStats,
+    collection: allStats,
     description: description,
     folder: 'albedo_method_comparison',
     fileFormat: 'CSV'
