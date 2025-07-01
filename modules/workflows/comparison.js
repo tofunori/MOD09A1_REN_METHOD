@@ -131,6 +131,8 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
     if (methods.ren) {
       print('🔬 Processing MOD09A1 method (MOD09GA)...');
       var filtered = getFilteredCollection(startDate, endDate, region);
+      // Cache count BEFORE heavy processing to avoid timeouts during debug prints
+      resultsObj.ren_count = filtered.size();
       resultsObj.ren = processRenCollection(filtered, glacierOutlines);
     }
 

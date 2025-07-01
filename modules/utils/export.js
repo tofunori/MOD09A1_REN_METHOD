@@ -220,22 +220,15 @@ function printDataCounts(results) {
   print('🔍 Debug: printDataCounts invoked');
   print('🔍 Debug: results keys = ' + Object.keys(results).join(', '));
   
-  if (results.ren) {
-    print('🔍 Debug: MOD09GA collection exists, attempting count...');
-    // First check if collection is valid
-    try {
-      var renCol = ee.ImageCollection(results.ren);
-      var firstImage = renCol.first();
-      firstImage.bandNames().evaluate(function(bands, error) {
-        if (error) {
-          print('🔍 Debug: MOD09GA first image error - ' + error);
-        } else {
-          print('🔍 Debug: MOD09GA first image bands - ' + bands.join(', '));
-        }
-      });
-    } catch (e) {
-      print('🔍 Debug: MOD09GA collection test failed - ' + e.toString());
-    }
+  if (results.ren_count) {
+    results.ren_count.evaluate(function(n, error) {
+      if (error) {
+        print('MOD09GA method observations: Error - ' + error);
+      } else {
+        print('MOD09GA method observations: ' + n);
+      }
+    });
+  } else if (results.ren) {
     safeCount(results.ren, 'MOD09GA method');
   } else {
     print('MOD09GA method collection missing');
