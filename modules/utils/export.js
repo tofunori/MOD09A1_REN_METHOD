@@ -281,9 +281,13 @@ function printDataCounts(results) {
     }
   };
 
-  if (results.ren)      safeCount(results.ren, 'MOD09GA method');
+  print('🔍 Debug: printDataCounts invoked');
+  if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
+  else                  print('MOD09A1 method collection missing');
   if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
+  else                  print('MOD10A1 method collection missing');
   if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
+  else                  print('MCD43A3 method collection missing');
 }
 
 /**
