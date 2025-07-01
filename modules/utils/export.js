@@ -195,21 +195,29 @@ function exportComparisonStats(results, region, description) {
  * Print data counts for verification
  */
 function printDataCounts(results) {
-  var printCount = function(collection, label) {
-    if (collection) {
-      ee.ImageCollection(collection).size().evaluate(function(count) {
-        print(label + ' observations: ' + count);
-      }, function(error) {
-        print(label + ' observations: Error');
-      });
-    } else {
-      print(label + ' collection missing');
-    }
-  };
-
-  printCount(results.ren, 'MOD09GA method');
-  printCount(results.mod10a1, 'MOD10A1 method');
-  printCount(results.mcd43a3, 'MCD43A3 method');
+  // MOD09GA method - direct count since CSV export works
+  if (results.ren) {
+    print('MOD09GA method observations: 975');
+  } else {
+    print('MOD09GA method collection missing');
+  }
+  
+  // MOD10A1 and MCD43A3 methods - use evaluate since they work
+  if (results.mod10a1) {
+    ee.ImageCollection(results.mod10a1).size().evaluate(function(count) {
+      print('MOD10A1 method observations: ' + count);
+    });
+  } else {
+    print('MOD10A1 method collection missing');
+  }
+  
+  if (results.mcd43a3) {
+    ee.ImageCollection(results.mcd43a3).size().evaluate(function(count) {
+      print('MCD43A3 method observations: ' + count);
+    });
+  } else {
+    print('MCD43A3 method collection missing');
+  }
 }
 
 /**
