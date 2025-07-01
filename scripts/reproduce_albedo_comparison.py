@@ -241,136 +241,26 @@ def main():
         ref_map = (
             df_filtered[df_filtered["family"] == "MCD43A3"].set_index("date")["albedo_mean"]
         )
-
-        # ---------- Plot residuals vs predictors & global regression debias ---------
-
-        # Prepare MOD09GA residual table once
-        mod09 = df_filtered[df_filtered.family == "MOD09GA"].set_index("date").copy()
-        mod09 = mod09.join(ref_map, rsuffix="_ref", how="inner")
-        mod09["residual"] = mod09["albedo_mean"] - mod09["albedo_mean_ref"]
-
-        # Scatter plots for both families
         for fam in ["MOD09GA", "MOD10A1"]:
-            fam_df = df_filtered[df_filtered.family == fam].set_index("date")
+            fam_df = df_filtered[df_filtered["family"] == fam].set_index("date")
             merged = fam_df.join(ref_map, rsuffix="_ref", how="inner")
             merged["residual"] = merged["albedo_mean"] - merged["albedo_mean_ref"]
 
-            for xvar, color in [("solar_zenith", "r"), ("ndsi_mean", "b")]:
-                ax = sns.scatterplot(data=merged, x=xvar, y="residual", alpha=0.4)
-                sns.regplot(data=merged, x=xvar, y="residual", scatter=False, color=color, ax=ax)
-                ax.set_title(f"{fam} residual vs {xvar}")
-                plt.tight_layout()
-                plt.savefig(args.out / f"bias_vs_{xvar}_{fam}.png", dpi=300)
-                plt.clf()
-
-        # ----- Regression debias using clean rows (no NaN) -----------------
-        mod09_clean = mod09.dropna(subset=["solar_zenith", "ndsi_mean", "residual"])
-        X = mod09_clean[["solar_zenith", "ndsi_mean"]].to_numpy()
-        X = np.c_[np.ones(len(X)), X]
-        y = mod09_clean["residual"].to_numpy()
-
-        try:
-            coef, *_ = np.linalg.lstsq(X, y, rcond=None)
-            a0, a1, a2 = coef
-            print(f"Regression debias Δ = {a0:+.4f} + {a1:.4f}*SZA + {a2:.4f}*NDSI")
-
-            def apply_reg_debias(row):
-                if row["family"] != "MOD09GA":
-                    return row["albedo_mean"]
-                dx = a0 + a1*row["solar_zenith"] + a2*row["ndsi_mean"]
-                return row["albedo_mean"] - dx
-
-            df_filtered["albedo_reg_debias"] = df_filtered.apply(apply_reg_debias, axis=1)
-
-            # Recompute metrics
-            df_tmp = df_filtered.copy()
-            df_tmp.loc[df_tmp.family == "MOD09GA", "albedo_mean"] = df_tmp.loc[df_tmp.family == "MOD09GA", "albedo_reg_debias"]
-            debias_metrics = compute_error_metrics(df_tmp)
-            debias_metrics.to_csv(args.out / "overall_error_metrics_debiased.csv", index=False)
-            print("Debiased overall metrics saved to overall_error_metrics_debiased.csv")
-
-        except np.linalg.LinAlgError as err:
-            print("LinAlgError during regression debias:", err)
-
-        # ---------- Bin-wise bias summaries (Ren-style) -------------------
-        # Define bins
-        sza_bins = pd.IntervalIndex.from_tuples([(0, 40), (40, 60), (60, 90)], closed="left")
-        ndsi_bins = pd.IntervalIndex.from_tuples([(-1.0, 0.3), (0.3, 0.6), (0.6, 1.0)], closed="left")
-
-        df_binned = df_filtered.copy()
-        df_binned["sza_bin"] = pd.cut(df_binned["solar_zenith"], sza_bins)
-        df_binned["ndsi_bin"] = pd.cut(df_binned["ndsi_mean"], ndsi_bins)
-
-        def bias_vs_bins(bin_col: str, bins) -> pd.DataFrame:
-            rows = []
-            for fam, fam_df in df_binned.groupby("family"):
-                if fam == "MCD43A3":
-                    continue
-                for b in bins:
-                    sub = fam_df[fam_df[bin_col] == b]
-                    if sub.empty:
-                        continue
-                    # align with reference
-                    merged = sub.set_index("date").join(ref_map, how="inner", rsuffix="_ref")
-                    if merged.empty:
-                        continue
-                    diff = merged["albedo_mean"] - merged["albedo_mean_ref"]
-                    rows.append({
-                        "family": fam,
-                        bin_col: str(b),
-                        "N": len(diff),
-                        "bias": diff.mean(),
-                        "mae": diff.abs().mean(),
-                        "rmse": np.sqrt((diff**2).mean()),
-                    })
-            return pd.DataFrame(rows)
-
-        sza_stats = bias_vs_bins("sza_bin", sza_bins)
-        ndsi_stats = bias_vs_bins("ndsi_bin", ndsi_bins)
-
-        sza_stats.to_csv(args.out / "bias_vs_sza_bin.csv", index=False)
-        ndsi_stats.to_csv(args.out / "bias_vs_ndsi_bin.csv", index=False)
-        print("Bias vs SZA & NDSI bin tables saved.")
-
-        # Optional bar plots
-        for stats_df, col, palette in [
-            (sza_stats, "sza_bin", "Reds"),
-            (ndsi_stats, "ndsi_bin", "Blues"),
-        ]:
-            if stats_df.empty:
-                continue
-            ax = sns.barplot(data=stats_df, x=col, y="bias", hue="family", palette=palette)
-            ax.set_title(f"Mean bias vs {col}")
-            plt.axhline(0, color="k", lw=1)
+            # Scatter vs solar zenith
+            ax = sns.scatterplot(data=merged, x="solar_zenith", y="residual", alpha=0.4)
+            sns.regplot(data=merged, x="solar_zenith", y="residual", scatter=False, color="r", ax=ax)
+            ax.set_title(f"{fam} residual vs Solar Zenith")
             plt.tight_layout()
-            plt.savefig(args.out / f"bias_bar_{col}.png", dpi=300)
+            plt.savefig(args.out / f"bias_vs_sza_{fam}.png", dpi=300)
             plt.clf()
 
-        # ---------- Slope significance (p-values) -------------------------
-        from scipy import stats as spstats  # local import to avoid hard dep if not needed
-
-        slope_rows = []
-        for fam in ["MOD09GA", "MOD10A1"]:
-            fam_df = df_filtered[df_filtered.family == fam].set_index("date")
-            merged = fam_df.join(ref_map, rsuffix="_ref", how="inner")
-            merged["residual"] = merged["albedo_mean"] - merged["albedo_mean_ref"]
-            for xvar in ["solar_zenith", "ndsi_mean"]:
-                clean = merged[[xvar, "residual"]].dropna()
-                if clean.empty:
-                    continue
-                slope, intercept, r_val, p_val, stderr = spstats.linregress(clean[xvar], clean["residual"])
-                slope_rows.append({
-                    "family": fam,
-                    "predictor": xvar,
-                    "slope": slope,
-                    "p_value": p_val,
-                    "r": r_val,
-                    "N": len(clean),
-                })
-
-        slope_df = pd.DataFrame(slope_rows)
-        slope_df.to_csv(args.out / "slope_significance.csv", index=False)
-        print("Slope significance (p-values) saved to slope_significance.csv")
+            # Scatter vs NDSI
+            ax = sns.scatterplot(data=merged, x="ndsi_mean", y="residual", alpha=0.4)
+            sns.regplot(data=merged, x="ndsi_mean", y="residual", scatter=False, color="b", ax=ax)
+            ax.set_title(f"{fam} residual vs NDSI")
+            plt.tight_layout()
+            plt.savefig(args.out / f"bias_vs_ndsi_{fam}.png", dpi=300)
+            plt.clf()
 
     # 4. Scatter plots (Ren & MOD10 vs MCD43)
     sns.set_style("ticks")

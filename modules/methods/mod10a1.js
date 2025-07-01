@@ -26,7 +26,7 @@ var QA_CONFIG = {
     excludeInlandWater: true,              // Exclude water/glacial lakes
     excludeVisibleScreenFail: true,        // CRITICAL - corrupted visible data (always exclude)
     excludeNDSIScreenFail: true,           // CRITICAL - unreliable NDSI (always exclude)
-    excludeTempHeightFail: true,           // Temperature and height screen failure
+    excludeTempHeightFail: true,           // Temperature/height screen failure
     excludeSWIRAnomaly: true,              // SWIR optical anomalies  
     excludeProbablyCloudy: true,           // Cloud detection (false positives over snow - consider keeping)
     excludeProbablyClear: false,           // Clear detection (usually safe to keep)
