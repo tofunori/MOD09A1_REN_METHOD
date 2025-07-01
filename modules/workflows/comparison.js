@@ -65,7 +65,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     // Flag platform preference: Terra (0) preferred over Aqua (1)
     var tagged = col.map(function(img) {
       var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      var isTerra = ee.String(img.get('system:id')).contains('MOD09GA');
+      var id = ee.String(img.get('system:id'));
+      var isTerra = id.slice(0, 7).compareTo('MOD09GA').eq(0);
       return img.set({
         'simple_date': dateStr,
         'platform_pref': ee.Number(ee.Algorithms.If(isTerra, 0, 1))
