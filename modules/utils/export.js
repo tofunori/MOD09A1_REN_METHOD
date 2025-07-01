@@ -266,21 +266,17 @@ function exportIndividualMethod(collection, bandName, methodName, region, descri
  * Print data counts for verification
  */
 function printDataCounts(results) {
-  if (results.ren) {
-    results.ren.size().evaluate(function(renCount) {
-      print('MOD09A1 method observations: ' + renCount);
-    });
-  }
-  if (results.mod10a1) {
-    results.mod10a1.size().evaluate(function(mod10Count) {
-      print('MOD10A1 method observations: ' + mod10Count);
-    });
-  }
-  if (results.mcd43a3) {
-    results.mcd43a3.size().evaluate(function(mcd43Count) {
-      print('MCD43A3 method observations: ' + mcd43Count);
-    });
-  }
+  var safeCount = function(col, label) {
+    ee.ImageCollection(col)
+      .aggregate_count('system:time_start')
+      .evaluate(function(n) {
+        print(label + ' observations: ' + n);
+      });
+  };
+
+  if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
+  if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
+  if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
 }
 
 /**
