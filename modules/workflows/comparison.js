@@ -162,7 +162,7 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
  * @param {string}            date        ISO string 'YYYY-MM-DD'.
  * @param {ee.FeatureCollection} glacierOutlines   Glacier polygons (or null to use default mask).
  * @param {ee.Geometry}       region      Region of interest for export (geometry or bounds).
- * @param {Object}            options     { description, scale, maxPixels, folder, assetId }
+ * @param {Object}            options     { description, scale, maxPixels }
  */
 function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
   options = options || {};
@@ -186,19 +186,50 @@ function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
               'c7e9b4','7fcdbb','41b6c4','2c7fb8','253494']
   }).blend(ee.Image().paint(glacierOutlines, 0, 2));
 
-  // Build common export parameters
-  var exportParams = {
+  Export.image.toDrive({
     image: exportImg,
     description: options.description || ('RenAlbedo_' + date.replace(/-/g, '')),
+    folder: options.folder || 'GEE_Exports',
     region: region,
     scale: options.scale || 500,
     crs: 'EPSG:4326',
+    maxPixels: options.maxPixels || 1e9,
+    fileFormat: 'GeoTIFF'
+  });
+}
+
+/**
+ * Export the masked broadband albedo (Ren method) in its native MODIS
+ * sinusoidal projection. Set `toAsset` true to export to EE Assets, otherwise
+ * it exports to Drive (GeoTIFF).
+ */
+function exportRenAlbedoSingleDateNative(date, glacierOutlines, region, options) {
+  options = options || {};
+  var start = ee.Date(date);
+  var end   = start.advance(1, 'day');
+
+  var col = getFilteredCollection(start, end, region);
+  var first = ee.Image(col.first());
+  if (!first) {
+    throw new Error('No MOD09GA/MYD09GA data available on ' + date);
+  }
+  var nativeProj = first.projection();
+
+  var processed = processRenCollection(col, glacierOutlines)
+                   .first()
+                   .select('broadband_albedo_ren_masked');
+
+  var exportParams = {
+    image: processed,
+    description: options.description || ('AlbedoNative_' + date.replace(/-/g, '')),
+    region: region,
+    scale: nativeProj.nominalScale(),
+    crs: nativeProj,
     maxPixels: options.maxPixels || 1e9
   };
 
-  // Decide target: Asset or Drive (default)
-  if (options.assetId) {
-    exportParams.assetId = options.assetId; // full path: "users/username/folder/name" or "projects/…"
+  if (options.toAsset) {
+    exportParams.assetId = options.assetId || ('users/your_username/AlbedoNative_' + date.replace(/-/g, ''));
     Export.image.toAsset(exportParams);
   } else {
     exportParams.folder = options.folder || 'GEE_Exports';
@@ -214,4 +245,5 @@ function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
 exports.runModularComparison     = runModularComparison;
 exports.exportComparisonResults  = exportComparisonResults;
 exports.runQAProfileComparison   = runQAProfileComparison;
-exports.exportRenAlbedoSingleDate = exportRenAlbedoSingleDate; 
+exports.exportRenAlbedoSingleDate = exportRenAlbedoSingleDate;
+exports.exportRenAlbedoSingleDateNative = exportRenAlbedoSingleDateNative; 
