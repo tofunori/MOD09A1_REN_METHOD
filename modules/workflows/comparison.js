@@ -66,8 +66,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
     // Avoid distinct() - use a different approach
-    var terra = col.filter(ee.Filter.stringStartsWith('system:id', 'MOD09GA'));
-    var aqua = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
+    var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
+    var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     
     // For each day, prioritize Terra over Aqua by taking Terra first, then filling gaps with Aqua
     col = terra.merge(aqua).sort('system:time_start');
