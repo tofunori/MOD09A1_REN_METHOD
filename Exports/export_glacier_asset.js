@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
-var cfg = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var cfg = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 // ---------------------------------------------------------------------------
 // Parameters (edit if needed)

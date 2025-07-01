@@ -13,9 +13,9 @@
 // MODULE IMPORTS
 // ============================================================================
 
-var comparisonWorkflow = require('users/tofunori/MOD09GA_REN_METHOD:modules/workflows/comparison.js');
-var glacierUtils = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
-var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var comparisonWorkflow = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
+var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
+var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 // ============================================================================
 // GLOBAL VARIABLES

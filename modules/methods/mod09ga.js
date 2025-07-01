@@ -15,12 +15,12 @@
 // Module imports
 // ---------------------------------------------------------------------------
 
-var config          = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
-var topoHelper      = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/topography.js');
-var brdfHelper      = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/brdf.js');
-var albedoHelper    = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/albedo.js');
-var qaHelper        = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/qa.js');
-var classifyHelper  = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/classify.js');
+var config          = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var topoHelper      = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga/topography.js');
+var brdfHelper      = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga/brdf.js');
+var albedoHelper    = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga/albedo.js');
+var qaHelper        = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga/qa.js');
+var classifyHelper  = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga/classify.js');
 
 // ---------------------------------------------------------------------------
 // Lightweight wrappers around helper functions (public API)

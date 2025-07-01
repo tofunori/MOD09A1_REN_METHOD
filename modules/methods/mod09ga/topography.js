@@ -4,7 +4,7 @@
  * Follows Equations 3a and 3b of Ren et al. (2021).
  */
 
-var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 /**
  * Apply topographic correction to MODIS surface reflectance.

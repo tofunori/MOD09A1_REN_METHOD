@@ -12,12 +12,12 @@
 // ============================================================================
 
 // global `ee` provided by Earth Engine runtime
-var config      = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
-var glacierUtils= require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
-var mod09gaMethod = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga.js');
-var mod10a1Method = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod10a1.js');
-var mcd43a3Method = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mcd43a3.js');
-var exportUtils = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/export.js');
+var config      = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var glacierUtils= require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
+var mod09gaMethod = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09ga.js');
+var mod10a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1.js');
+var mcd43a3Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3.js');
+var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/export.js');
 
 // ============================================================================
 // HELPER FUNCTIONS
