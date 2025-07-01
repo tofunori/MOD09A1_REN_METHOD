@@ -74,7 +74,7 @@ function exportComparisonStats(results, region, description) {
         'year':         date.get('year'),
         'month':        date.get('month'),
         'day_of_year':  date.getRelative('day', 'year'),
-        'method':       'MOD09GA',
+        'method':       ee.Algorithms.If(image.get('is_terra'), 'MOD09GA', 'MYD09GA'),
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
