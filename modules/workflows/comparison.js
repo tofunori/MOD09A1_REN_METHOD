@@ -74,8 +74,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     print('Sample system:id:', firstImage.get('system:id'));
     print('All properties:', firstImage.propertyNames());
     
-    var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
-    var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
+    var terra = col.filter(ee.Filter.stringContains('system:id', 'MOD09GA'));
+    var aqua = col.filter(ee.Filter.stringContains('system:id', 'MYD09GA'));
     print('Terra count:', terra.size());
     print('Aqua count:', aqua.size());
     
