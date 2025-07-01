@@ -83,7 +83,7 @@ function exportComparisonStats(results, region, description) {
         'year':         date.get('year'),
         'month':        date.get('month'),
         'day_of_year':  date.getRelative('day', 'year'),
-        'method':       'MOD09A1',
+        'method':       'MOD09GA',
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -282,8 +282,8 @@ function printDataCounts(results) {
   };
 
   print('🔍 Debug: printDataCounts invoked');
-  if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
-  else                  print('MOD09A1 method collection missing');
+  if (results.ren)      safeCount(results.ren, 'MOD09GA method');
+  else                  print('MOD09GA method collection missing');
   if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
   else                  print('MOD10A1 method collection missing');
   if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
@@ -559,9 +559,9 @@ function exportQAProfileComparison(collection, glacierOutlines, createGlacierMas
       risk: 'Minimal',
       filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
     };
-    print('⚡ Processing MOD09A1 with ' + profile.name + ' profile...');
+    print('⚡ Processing MOD09GA with ' + profile.name + ' profile...');
     
-    // Apply MOD09A1 method with specific QA profile
+    // Apply MOD09GA method with specific QA profile
     var processed = collection.map(function(image) {
       var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
       return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);
@@ -670,9 +670,9 @@ function exportQAProfileComparisonWithQA(collection, glacierOutlines, createGlac
       risk: 'Minimal',
       filterDetails: 'cloud bits0-1=00 | shadow bit2=0 | cirrus bit8=0 | internalCloud bit10=0 | snow/ice codes 1-3 | SZA<70°'
     };
-    print('⚡ Processing MOD09A1 with ' + profile.name + ' profile + QA filters...');
+    print('⚡ Processing MOD09GA with ' + profile.name + ' profile + QA filters...');
     
-    // Apply MOD09A1 method with specific QA profile
+    // Apply MOD09GA method with specific QA profile
     var processed = collection.map(function(image) {
       var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
       return mod09a1Method.processMOD09A1Method(image, glacierOutlines, createGlacierMask, profile);
