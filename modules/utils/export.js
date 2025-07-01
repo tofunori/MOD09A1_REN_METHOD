@@ -211,8 +211,15 @@ function printDataCounts(results) {
   };
 
   print('🔍 Debug: printDataCounts invoked');
-  if (results.ren)      safeCount(results.ren, 'MOD09GA method');
-  else                  print('MOD09GA method collection missing');
+  print('🔍 Debug: results keys = ' + Object.keys(results).join(', '));
+  
+  if (results.ren) {
+    print('🔍 Debug: MOD09GA collection exists, attempting count...');
+    safeCount(results.ren, 'MOD09GA method');
+  } else {
+    print('MOD09GA method collection missing');
+  }
+  
   if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
   else                  print('MOD10A1 method collection missing');
   if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
