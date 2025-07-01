@@ -64,8 +64,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   if (isDefaultTerraAquaMerge) {
     var withDate = col.map(function(img) {
       var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      var idStr   = ee.String(img.get('system:id'));
-      var isTerra = idStr.indexOf('MOD09GA').gt(-1); // true if MOD09GA appears in id
+      var id   = ee.String(img.get('system:id'));
+      var isTerra = id.slice(0, 7).compareTo('MOD09GA').eq(0).int();
       return img.set({'date_str': dateStr, 'is_terra': isTerra});
     });
 
