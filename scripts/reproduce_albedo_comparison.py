@@ -86,7 +86,20 @@ def compute_error_metrics(
     reference_family: str = "MCD43A3",
     value_col: str = "albedo_mean",
 ) -> pd.DataFrame:
-    """Compute bias, MAE, RMSE versus a reference product family."""
+    """Compute an extended set of error statistics versus a reference family.
+
+    Statistics returned
+    -------------------
+    N         – sample size
+    bias      – mean(test − ref)
+    mae       – mean|test − ref|
+    rmse      – √mean((test − ref)^2)
+    std_err   – standard deviation of (test − ref)
+    medae     – median absolute error
+    r         – Pearson correlation coefficient
+    slope     – OLS slope (test = slope * ref + intercept)
+    intercept – OLS intercept
+    """
 
     # Split into dictionary of DataFrames keyed by family
     fam_groups = {
@@ -106,6 +119,9 @@ def compute_error_metrics(
         merged = pd.concat([ref_series, fam_df[value_col]], axis=1, join="inner")
         merged.columns = ["ref", "test"]
         diff = merged["test"] - merged["ref"]
+        # Linear regression and correlation
+        slope, intercept = np.polyfit(merged["ref"], merged["test"], 1)
+        r = np.corrcoef(merged["ref"], merged["test"])[0, 1]
         rows.append(
             {
                 "family": fam,
@@ -113,6 +129,11 @@ def compute_error_metrics(
                 "bias": diff.mean(),
                 "mae": diff.abs().mean(),
                 "rmse": np.sqrt((diff ** 2).mean()),
+                "std_err": diff.std(),
+                "medae": np.median(np.abs(diff)),
+                "r": r,
+                "slope": slope,
+                "intercept": intercept,
             }
         )
     return pd.DataFrame(rows)
@@ -124,7 +145,12 @@ def compute_error_metrics(
 
 def main():
     parser = argparse.ArgumentParser(description="Reproduce Ren vs MCD43A4 comparison.")
-    parser.add_argument("--csv", type=Path, required=True, help="Input CSV file path")
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=Path("data/MOD09GA_MOD10A1_MCD43A4_Comparaison.csv"),
+        help="Input CSV file path (default: data/MOD09GA_MOD10A1_MCD43A4_Comparaison.csv)",
+    )
     parser.add_argument("--out", type=Path, default=Path("plots"), help="Directory for output plots")
     args = parser.parse_args()
 
@@ -136,9 +162,79 @@ def main():
     # 2. Collapse Terra/Aqua duplicates as per rule
     df_filtered = collapse_terra_aqua(df)
 
-    # 3. Compute error metrics
+    # 3. Compute error metrics (overall and monthly)
     metrics = compute_error_metrics(df_filtered)
-    print("Performance vs MCD43A3:\n", metrics)
+    print("Overall performance vs MCD43A3:\n", metrics)
+
+    # Save full metrics to CSV
+    metrics.to_csv(args.out / "overall_error_metrics.csv", index=False)
+
+    # Monthly breakdown
+    df_filtered["month"] = df_filtered["date"].dt.month
+    monthly_rows = []
+    for (fam, month), sub in df_filtered.groupby(["family", "month"]):  # type: ignore[misc]
+        if fam == "MCD43A3":
+            continue
+        ref = df_filtered[(df_filtered["family"] == "MCD43A3") & (df_filtered["month"] == month)]
+        if ref.empty:
+            continue
+        merged = pd.merge(
+            sub.loc[:, ["date", "albedo_mean"]],  # type: ignore[arg-type]
+            ref.loc[:, ["date", "albedo_mean"]],  # type: ignore[arg-type]
+            on="date",
+            suffixes=("_test", "_ref"),
+        )
+        if merged.empty:
+            continue
+        diff = merged["albedo_mean_test"] - merged["albedo_mean_ref"]
+        monthly_rows.append(
+            {
+                "family": fam,
+                "month": month,
+                "N": len(diff),
+                "bias": diff.mean(),
+                "mae": diff.abs().mean(),
+                "rmse": np.sqrt((diff ** 2).mean()),
+            }
+        )
+    if monthly_rows:
+        monthly_df = pd.DataFrame(monthly_rows)
+        monthly_df.to_csv(args.out / "monthly_error_metrics.csv", index=False)
+        print("Monthly metrics saved to monthly_error_metrics.csv")
+
+    # 16-day half-month metrics (Ren et al.)
+    df_filtered["halfmonth"] = df_filtered["date"].dt.year.astype(str) + "_" + ((df_filtered["date"].dt.dayofyear - 1) // 16 + 1).astype(str)
+    hm_rows = []
+    for (fam, hm), sub in df_filtered.groupby(["family", "halfmonth"]):  # type: ignore[misc]
+        if fam == "MCD43A3":
+            continue
+        ref = df_filtered[(df_filtered["family"] == "MCD43A3") & (df_filtered["halfmonth"] == hm)]
+        if ref.empty:
+            continue
+        merged = pd.merge(
+            sub.loc[:, ["date", "albedo_mean"]],  # type: ignore[arg-type]
+            ref.loc[:, ["date", "albedo_mean"]],  # type: ignore[arg-type]
+            on="date",
+            how="inner",
+            suffixes=("_test", "_ref"),
+        )
+        if merged.empty:
+            continue
+        diff = merged["albedo_mean_test"] - merged["albedo_mean_ref"]
+        hm_rows.append(
+            {
+                "family": fam,
+                "halfmonth": hm,
+                "N": len(diff),
+                "bias": diff.mean(),
+                "mae": diff.abs().mean(),
+                "rmse": np.sqrt((diff ** 2).mean()),
+            }
+        )
+    if hm_rows:
+        hm_df = pd.DataFrame(hm_rows)
+        hm_df.to_csv(args.out / "halfmonth_error_metrics.csv", index=False)
+        print("16-day half-month metrics saved to halfmonth_error_metrics.csv")
 
     # 4. Scatter plots (Ren & MOD10 vs MCD43)
     sns.set_style("ticks")
@@ -169,10 +265,12 @@ def main():
         .rolling(window=16, min_periods=1)
         .mean()
     )
-    if not df_ts.empty:
+    # The following DataFrame attributes are valid but static analysis
+    # can mis-infer their types; add `type: ignore` to keep linters quiet.
+    if not df_ts.empty:  # type: ignore[attr-defined]
         plt.figure(figsize=(10, 6))
-        for col in df_ts.columns:
-            plt.plot(df_ts.index, df_ts[col], label=col)
+        for col in df_ts.columns:  # type: ignore[attr-defined]
+            plt.plot(df_ts.index, df_ts[col], label=col)  # type: ignore[attr-defined]
         plt.ylabel("16-day mean broadband albedo")
         plt.legend()
         plt.tight_layout()

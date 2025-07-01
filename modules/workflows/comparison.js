@@ -108,6 +108,11 @@ function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
   // Merge with Terra first for priority
   var collection = terraCol.merge(aquaCol).sort('system:time_start');
   
+  // Ensure the required daily snow albedo band is available
+  collection = collection.filter(
+    ee.Filter.listContains('band_names', 'Snow_Albedo_Daily_Tile')
+  );
+  
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
     return mod10a1Method.processMOD10A1(img, glacierOutlines, createGlacierMask);

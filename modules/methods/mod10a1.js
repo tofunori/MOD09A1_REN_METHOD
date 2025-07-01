@@ -124,20 +124,14 @@ function processMOD10A1(image, glacierOutlines, createGlacierMask) {
   var qualityMask = qaHelper.createStandardQualityMask(image);
   var filtered = image.updateMask(qualityMask);
   
-  // Extract NDSI snow cover data with quality filtering applied
-  // NDSI_Snow_Cover is the primary snow band in MOD10A1 Collection 6.1
-  var snowCover = filtered.select('NDSI_Snow_Cover')
-    .clamp(0, 100).multiply(0.01); // Convert percentage to 0-1 range
-  
-  // Also try to use Snow_Albedo_Daily_Tile if available
-  var snowAlbedo = ee.Algorithms.If(
-    image.bandNames().contains('Snow_Albedo_Daily_Tile'),
-    filtered.select('Snow_Albedo_Daily_Tile').multiply(0.01), // Scale if available
-    snowCover // Fallback to NDSI snow cover
-  );
-  
-  // Use the better albedo product when available
-  var finalAlbedo = ee.Image(snowAlbedo).rename('broadband_albedo_mod10a1');
+  // MOD10A1 Collection 6.1 provides the direct daily snow albedo product.
+  // We require this band for scientific comparability; images missing the
+  // band are filtered out upstream (see comparison.js).
+
+  var finalAlbedo = filtered
+      .select('Snow_Albedo_Daily_Tile')
+      .multiply(0.01)                 // Convert 0-100 to 0-1
+      .rename('broadband_albedo_mod10a1');
   
   // -----------------------------------------------------------------
   // Glacier mask clipping (consistent with Ren pipeline)
