@@ -83,7 +83,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     col = withDate
       .sort('is_terra', false)  // Terra first
       .sort('system:time_start')  // Then earliest time
-      .distinct(['date_str']);  // One per date
+      .distinct(['date_str'])  // One per date
+      .map(function(img) { return ee.Image(img); });  // Fix distinct() output
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
