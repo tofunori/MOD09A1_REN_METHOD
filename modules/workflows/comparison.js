@@ -63,14 +63,50 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
   // -------------------------------------------------------------------
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
-  // Per CLAUDE.md: avoid distinct() - use simple merge/sort approach
+  // Per CLAUDE.md: avoid distinct() - use qualityMosaic approach
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     
-    // Simple merge approach: Terra first ensures priority when both exist
-    col = terra.merge(aqua).sort('system:time_start');
+    // Add priority band: Terra = 1, Aqua = 0
+    terra = terra.map(function(img) {
+      return img.addBands(ee.Image.constant(1).rename('priority'))
+               .set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
+    });
+    aqua = aqua.map(function(img) {
+      return img.addBands(ee.Image.constant(0).rename('priority'))
+               .set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
+    });
+    
+    // Merge collections
+    var merged = terra.merge(aqua);
+    
+    // Get date range for iteration
+    var startDate = ee.Date(merged.first().get('system:time_start'));
+    var endDate = ee.Date(merged.sort('system:time_start', false).first().get('system:time_start'));
+    var daysDiff = endDate.difference(startDate, 'day').round();
+    
+    // Create deduplicated collection by iterating over dates
+    var daysList = ee.List.sequence(0, daysDiff);
+    col = ee.ImageCollection.fromImages(
+      daysList.map(function(dayOffset) {
+        var currentDate = startDate.advance(dayOffset, 'day');
+        var dateStr = currentDate.format('YYYY-MM-dd');
+        var nextDate = currentDate.advance(1, 'day');
+        
+        // Get all images for this date
+        var dayImages = merged.filter(ee.Filter.date(currentDate, nextDate));
+        
+        // Use qualityMosaic to select highest priority (Terra=1 over Aqua=0)
+        var bestImage = dayImages.qualityMosaic('priority');
+        
+        // Preserve original properties from the selected image
+        var firstImage = dayImages.sort('priority', false).first();
+        return bestImage.copyProperties(firstImage, ['system:time_start', 'system:index', 'is_terra'])
+                       .set('date_str', dateStr);
+      })
+    ).filter(ee.Filter.notNull(['system:time_start'])); // Remove empty dates
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
