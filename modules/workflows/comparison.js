@@ -92,7 +92,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
       // Add helpful properties for downstream export
       return out.set({
-        'is_terra': terraRaw ? 1 : 0,
+        'is_terra': ee.Number(ee.Algorithms.If(terraRaw, 1, 0)),
         'date_str': ee.Date(out.get('system:time_start')).format('YYYY-MM-dd')
       });
     });
