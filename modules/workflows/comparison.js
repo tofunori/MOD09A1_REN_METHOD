@@ -44,14 +44,13 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     return merged;
   }
 
-  // Default behaviour: merge Terra + Aqua surface-reflectance collections
+  // TEMPORARY FIX: Use only Terra to avoid Terra/Aqua merging issues
   var isDefaultTerraAquaMerge = false; // flag to know if daily compositing needed
   if (!collection) {
     collection = [
-      config.MODIS_COLLECTIONS.MOD09GA, // Terra morning pass
-      config.MODIS_COLLECTIONS.MYD09GA  // Aqua afternoon pass
+      config.MODIS_COLLECTIONS.MOD09GA  // Terra only for now
     ];
-    isDefaultTerraAquaMerge = true;
+    isDefaultTerraAquaMerge = false; // Disable merging logic
   }
 
   var col = buildCollection(collection);
