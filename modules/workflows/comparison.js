@@ -87,12 +87,12 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 
     // Pick Terra when present; else Aqua
     var daily = ee.ImageCollection(joined).map(function(img) {
-      var t = ee.Image(img.get('terra'));
-      var out = ee.Image(ee.Algorithms.If(t, t, img));
+      var terraRaw = img.get('terra');
+      var out = ee.Image(ee.Algorithms.If(terraRaw, ee.Image(terraRaw), img));
 
       // Add helpful properties for downstream export
       return out.set({
-        'is_terra': t ? 1 : 0,
+        'is_terra': terraRaw ? 1 : 0,
         'date_str': ee.Date(out.get('system:time_start')).format('YYYY-MM-dd')
       });
     });
