@@ -88,6 +88,10 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     col = daily.sort('system:time_start');
   }
 
+  // Ensure every element returned is explicitly an ee.Image so downstream
+  // methods like .clip() are always available.
+  col = col.map(function(img) { return ee.Image(img); });
+
   return col;
 }
 
