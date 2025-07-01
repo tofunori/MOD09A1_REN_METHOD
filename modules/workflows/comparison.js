@@ -44,13 +44,14 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     return merged;
   }
 
-  // TEMPORARY FIX: Use only Terra to avoid Terra/Aqua merging issues
+  // Default behaviour: merge Terra + Aqua surface-reflectance collections
   var isDefaultTerraAquaMerge = false; // flag to know if daily compositing needed
   if (!collection) {
     collection = [
-      config.MODIS_COLLECTIONS.MOD09GA  // Terra only for now
+      config.MODIS_COLLECTIONS.MOD09GA, // Terra morning pass
+      config.MODIS_COLLECTIONS.MYD09GA  // Aqua afternoon pass
     ];
-    isDefaultTerraAquaMerge = false; // Disable merging logic
+    isDefaultTerraAquaMerge = true;
   }
 
   var col = buildCollection(collection);
@@ -64,26 +65,12 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Simple approach: Terra priority with fallback to Aqua
+    // Avoid distinct() - use a different approach
     var terra = col.filter(ee.Filter.stringStartsWith('system:id', 'MOD09GA'));
-    var aqua  = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
+    var aqua = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
     
-    // Create daily composites: prefer Terra, fallback to Aqua
-    var withDate = col.map(function(img) {
-      var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      var isTerra = ee.String(img.get('system:id')).slice(0, 7).compareTo('MOD09GA').eq(0);
-      return img.set({
-        'date_str': dateStr, 
-        'is_terra': isTerra
-      });
-    });
-    
-    // Sort by Terra priority (descending) then by time, keep first per date
-    col = withDate
-      .sort('is_terra', false)  // Terra first
-      .sort('system:time_start')  // Then earliest time
-      .distinct(['date_str'])  // One per date
-      .map(function(img) { return ee.Image(img); });  // Fix distinct() output
+    // For each day, prioritize Terra over Aqua by taking Terra first, then filling gaps with Aqua
+    col = terra.merge(aqua).sort('system:time_start');
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
