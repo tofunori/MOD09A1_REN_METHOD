@@ -176,8 +176,8 @@ function exportComparisonStats(results, region, description) {
   }
   
   // Deduplicate by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
-  // Sort by date and method so MOD09GA comes before MYD09GA for same date
-  allStats = allStats.sort(['date', 'method']);
+  // First sort by date, then by method to ensure MOD09GA comes before MYD09GA
+  allStats = allStats.sort('date').sort('method');
   
   // Client-side deduplication to keep first occurrence per date
   var dedupStats = allStats.distinct('date');
