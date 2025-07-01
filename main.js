@@ -1,30 +1,31 @@
 /**
- * Main Entry Point - MODIS Albedo Calendar Visualization
+ * Main Entry Point - Modular MODIS Albedo Comparison
  * 
- * Interactive calendar visualization for daily glacier albedo analysis
- * Displays three MODIS methods with glacier-focused pixel analysis
+ * Simple CSV export comparing all three MODIS albedo methods
+ * Processes all observations and exports comprehensive comparison
  * 
- * Author: Calendar Visualization Framework
+ * Author: Modular Comparison Framework
  * Date: 2025-07-01
- * Version: 3.0 - Calendar Visualization System
+ * Version: 4.0 - Simplified CSV Export System
  */
 
 // ============================================================================
 // MODULE IMPORTS
 // ============================================================================
 
-var calendarSetup = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/setup.js');
 var comparisonWorkflow = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
+var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
 
-// Global calendar system reference
-var calendarSystem;
+// Global results storage
+var lastProcessingResults = null;
+var glacierData = null;
 
-// Initialization state flag to prevent duplicate initialization
+// Initialization state flag to prevent duplicate processing
 var isInitialized = false;
 
 // ============================================================================
@@ -37,112 +38,66 @@ var isInitialized = false;
 function main() {
   // Prevent duplicate initialization
   if (isInitialized) {
-    print('⚠️ Calendar system already initialized - skipping duplicate initialization');
-    return calendarSystem;
+    print('⚠️ System already initialized - skipping duplicate initialization');
+    return lastProcessingResults;
   }
   
-  print('🏗️ MODIS ALBEDO CALENDAR VISUALIZATION SYSTEM');
-  print('📅 Interactive calendar for daily glacier analysis');
+  print('🏗️ MODULAR MODIS ALBEDO COMPARISON FRAMEWORK');
+  print('📊 Simple CSV Export System');
   print('🔬 Methods: Ren (MOD09A1), MOD10A1, MCD43A3');
-  print('🏔️ Focus: Glacier pixel extraction and visualization');
+  print('🏔️ Processing all observations for comprehensive comparison');
   print('');
   
-  // Initialize calendar visualization system
-  calendarSystem = calendarSetup.initializeCalendarUI();
+  // Initialize glacier data
+  print('🏔️ Initializing glacier data...');
+  glacierData = glacierUtils.initializeGlacierData();
+  print('✅ Glacier data initialized');
+  
+  // Set default date range (current melt season)
+  var startDate = config.PROCESSING_CONFIG.default_start_date || '2024-06-01';
+  var endDate = config.PROCESSING_CONFIG.default_end_date || '2024-08-31';
+  var methods = {ren: true, mod10a1: true, mcd43a3: true};
+  
+  print('📅 Processing period: ' + startDate + ' to ' + endDate);
+  print('🔄 Starting comparison workflow...');
+  
+  // Run the comparison and export
+  exportComparisonCSV(startDate, endDate, methods);
+  
   isInitialized = true;
-  
-  print('✅ Calendar system ready - Click on calendar days to view glacier data');
-  return calendarSystem;
+  return glacierData;
 }
 
 // ============================================================================
-// CALENDAR CONTROL FUNCTIONS
+// EXPORT FUNCTIONS
 // ============================================================================
 
 /**
- * Set calendar to specific date
- */
-function setCalendarDate(year, month) {
-  if (calendarSystem) {
-    calendarSetup.setCalendarDate(year, month);
-    print('📅 Calendar set to ' + year + '-' + (month + 1));
-  } else {
-    print('❌ Calendar system not initialized');
-  }
-}
-
-/**
- * Get current calendar state and selected day data
- */
-function getCalendarInfo() {
-  if (calendarSystem) {
-    var selectedData = calendarSetup.getSelectedDayData();
-    print('📊 Calendar Info:');
-    if (selectedData) {
-      print('Selected Date: ' + selectedData.date);
-      print('Available Methods:', Object.keys(selectedData.stats));
-    } else {
-      print('No date selected');
-    }
-    return selectedData;
-  } else {
-    print('❌ Calendar system not initialized');
-    return null;
-  }
-}
-
-/**
- * Export current month's glacier data
- */
-function exportMonthData(year, month) {
-  if (!calendarSystem) {
-    print('❌ Calendar system not initialized');
-    return;
-  }
-  
-  year = year || new Date().getFullYear();
-  month = month || new Date().getMonth();
-  
-  print('📤 Exporting glacier data for ' + year + '-' + (month + 1) + '...');
-  
-  var glacierData = calendarSystem.glacierData;
-  var methods = ['ren', 'mod10a1', 'mcd43a3'];
-  
-  // Use the comparison workflow to export monthly data
-  var report = comparisonWorkflow.generateMonthlyGlacierReport(
-    year, month + 1, methods, glacierData.outlines, glacierData.mask
-  );
-  
-  print('📊 Monthly Report:', report);
-  print('💡 Use the calendar interface to select individual days for detailed export');
-  print('💡 Click "Export Day Data" button on selected days');
-  
-  return report;
-}
-
-/**
- * Export full comparison CSV for date range
+ * Export full comparison CSV for all three methods
  */
 function exportComparisonCSV(startDate, endDate, methods) {
-  if (!calendarSystem) {
-    print('❌ Calendar system not initialized');
-    return;
+  if (!glacierData) {
+    glacierData = glacierUtils.initializeGlacierData();
   }
   
   methods = methods || {ren: true, mod10a1: true, mcd43a3: true};
-  var glacierData = calendarSystem.glacierData;
   
-  print('📤 Starting CSV comparison export from ' + startDate + ' to ' + endDate + '...');
+  print('📤 Starting CSV comparison export...');
+  print('📅 Date range: ' + startDate + ' to ' + endDate);
+  print('🔬 Methods: ' + Object.keys(methods).filter(function(k) { return methods[k]; }).join(', '));
   
   comparisonWorkflow.runModularComparison(
     startDate, endDate, methods, 
     glacierData.outlines, glacierData.geometry,
     function(results) {
       print('✅ Processing complete, starting CSV export...');
+      lastProcessingResults = results;
+      
       comparisonWorkflow.exportComparisonResults(
         startDate, endDate, results, glacierData.geometry,
         function() {
           print('✅ CSV export completed successfully');
+          print('📁 Check your Google Drive for the exported CSV file');
         },
         function(error) {
           print('❌ CSV export failed: ' + error);
@@ -155,41 +110,106 @@ function exportComparisonCSV(startDate, endDate, methods) {
   );
 }
 
+/**
+ * Export QA profile comparison
+ */
+function exportQAComparison(startDate, endDate) {
+  if (!glacierData) {
+    glacierData = glacierUtils.initializeGlacierData();
+  }
+  
+  startDate = startDate || config.PROCESSING_CONFIG.default_start_date || '2024-06-01';
+  endDate = endDate || config.PROCESSING_CONFIG.default_end_date || '2024-08-31';
+  
+  print('📤 Starting QA profile comparison export...');
+  
+  comparisonWorkflow.runQAProfileComparison(
+    startDate, endDate, glacierData.outlines, glacierData.geometry,
+    function(results) {
+      print('✅ QA profile comparison completed');
+    },
+    function(error) {
+      print('❌ QA profile comparison failed: ' + error);
+    }
+  );
+}
+
+/**
+ * Quick single date export (Ren method)
+ */
+function exportSingleDate(date, options) {
+  if (!glacierData) {
+    glacierData = glacierUtils.initializeGlacierData();
+  }
+  
+  options = options || {};
+  
+  print('📤 Exporting single date: ' + date);
+  
+  try {
+    comparisonWorkflow.exportRenAlbedoSingleDate(
+      date, glacierData.outlines, glacierData.geometry, options
+    );
+    print('✅ Single date export started for ' + date);
+  } catch (error) {
+    print('❌ Single date export failed: ' + error);
+  }
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Set custom date range for processing
+ */
+function setDateRange(startDate, endDate) {
+  print('📅 Setting custom date range: ' + startDate + ' to ' + endDate);
+  exportComparisonCSV(startDate, endDate);
+}
+
+/**
+ * Process specific methods only
+ */
+function processSelectedMethods(startDate, endDate, selectedMethods) {
+  var methods = {
+    ren: selectedMethods.includes('ren'),
+    mod10a1: selectedMethods.includes('mod10a1'), 
+    mcd43a3: selectedMethods.includes('mcd43a3')
+  };
+  
+  exportComparisonCSV(startDate, endDate, methods);
+}
+
+/**
+ * Get last processing results
+ */
+function getLastResults() {
+  if (lastProcessingResults) {
+    print('📊 Last processing results available');
+    return lastProcessingResults;
+  } else {
+    print('❌ No processing results available - run main() first');
+    return null;
+  }
+}
 
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
 
-// Execute main application
+// Execute main application automatically
 main();
 
 // ============================================================================
-// DEVELOPMENT UTILITIES
+// USAGE EXAMPLES
 // ============================================================================
 
-/**
- * Development helper: Test individual method
- */
-function testMethod(methodName, startDate, endDate) {
-  if (!config.DEBUG_MODE) {
-    print('Debug mode disabled');
-    return;
-  }
-  
-  print('🧪 Testing method: ' + methodName);
-  
-  var glacierData = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js').initializeGlacierData();
-  var methods = {};
-  methods[methodName] = true;
-  
-  comparisonWorkflow.runModularComparison(
-    startDate, endDate, methods, glacierData.outlines, glacierData.geometry,
-    function(results) {
-      print('✅ Test complete for ' + methodName);
-      print('Results:', results);
-    },
-    function(error) {
-      print('❌ Test failed for ' + methodName + ': ' + error);
-    }
-  );
-}
+print('');
+print('📝 USAGE EXAMPLES:');
+print('• exportComparisonCSV("2024-06-01", "2024-08-31") - Export full comparison');
+print('• setDateRange("2024-07-01", "2024-07-31") - Process July only');
+print('• processSelectedMethods("2024-06-01", "2024-06-30", ["ren", "mod10a1"]) - Selected methods');
+print('• exportQAComparison() - Export QA profiles');
+print('• exportSingleDate("2024-06-15") - Single date export');
+print('');
