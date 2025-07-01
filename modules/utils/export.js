@@ -267,11 +267,18 @@ function exportIndividualMethod(collection, bandName, methodName, region, descri
  */
 function printDataCounts(results) {
   var safeCount = function(col, label) {
-    ee.ImageCollection(col)
-      .aggregate_count('system:time_start')
-      .evaluate(function(n) {
-        print(label + ' observations: ' + n);
-    });
+    try {
+      var count = ee.ImageCollection(col).size();
+      count.evaluate(function(n, error) {
+        if (error) {
+          print(label + ' observations: Error - ' + error);
+        } else {
+          print(label + ' observations: ' + n);
+        }
+      });
+    } catch (e) {
+      print(label + ' observations: Exception - ' + e.toString());
+    }
   };
 
   if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
