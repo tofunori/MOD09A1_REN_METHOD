@@ -69,7 +69,7 @@ var aspect = ee.Terrain.aspect(dem);
 
 var MODIS_COLLECTIONS = {
   MOD09GA: 'MODIS/061/MOD09GA',    // Surface Reflectance Daily Global 1km and 500m (bands 1,2,3,4,5,7)
-  MOD09A1: 'MODIS/061/MOD09A1',    // Surface Reflectance 8-Day Global 500m (has band 6)
+  MYD09GA: 'MODIS/061/MYD09GA',    // Aqua companion to MOD09GA (same bands, afternoon overpass)
   MOD10A1: 'MODIS/061/MOD10A1',   // Snow Cover Daily Global 500m
   MCD43A3: 'MODIS/061/MCD43A3'    // BRDF/Albedo Daily Global 500m
 };
@@ -84,7 +84,7 @@ var GLACIER_ASSET = 'projects/tofunori/assets/Saskatchewan_glacier_2024_updated'
 // Glacier processing parameters
 var GLACIER_CONFIG = {
   scale: 30,                      // Glacier outline scale
-  abundance_threshold: 0.90,      // 90% glacier abundance criterion (for stricter glacier-only masking)
+  abundance_threshold: 0.50,      // 50% glacier abundance criterion (keeps mixed glacier pixels)
   modis_scale: 500               // MODIS pixel scale
 };
 

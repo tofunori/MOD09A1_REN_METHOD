@@ -24,8 +24,33 @@ var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/expor
 // ============================================================================
 
 function getFilteredCollection(startDate, endDate, region, collection) {
-  collection = collection || config.MODIS_COLLECTIONS.MOD09GA;
-  var col = ee.ImageCollection(collection);
+  // Helper → turn a single ID or an array of IDs into one merged collection
+  function buildCollection(ids) {
+    if (!ids) {
+      return null;
+    }
+    // If a single ID string is provided, wrap it in an array for uniformity
+    if (typeof ids === 'string') {
+      ids = [ids];
+    }
+    // Build the merged ImageCollection starting from the first ID
+    var merged = ee.ImageCollection(ids[0]);
+    for (var i = 1; i < ids.length; i++) {
+      merged = merged.merge(ee.ImageCollection(ids[i]));
+    }
+    return merged;
+  }
+
+  // Default behaviour: merge Terra + Aqua surface-reflectance collections
+  if (!collection) {
+    collection = [
+      config.MODIS_COLLECTIONS.MOD09GA, // Terra morning pass
+      config.MODIS_COLLECTIONS.MYD09GA  // Aqua afternoon pass
+    ];
+  }
+
+  var col = buildCollection(collection);
+
   return glacierUtils.applyStandardFiltering(
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
@@ -68,7 +93,7 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
     // Process MOD09A1 method if selected (uses MOD09GA)
     if (methods.ren) {
       print('🔬 Processing MOD09A1 method (MOD09GA)...');
-      var filtered = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD09GA);
+      var filtered = getFilteredCollection(startDate, endDate, region);
       resultsObj.ren = processRenCollection(filtered, glacierOutlines);
     }
 
@@ -129,9 +154,55 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
 }
 
 // ============================================================================
+// QUICK SINGLE-DATE EXPORT HELPER
+// ============================================================================
+
+/**
+ * Export the MOD09A1-Ren broadband albedo for a single date (Terra+Aqua merged).
+ * @param {string}            date        ISO string 'YYYY-MM-DD'.
+ * @param {ee.FeatureCollection} glacierOutlines   Glacier polygons (or null to use default mask).
+ * @param {ee.Geometry}       region      Region of interest for export (geometry or bounds).
+ * @param {Object}            options     { description, scale, maxPixels }
+ */
+function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
+  options = options || {};
+  var start = ee.Date(date);
+  var end   = start.advance(1, 'day');
+
+  // Collect Terra + Aqua surface-reflectance images for that day
+  var col = getFilteredCollection(start, end, region);
+  var first = ee.Image(col.first());
+  if (!first) {
+    throw new Error('No MOD09GA/MYD09GA data available on ' + date);
+  }
+
+  var processed = processRenCollection(col, glacierOutlines)
+                    .first()
+                    .select('broadband_albedo_ren_masked');
+
+  var exportImg = processed.visualize({
+    min: 0, max: 1,
+    palette: ['8c2d04','cc4c02','ec7014','fe9929','fed98e','ffffbf',
+              'c7e9b4','7fcdbb','41b6c4','2c7fb8','253494']
+  }).blend(ee.Image().paint(glacierOutlines, 0, 2));
+
+  Export.image.toDrive({
+    image: exportImg,
+    description: options.description || ('RenAlbedo_' + date.replace(/-/g, '')),
+    folder: options.folder || 'GEE_Exports',
+    region: region,
+    scale: options.scale || 500,
+    crs: 'EPSG:4326',
+    maxPixels: options.maxPixels || 1e9,
+    fileFormat: 'GeoTIFF'
+  });
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
 exports.runModularComparison     = runModularComparison;
 exports.exportComparisonResults  = exportComparisonResults;
-exports.runQAProfileComparison   = runQAProfileComparison; 
+exports.runQAProfileComparison   = runQAProfileComparison;
+exports.exportRenAlbedoSingleDate = exportRenAlbedoSingleDate; 
