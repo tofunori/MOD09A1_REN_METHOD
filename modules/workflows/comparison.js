@@ -62,27 +62,33 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Keep both Terra and Aqua images after the common filters
-    var both = col; // MOD09GA + MYD09GA already filtered
+    var both = col.map(function(img) {
+      var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
+      return img.set('date_str', dateStr);
+    });
 
-    // Subset containing only Terra acquisitions
+    // Terra subset (MOD09GA scenes)
     var terraOnly = both.filter(ee.Filter.stringContains('system:index', 'MOD09GA'));
 
-    // Server-side join: attach the matching Terra image (if any) to each record
+    // Server-side join on the date string
     var joined = ee.Join.saveFirst('terra').apply({
       primary: both,
       secondary: terraOnly,
       condition: ee.Filter.equals({
-        leftField: 'system:time_start',
-        rightField: 'system:time_start'
+        leftField: 'date_str',
+        rightField: 'date_str'
       })
     });
 
-    // For every timestamp pick Terra if present, otherwise Aqua
-    col = ee.ImageCollection(joined).map(function(img) {
+    // Choose Terra when present, else Aqua; keep the date_str property
+    var daily = ee.ImageCollection(joined).map(function(img) {
       var terra = ee.Image(img.get('terra'));
-      return ee.Image(ee.Algorithms.If(terra, terra, img));
-    }).sort('system:time_start');
+      var chosen = ee.Image(ee.Algorithms.If(terra, terra, img));
+      return chosen.copyProperties(img, ['date_str']);
+    });
+
+    // Deduplicate so only one image per day remains (Terra preferred)
+    col = daily.distinct('date_str').sort('system:time_start');
   }
 
   return col;
