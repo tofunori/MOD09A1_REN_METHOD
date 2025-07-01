@@ -128,10 +128,17 @@ function exportComparisonStats(results, region, description) {
         'year': date.get('year'),
         'month': date.get('month'),
         'day_of_year': date.getRelative('day', 'year'),
-        'method': 'MOD10A1',
+        'method': ee.Algorithms.If(image.get('is_terra'), 'MOD10A1', 'MYD10A1'),
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
+    
+    // Deduplicate MOD10A1 method by date, prioritizing Terra (MOD10A1) over Aqua (MYD10A1)
+    // Sort by date then method to ensure MOD10A1 comes before MYD10A1
+    mod10Stats = mod10Stats.sort('date').sort('method');
+    // Keep first occurrence per date (Terra priority)
+    mod10Stats = mod10Stats.distinct('date');
+    
     allStats = allStats.merge(mod10Stats);
   }
   

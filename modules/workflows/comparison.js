@@ -98,7 +98,24 @@ function processRenCollection(collection, glacierOutlines) {
  * Process MOD10A1 snow albedo collection with advanced QA filtering
  */
 function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
-  var collection = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD10A1);
+  // Get Terra collection
+  var terraCol = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD10A1);
+  // Get Aqua collection  
+  var aquaCol = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MYD10A1);
+  
+  // Mark Terra images with is_terra flag
+  terraCol = terraCol.map(function(img) {
+    return img.set('is_terra', true);
+  });
+  
+  // Mark Aqua images with is_terra flag
+  aquaCol = aquaCol.map(function(img) {
+    return img.set('is_terra', false);
+  });
+  
+  // Merge with Terra first for priority
+  var collection = terraCol.merge(aquaCol).sort('system:time_start');
+  
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
     return mod10a1Method.processMOD10A1(img, glacierOutlines, createGlacierMask);
