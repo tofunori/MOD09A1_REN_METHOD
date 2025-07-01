@@ -72,18 +72,13 @@ function getFilteredCollection(startDate, endDate, region, collection) {
       return img.set({'date_str': dateStr, 'is_terra': isTerra});
     });
 
-    // Separate Terra and Aqua based on is_terra flag
-    var terra = withDate.filter(ee.Filter.eq('is_terra', 1));
-    var aqua  = withDate.filter(ee.Filter.eq('is_terra', 0));
+    // Sort so Terra (is_terra == 1) comes first within each day, then keep the
+    // first image per date. This guarantees at most one image per day and
+    // prioritises Terra automatically.
+    var daily = withDate.sort('is_terra', false)  // descending: 1 (Terra) before 0 (Aqua)
+                      .distinct('date_str');
 
-    // Dates where Terra is available
-    var terraDates = ee.List(terra.aggregate_array('date_str'));
-
-    // Keep only Aqua images for dates without Terra
-    var aquaNoTerra = aqua.filter(ee.Filter.inList('date_str', terraDates).not());
-
-    // Merge Terra (preferred) with the remaining Aqua images
-    col = terra.merge(aquaNoTerra).sort('system:time_start');
+    col = daily.sort('system:time_start');
   }
 
   return col;
