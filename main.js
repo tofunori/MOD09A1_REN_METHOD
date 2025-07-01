@@ -45,7 +45,8 @@ function main() {
   print('🏗️ MODULAR MODIS ALBEDO COMPARISON FRAMEWORK');
   print('📊 Simple CSV Export System');
   print('🔬 Methods: Ren (MOD09A1), MOD10A1, MCD43A3');
-  print('🏔️ Processing all observations for comprehensive comparison');
+  print('🏔️ Processing 2017-2024 melt seasons (June 1 - September 30)');
+  print('📊 Comprehensive 7-year glacier albedo comparison');
   print('');
   
   // Initialize glacier data
@@ -53,9 +54,9 @@ function main() {
   glacierData = glacierUtils.initializeGlacierData();
   print('✅ Glacier data initialized');
   
-  // Set default date range (current melt season)
-  var startDate = config.PROCESSING_CONFIG.default_start_date || '2024-06-01';
-  var endDate = config.PROCESSING_CONFIG.default_end_date || '2024-08-31';
+  // Set default date range (full melt seasons 2017-2024)
+  var startDate = '2017-06-01';
+  var endDate = '2024-09-30';
   var methods = {ren: true, mod10a1: true, mcd43a3: true};
   
   print('📅 Processing period: ' + startDate + ' to ' + endDate);
@@ -118,8 +119,8 @@ function exportQAComparison(startDate, endDate) {
     glacierData = glacierUtils.initializeGlacierData();
   }
   
-  startDate = startDate || config.PROCESSING_CONFIG.default_start_date || '2024-06-01';
-  endDate = endDate || config.PROCESSING_CONFIG.default_end_date || '2024-08-31';
+  startDate = startDate || '2017-06-01';
+  endDate = endDate || '2024-09-30';
   
   print('📤 Starting QA profile comparison export...');
   
@@ -207,9 +208,9 @@ main();
 
 print('');
 print('📝 USAGE EXAMPLES:');
-print('• exportComparisonCSV("2024-06-01", "2024-08-31") - Export full comparison');
-print('• setDateRange("2024-07-01", "2024-07-31") - Process July only');
-print('• processSelectedMethods("2024-06-01", "2024-06-30", ["ren", "mod10a1"]) - Selected methods');
-print('• exportQAComparison() - Export QA profiles');
-print('• exportSingleDate("2024-06-15") - Single date export');
+print('• exportComparisonCSV("2017-06-01", "2024-09-30") - Export full 2017-2024 comparison');
+print('• setDateRange("2023-06-01", "2023-09-30") - Process 2023 melt season only');
+print('• processSelectedMethods("2020-06-01", "2020-09-30", ["ren", "mod10a1"]) - Selected methods');
+print('• exportQAComparison() - Export QA profiles (2017-2024)');
+print('• exportSingleDate("2022-07-15") - Single date export');
 print('');
