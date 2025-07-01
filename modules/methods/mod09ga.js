@@ -69,6 +69,23 @@ function computeBroadbandAlbedo(image) {
  *                   bands.  The band name is kept for backwards compatibility.
  */
 function processMOD09GAMethod(image, glacierOutlines, createGlacierMask) {
+  // ---------------------------------------------------------------------
+  // EARLY FOOTPRINT REDUCTION
+  // Clip the image to the region of interest as soon as possible so that
+  // every subsequent mathematical operation only touches the necessary
+  // pixels.  If glacier outlines are available we use their geometry;
+  // otherwise we fall back to the original image footprint.
+  // ---------------------------------------------------------------------
+
+  var roi;
+  if (glacierOutlines) {
+    roi = ee.FeatureCollection(glacierOutlines).geometry();
+  } else {
+    roi = image.geometry();
+  }
+
+  image = image.clip(roi);
+
   // 1) QA filtering
   var filtered = qualityFilter(image);
 

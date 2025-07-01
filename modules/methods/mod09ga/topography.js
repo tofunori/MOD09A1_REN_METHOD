@@ -24,9 +24,14 @@ function topographyCorrection(image) {
   var vzRad  = sensorZen.multiply(deg2rad);
   var vaRad  = sensorAzi.multiply(deg2rad);
 
-  // Terrain information
-  var slopeRad  = config.slope.multiply(deg2rad);
-  var aspectRad = config.aspect.multiply(deg2rad);
+  // Clip DEM-derived layers to the same footprint as the MODIS tile so that
+  // subsequent per-pixel maths do not run over the entire global DEM.  This
+  // dramatically reduces the number of pixels touched when the region of
+  // interest is small.
+  var imgGeom = image.geometry();
+
+  var slopeRad  = config.slope.clip(imgGeom).multiply(deg2rad);
+  var aspectRad = config.aspect.clip(imgGeom).multiply(deg2rad);
 
   // Equation 3a: cos θvc
   var cosV = slopeRad.cos().multiply(vzRad.cos())
@@ -49,10 +54,22 @@ function topographyCorrection(image) {
     return image.select(b).multiply(0.0001).multiply(correction).rename(b + '_topo');
   });
 
+  // ---------------------------------------------------------------------------
+  // QA / provenance bands
+  // 1) Topographic cast shadow.
+  //    A pixel is considered in shadow when incidence angle is negative
+  //    (i.e. cos(theta_slope) <= 0).
+  // 2) Visible-band saturation.  MODIS DN 32767 flags radiometric overflow.
+  // ---------------------------------------------------------------------------
+
+  var shadowMask = cosS.lte(0).rename('shadow_mask');
+  var satVisMask = image.select('sur_refl_b01').eq(32767).rename('sat_vis');
+
   return image
     .addBands(ee.Image.cat(correctedBands))
     .addBands(vzCorr.multiply(180/Math.PI).rename('SensorZenith_corrected'))
-    .addBands(szCorr.multiply(180/Math.PI).rename('SolarZenith_corrected'));
+    .addBands(szCorr.multiply(180/Math.PI).rename('SolarZenith_corrected'))
+    .addBands([shadowMask, satVisMask]);
 }
 
 exports.topographyCorrection = topographyCorrection; 
