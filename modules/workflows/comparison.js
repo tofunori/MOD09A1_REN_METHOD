@@ -47,14 +47,19 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // Default behaviour: merge Terra + Aqua surface-reflectance collections
   var isDefaultTerraAquaMerge = false; // flag to know if daily compositing needed
   if (!collection) {
-    collection = [
-      config.MODIS_COLLECTIONS.MOD09GA, // Terra morning pass
-      config.MODIS_COLLECTIONS.MYD09GA  // Aqua afternoon pass
-    ];
+    // Build Terra and Aqua collections separately, then mark them
+    var terraCol = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA).map(function(img) {
+      return img.set('is_terra', true);
+    });
+    var aquaCol = ee.ImageCollection(config.MODIS_COLLECTIONS.MYD09GA).map(function(img) {
+      return img.set('is_terra', false);
+    });
+    // Merge the pre-marked collections
+    col = terraCol.merge(aquaCol);
     isDefaultTerraAquaMerge = true;
+  } else {
+    col = buildCollection(collection);
   }
-
-  var col = buildCollection(collection);
   print('Initial collection size:', col.size());
 
   // Apply temporal / spatial filters
@@ -68,24 +73,11 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // Per CLAUDE.md: use simple merge/sort as recommended in working solution
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Debug: check actual system properties
-    var firstImage = ee.Image(col.first());
-    print('Sample system:index:', firstImage.get('system:index'));
-    print('Sample system:id:', firstImage.get('system:id'));
-    print('All properties:', firstImage.propertyNames());
-    
-    var terra = col.filter(ee.Filter.stringContains('system:id', 'MOD09GA'));
-    var aqua = col.filter(ee.Filter.stringContains('system:id', 'MYD09GA'));
+    // Images are already marked with is_terra property during collection building
+    var terra = col.filter(ee.Filter.eq('is_terra', true));
+    var aqua = col.filter(ee.Filter.eq('is_terra', false));
     print('Terra count:', terra.size());
     print('Aqua count:', aqua.size());
-    
-    // Add is_terra property before merging
-    terra = terra.map(function(img) {
-      return img.set('is_terra', true);
-    });
-    aqua = aqua.map(function(img) {
-      return img.set('is_terra', false);
-    });
     
     // Simple approach per CLAUDE.md: just merge and sort
     col = terra.merge(aqua).sort('system:time_start');
