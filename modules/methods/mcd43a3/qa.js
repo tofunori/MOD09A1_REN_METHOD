@@ -31,14 +31,16 @@ function createMCD43A3QualityMask(image) {
 
   // Shortwave band (primary)
   var shortQA = image.select('BRDF_Albedo_Band_Mandatory_Quality_shortwave');
-  var shortGood = shortQA.bitwiseAnd(1).lte(1);
+  // Extract the first two QA bits (values 0-3) and accept only 0 or 1
+  // 0 → full inversion, 1 → magnitude inversion
+  var shortGood = shortQA.bitwiseAnd(3).lte(1);
   goodQualityMask = goodQualityMask.and(shortGood);
 
   // Visible & NIR bands (optional but improve robustness)
   var visQA = image.select('BRDF_Albedo_Band_Mandatory_Quality_vis');
   var nirQA = image.select('BRDF_Albedo_Band_Mandatory_Quality_nir');
-  var visGood = visQA.bitwiseAnd(1).lte(1);
-  var nirGood = nirQA.bitwiseAnd(1).lte(1);
+  var visGood = visQA.bitwiseAnd(3).lte(1);
+  var nirGood = nirQA.bitwiseAnd(3).lte(1);
 
   // Require at least 2 of 3 bands good
   var goodCount = shortGood.add(visGood).add(nirGood);
