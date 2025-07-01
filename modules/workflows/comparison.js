@@ -81,7 +81,9 @@ function getFilteredCollection(startDate, endDate, region, collection) {
                   // Then earliest time first (so if multiple Terra scenes, pick first)
                   .sort('system:time_start')
                   // Remove duplicates by date
-                  .distinct(['date_str']);
+                  .distinct(['date_str'])
+                  // Ensure all elements are proper ee.Image objects after distinct
+                  .map(function(img) { return ee.Image(img); });
 
     col = daily.sort('system:time_start');
   }
