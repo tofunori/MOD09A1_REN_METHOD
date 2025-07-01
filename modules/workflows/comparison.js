@@ -44,24 +44,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     return merged;
   }
 
-  // Default behaviour: merge Terra + Aqua surface-reflectance collections
-  var isDefaultTerraAquaMerge = false; // flag to know if daily compositing needed
-  var col;
-  
-  if (!collection) {
-    // Build Terra and Aqua collections separately, then mark them
-    var terraCol = ee.ImageCollection(config.MODIS_COLLECTIONS.MOD09GA).map(function(img) {
-      return img.set('is_terra', true);
-    });
-    var aquaCol = ee.ImageCollection(config.MODIS_COLLECTIONS.MYD09GA).map(function(img) {
-      return img.set('is_terra', false);
-    });
-    // Merge the pre-marked collections
-    col = terraCol.merge(aquaCol);
-    isDefaultTerraAquaMerge = true;
-  } else {
-    col = buildCollection(collection);
-  }
+  var col = buildCollection(collection);
   print('Initial collection size:', col.size());
 
   // Apply temporal / spatial filters
@@ -69,41 +52,6 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
   print('After standard filtering:', col.size());
-
-  // -------------------------------------------------------------------
-  // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
-  // Per CLAUDE.md: use simple merge/sort as recommended in working solution
-  // -------------------------------------------------------------------
-  if (isDefaultTerraAquaMerge) {
-    // Images are already marked with is_terra property during collection building
-    var terra = col.filter(ee.Filter.eq('is_terra', true));
-    var aqua = col.filter(ee.Filter.eq('is_terra', false));
-    print('Terra count:', terra.size());
-    print('Aqua count:', aqua.size());
-    
-    // Memory-efficient deduplication: iterate through date range
-    var startDate = ee.Date(col.aggregate_min('system:time_start'));
-    var endDate = ee.Date(col.aggregate_max('system:time_start'));
-    var daysDiff = endDate.difference(startDate, 'day').round();
-    
-    // Create deduplicated collection by daily selection
-    var daysList = ee.List.sequence(0, daysDiff);
-    col = ee.ImageCollection.fromImages(
-      daysList.map(function(dayOffset) {
-        var currentDate = startDate.advance(dayOffset, 'day');
-        var nextDate = currentDate.advance(1, 'day');
-        
-        // Get images for this date
-        var dayTerra = terra.filter(ee.Filter.date(currentDate, nextDate));
-        var dayAqua = aqua.filter(ee.Filter.date(currentDate, nextDate));
-        
-        // Return Terra if available, otherwise Aqua
-        var hasTerra = dayTerra.size().gt(0);
-        return ee.Algorithms.If(hasTerra, dayTerra.first(), dayAqua.first());
-      })
-    ).filter(ee.Filter.notNull(['system:time_start']));
-    print('After Terra-priority deduplication:', col.size());
-  }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
   // methods like .clip() are always available.
@@ -116,12 +64,26 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 /**
  * Process MOD09GA collection using Ren method with topographic and BRDF correction
  */
-function processRenCollection(collection, glacierOutlines) {
-  var createGlacierMask = glacierUtils.createGlacierMask;
-  // Ensure every element is an ee.Image (distinct may return generic elements)
-  collection = collection.map(function(img) {
-    return ee.Image(img);
+function processRenCollection(startDate, endDate, region, glacierOutlines) {
+  // Get Terra collection
+  var terraCol = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MOD09GA);
+  // Get Aqua collection  
+  var aquaCol = getFilteredCollection(startDate, endDate, region, config.MODIS_COLLECTIONS.MYD09GA);
+  
+  // Mark Terra images with is_terra flag
+  terraCol = terraCol.map(function(img) {
+    return img.set('is_terra', true);
   });
+  
+  // Mark Aqua images with is_terra flag
+  aquaCol = aquaCol.map(function(img) {
+    return img.set('is_terra', false);
+  });
+  
+  // Merge with Terra first for priority
+  var collection = terraCol.merge(aquaCol).sort('system:time_start');
+  
+  var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
     return mod09gaMethod.processMOD09GAMethod(img, glacierOutlines, createGlacierMask);
   });
@@ -179,9 +141,7 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
 
     // Process MOD09A1 method if selected (uses MOD09GA)
     if (methods.ren) {
-      var filtered = getFilteredCollection(startDate, endDate, region);
-      resultsObj.ren_count = filtered.size();
-      resultsObj.ren = processRenCollection(filtered, glacierOutlines);
+      resultsObj.ren = processRenCollection(startDate, endDate, region, glacierOutlines);
     }
 
     // Process MOD10A1 method if selected (uses MOD10A1)
