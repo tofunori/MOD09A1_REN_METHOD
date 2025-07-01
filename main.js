@@ -1,19 +1,19 @@
 /**
- * Main Entry Point - Modular MODIS Albedo Comparison
+ * Main Entry Point - MODIS Albedo Calendar Visualization
  * 
- * Clean main script following MODIS_Albedo project architecture
- * Orchestrates UI setup and workflow execution
+ * Interactive calendar visualization for daily glacier albedo analysis
+ * Displays three MODIS methods with glacier-focused pixel analysis
  * 
- * Author: Modular Comparison Framework
- * Date: 2025-06-30
- * Version: 2.0 - Modular Architecture
+ * Author: Calendar Visualization Framework
+ * Date: 2025-07-01
+ * Version: 3.0 - Calendar Visualization System
  */
 
 // ============================================================================
 // MODULE IMPORTS
 // ============================================================================
 
-var uiSetup = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/setup.js');
+var calendarSetup = require('users/tofunori/MOD09A1_REN_METHOD:modules/ui/setup.js');
 var comparisonWorkflow = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
 var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 
@@ -21,13 +21,10 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
 // GLOBAL VARIABLES
 // ============================================================================
 
-// Global UI system reference
-var uiSystem;
+// Global calendar system reference
+var calendarSystem;
 
-// Global results storage
-var lastProcessingResults = null;
-
-// Initialization state flag to prevent duplicate UI
+// Initialization state flag to prevent duplicate initialization
 var isInitialized = false;
 
 // ============================================================================
@@ -40,102 +37,78 @@ var isInitialized = false;
 function main() {
   // Prevent duplicate initialization
   if (isInitialized) {
-    print('⚠️ System already initialized - skipping duplicate initialization');
-    return uiSystem;
+    print('⚠️ Calendar system already initialized - skipping duplicate initialization');
+    return calendarSystem;
   }
   
-  print('🏗️ MODULAR MODIS ALBEDO COMPARISON FRAMEWORK');
-  print('📁 Architecture: modules/{methods,ui,utils,workflows}');
-  print('🔬 Methods: Ren, MOD10A1, MCD43A3');
+  print('🏗️ MODIS ALBEDO CALENDAR VISUALIZATION SYSTEM');
+  print('📅 Interactive calendar for daily glacier analysis');
+  print('🔬 Methods: Ren (MOD09A1), MOD10A1, MCD43A3');
+  print('🏔️ Focus: Glacier pixel extraction and visualization');
   print('');
   
-  // Initialize UI with callback functions
-  uiSystem = uiSetup.initializeUI(processCallback, exportCallback);
+  // Initialize calendar visualization system
+  calendarSystem = calendarSetup.initializeCalendarUI();
   isInitialized = true;
   
-  print('✅ System ready - Use control panel to start comparison');
-  return uiSystem;
+  print('✅ Calendar system ready - Click on calendar days to view glacier data');
+  return calendarSystem;
 }
 
+// ============================================================================
+// CALENDAR CONTROL FUNCTIONS
+// ============================================================================
+
 /**
- * Processing callback for UI
+ * Set calendar to specific date
  */
-function processCallback(startDate, endDate, successCallback, errorCallback) {
-  try {
-    // Validate inputs
-    if (!uiSetup.validateUIInputs(uiSystem.components)) {
-      return;
-    }
-    
-    // Get processing parameters
-    var params = uiSetup.getProcessingParameters(uiSystem.components, uiSystem.glacierData);
-    
-    // Run comparison workflow
-    comparisonWorkflow.runModularComparison(
-      params.startDate,
-      params.endDate,
-      params.methods,
-      params.glacierOutlines,
-      params.region,
-      function(results) {
-        // Success: Store results and update UI
-        lastProcessingResults = results;
-        uiSetup.updateUIAfterProcessing(uiSystem.components, results, uiSystem.glacierData);
-        if (successCallback) successCallback(results);
-      },
-      function(error) {
-        // Error: Update UI with error
-        uiSetup.updateUIWithError(uiSystem.components, error);
-        if (errorCallback) errorCallback(error);
-      }
-    );
-    
-  } catch (error) {
-    uiSetup.updateUIWithError(uiSystem.components, error.toString());
-    if (errorCallback) errorCallback(error);
+function setCalendarDate(year, month) {
+  if (calendarSystem) {
+    calendarSetup.setCalendarDate(year, month);
+    print('📅 Calendar set to ' + year + '-' + (month + 1));
+  } else {
+    print('❌ Calendar system not initialized');
   }
 }
 
 /**
- * Export callback for UI
+ * Get current calendar state and selected day data
  */
-function exportCallback(startDate, endDate, successCallback, errorCallback) {
-  try {
-    // Check if we have processing results
-    if (!lastProcessingResults) {
-      uiSetup.updateUIWithError(uiSystem.components, 'No processing results available. Please run comparison first.');
-      if (errorCallback) errorCallback('No results to export');
-      return;
+function getCalendarInfo() {
+  if (calendarSystem) {
+    var selectedData = calendarSetup.getSelectedDayData();
+    print('📊 Calendar Info:');
+    if (selectedData) {
+      print('Selected Date: ' + selectedData.date);
+      print('Available Methods:', Object.keys(selectedData.stats));
+    } else {
+      print('No date selected');
     }
-    
-    // Get parameters for export
-    var params = uiSetup.getProcessingParameters(uiSystem.components, uiSystem.glacierData);
-    
-    print('📤 Starting CSV export with actual results...');
-    
-    // Call the real export workflow
-    comparisonWorkflow.exportComparisonResults(
-      params.startDate,
-      params.endDate,
-      lastProcessingResults,
-      params.region,
-      function() {
-        // Success: Export completed
-        var exportDesc = 'modular_albedo_comparison_' + startDate.replace(/-/g, '') + '_to_' + endDate.replace(/-/g, '');
-        uiSetup.updateUIAfterExport(uiSystem.components, exportDesc);
-        if (successCallback) successCallback();
-      },
-      function(error) {
-        // Error: Export failed
-        uiSetup.updateUIWithError(uiSystem.components, 'Export failed: ' + error);
-        if (errorCallback) errorCallback(error);
-      }
-    );
-    
-  } catch (error) {
-    uiSetup.updateUIWithError(uiSystem.components, error.toString());
-    if (errorCallback) errorCallback(error);
+    return selectedData;
+  } else {
+    print('❌ Calendar system not initialized');
+    return null;
   }
+}
+
+/**
+ * Export current month's glacier data
+ */
+function exportMonthData(year, month) {
+  if (!calendarSystem) {
+    print('❌ Calendar system not initialized');
+    return;
+  }
+  
+  year = year || new Date().getFullYear();
+  month = month || new Date().getMonth();
+  
+  print('📤 Exporting glacier data for ' + year + '-' + (month + 1) + '...');
+  
+  // This would implement month-wide export functionality
+  // For now, provide user guidance
+  print('💡 Use the calendar interface to select individual days for export');
+  print('💡 Click "Export Day Data" button on selected days');
 }
 
 
