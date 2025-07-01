@@ -27,6 +27,7 @@ function exportComparisonStats(results, region, description) {
   
   // Process MOD09GA method
   if (results.ren) {
+    print('Ren method collection size:', results.ren.size());
     var renStats = results.ren.map(function(image) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
@@ -80,10 +81,12 @@ function exportComparisonStats(results, region, description) {
     }).filter(ee.Filter.notNull(['albedo_mean']));
     
     // Deduplicate Ren method by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
+    print('Ren stats before deduplication:', renStats.size());
     // Sort by date then method to ensure MOD09GA comes before MYD09GA
     renStats = renStats.sort('date').sort('method');
     // Keep first occurrence per date (Terra priority)
     renStats = renStats.distinct('date');
+    print('Ren stats after deduplication:', renStats.size());
     
     allStats = allStats.merge(renStats);
   }
