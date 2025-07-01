@@ -162,7 +162,7 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
  * @param {string}            date        ISO string 'YYYY-MM-DD'.
  * @param {ee.FeatureCollection} glacierOutlines   Glacier polygons (or null to use default mask).
  * @param {ee.Geometry}       region      Region of interest for export (geometry or bounds).
- * @param {Object}            options     { description, scale, maxPixels }
+ * @param {Object}            options     { description, scale, maxPixels, folder, assetId }
  */
 function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
   options = options || {};
@@ -186,16 +186,25 @@ function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
               'c7e9b4','7fcdbb','41b6c4','2c7fb8','253494']
   }).blend(ee.Image().paint(glacierOutlines, 0, 2));
 
-  Export.image.toDrive({
+  // Build common export parameters
+  var exportParams = {
     image: exportImg,
     description: options.description || ('RenAlbedo_' + date.replace(/-/g, '')),
-    folder: options.folder || 'GEE_Exports',
     region: region,
     scale: options.scale || 500,
     crs: 'EPSG:4326',
-    maxPixels: options.maxPixels || 1e9,
-    fileFormat: 'GeoTIFF'
-  });
+    maxPixels: options.maxPixels || 1e9
+  };
+
+  // Decide target: Asset or Drive (default)
+  if (options.assetId) {
+    exportParams.assetId = options.assetId; // full path: "users/username/folder/name" or "projects/…"
+    Export.image.toAsset(exportParams);
+  } else {
+    exportParams.folder = options.folder || 'GEE_Exports';
+    exportParams.fileFormat = 'GeoTIFF';
+    Export.image.toDrive(exportParams);
+  }
 }
 
 // ============================================================================

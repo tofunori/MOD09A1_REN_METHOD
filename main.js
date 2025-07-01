@@ -188,5 +188,5 @@ function exportRen(dateStr) {
   });
   print('Task queued for', dateStr);
 }
-// Attach to global for easy console access
-exports.exportRen = exportRen;
+// Attach to global (Code Editor) for easy console access
+var exportRen = exportRen;
