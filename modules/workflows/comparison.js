@@ -76,7 +76,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     var terraDates = ee.List(terra.aggregate_array('date_str'));
 
     // Keep only Aqua images for dates without Terra
-    var aquaNoTerra = aqua.filter(ee.Filter.not(ee.Filter.inList('date_str', terraDates)));
+    var aquaNoTerra = aqua.filter(ee.Filter.inList('date_str', terraDates).not());
 
     // Merge Terra (preferred) with the remaining Aqua images
     col = terra.merge(aquaNoTerra).sort('system:time_start');
