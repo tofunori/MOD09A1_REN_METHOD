@@ -47,4 +47,4 @@ Export.image.toDrive({
   fileFormat: 'GeoTIFF'
 });
 
-print('Export task for glacier mask queued → check the Tasks tab.'); 
+// Export task queued 

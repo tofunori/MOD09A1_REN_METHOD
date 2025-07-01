@@ -27,7 +27,6 @@ function exportComparisonStats(results, region, description) {
   
   // Process MOD09GA method
   if (results.ren) {
-    print('Ren method collection size:', results.ren.size());
     var renStats = results.ren.map(function(image) {
       var bandNames = image.bandNames();
       var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
