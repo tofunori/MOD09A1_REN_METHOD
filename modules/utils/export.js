@@ -197,14 +197,21 @@ function exportComparisonStats(results, region, description) {
 function printDataCounts(results) {
   var safeCount = function(col, label) {
     try {
-      var count = ee.ImageCollection(col).size();
+      print('🔍 Debug: Starting safeCount for ' + label);
+      var collection = ee.ImageCollection(col);
+      print('🔍 Debug: Collection created for ' + label);
+      var count = collection.size();
+      print('🔍 Debug: Size operation called for ' + label);
       count.evaluate(function(n, error) {
         if (error) {
           print(label + ' observations: Error - ' + error);
         } else {
           print(label + ' observations: ' + n);
         }
+      }, function(error) {
+        print(label + ' observations: Evaluate failed - ' + error);
       });
+      print('🔍 Debug: Evaluate called for ' + label);
     } catch (e) {
       print(label + ' observations: Exception - ' + e.toString());
     }
