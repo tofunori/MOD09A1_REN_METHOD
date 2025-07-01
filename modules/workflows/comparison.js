@@ -73,10 +73,11 @@ function getFilteredCollection(startDate, endDate, region, collection) {
       });
     });
 
-    // Sort by date then preference, keep first image per day
+    // Ensure deterministic order: (date, platform_pref)
+    tagged = tagged.sort(['simple_date', 'platform_pref']);
+
     col = tagged
-            .sort('platform_pref')
-            .distinct(['simple_date'])
+            .distinct(ee.List(['simple_date']))
             .sort('system:time_start'); // keep chronological order
   }
 
