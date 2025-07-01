@@ -68,7 +68,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     
-    // Add date string property for grouping by date
+    // Use join approach to prioritize Terra over Aqua without distinct()
+    // Add date property for joining
     terra = terra.map(function(img) {
       return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
     });
@@ -76,14 +77,25 @@ function getFilteredCollection(startDate, endDate, region, collection) {
       return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
     });
     
-    // Get unique dates from Terra collection
-    var terraDates = terra.aggregate_array('date_str').distinct();
+    // Left join: keep Terra images and matching Aqua dates
+    var leftJoin = ee.Join.leftJoin();
+    var filter = ee.Filter.equals({leftField: 'date_str', rightField: 'date_str'});
+    var joined = leftJoin.apply(terra, aqua, filter);
     
-    // Filter Aqua to exclude dates that have Terra observations
-    var aquaFiltered = aqua.filter(ee.Filter.inList('date_str', terraDates).not());
+    // Extract Terra images (all Terra dates are kept)
+    var terraOnly = joined.map(function(feature) {
+      return ee.Image(feature.get('primary'));
+    });
     
-    // Combine Terra (priority) with filtered Aqua (fallback)
-    col = terra.merge(aquaFiltered).sort('system:time_start');
+    // Find Aqua images with no Terra match by inverting the join
+    var rightJoin = ee.Join.leftJoin();
+    var aquaJoined = rightJoin.apply(aqua, terra, filter);
+    var aquaOnly = aquaJoined.filter(ee.Filter.isNull('primary')).map(function(feature) {
+      return ee.Image(feature);
+    });
+    
+    // Combine Terra (priority) with Aqua-only (fallback)
+    col = terraOnly.merge(aquaOnly).sort('system:time_start');
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
