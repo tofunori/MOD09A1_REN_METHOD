@@ -25,4 +25,4 @@ Avoid `distinct()` entirely. Use simple `terra.merge(aqua).sort('system:time_sta
 `distinct()` in Earth Engine is unreliable for ImageCollections - it can corrupt objects. Always use alternative approaches like filtering, merging, and sorting instead.
 
 **Property Note**: 
-Use `system:index` not `system:id` for filtering MODIS collections.
+Use `system:id` not `system:index` for filtering MODIS collections. The `system:id` contains the full collection path (e.g., 'MODIS/061/MOD09GA/2017_06_01') while `system:index` only contains the date portion.
