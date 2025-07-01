@@ -65,12 +65,25 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Avoid distinct() - use a different approach
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     
-    // For each day, prioritize Terra over Aqua by taking Terra first, then filling gaps with Aqua
-    col = terra.merge(aqua).sort('system:time_start');
+    // Add date string property for grouping by date
+    terra = terra.map(function(img) {
+      return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
+    });
+    aqua = aqua.map(function(img) {
+      return img.set('date_str', ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'));
+    });
+    
+    // Get unique dates from Terra collection
+    var terraDates = terra.aggregate_array('date_str').distinct();
+    
+    // Filter Aqua to exclude dates that have Terra observations
+    var aquaFiltered = aqua.filter(ee.Filter.inList('date_str', terraDates).not());
+    
+    // Combine Terra (priority) with filtered Aqua (fallback)
+    col = terra.merge(aquaFiltered).sort('system:time_start');
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
