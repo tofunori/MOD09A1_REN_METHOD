@@ -100,8 +100,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
         // Return Terra if available, otherwise Aqua
         var hasTerra = dayTerra.size().gt(0);
         return ee.Algorithms.If(hasTerra, dayTerra.first(), dayAqua.first());
-      }).filter(ee.Filter.notNull(['system:time_start']))
-    );
+      })
+    ).filter(ee.Filter.notNull(['system:time_start']));
     print('After Terra-priority deduplication:', col.size());
   }
 
