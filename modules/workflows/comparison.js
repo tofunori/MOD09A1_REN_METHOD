@@ -61,46 +61,10 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
 
-  // -------------------------------------------------------------------
-  // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
-  // -------------------------------------------------------------------
-  if (isDefaultTerraAquaMerge) {
-    // -----------------------------------------------------------------
-    // Join-based approach recommended by EE docs:
-    //   • keeps every element a real ee.Image (safe for .clip()).
-    //   • Terra wins automatically when present.
-    // -----------------------------------------------------------------
-
-    // Split Terra vs Aqua by ID prefix
-    var terra = col.filter(ee.Filter.stringStartsWith('system:id', 'MOD09GA'));
-    var aqua  = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
-
-    // Join: attach the matching Terra (if any) to each timestamp
-    var joined = ee.Join.saveFirst('terra').apply({
-      primary: aqua.merge(terra), // both satellites
-      secondary: terra,
-      condition: ee.Filter.equals({
-        leftField: 'system:time_start',
-        rightField: 'system:time_start'
-      })
-    });
-
-    // Pick Terra when present; else Aqua
-    var daily = ee.ImageCollection(joined).map(function(img) {
-      var terraRaw = img.get('terra');
-      var out = ee.Image(ee.Algorithms.If(terraRaw, ee.Image(terraRaw), img));
-
-      // Add helpful properties for downstream export
-      return out.set({
-        'is_terra': ee.Number(ee.Algorithms.If(terraRaw, 1, 0)),
-        'date_str': ee.Date(out.get('system:time_start')).format('YYYY-MM-dd')
-      });
-    });
-
-    // If multiple Terra (or Aqua-fallback) scenes share the same day (e.g., overlapping tiles),
-    // keep the first (earliest timestamp).
-    col = daily.sort('system:time_start').distinct(['date_str']);
-  }
+  // TEMPORARILY DISABLE TERRA/AQUA JOIN TO TEST
+  // if (isDefaultTerraAquaMerge) {
+  //   // Complex join logic disabled for debugging
+  // }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
   // methods like .clip() are always available.
