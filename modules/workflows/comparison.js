@@ -62,15 +62,16 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Tag every image with an ISO date string (UTC) for grouping
     var withDate = col.map(function(img) {
       var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      return img.set('date_str', dateStr);
+      var idStr   = ee.String(img.get('system:id'));
+      var isTerra = idStr.indexOf('MOD09GA').gt(-1); // true if MOD09GA appears in id
+      return img.set({'date_str': dateStr, 'is_terra': isTerra});
     });
 
-    // Separate Terra and Aqua after tagging
-    var terra = withDate.filter(ee.Filter.stringContains('system:index', 'MOD09GA'));
-    var aqua  = withDate.filter(ee.Filter.stringContains('system:index', 'MYD09GA'));
+    // Separate Terra and Aqua based on is_terra flag
+    var terra = withDate.filter(ee.Filter.eq('is_terra', 1));
+    var aqua  = withDate.filter(ee.Filter.eq('is_terra', 0));
 
     // Dates where Terra is available
     var terraDates = ee.List(terra.aggregate_array('date_str'));
