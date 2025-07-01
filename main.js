@@ -176,3 +176,17 @@ function testMethod(methodName, startDate, endDate) {
     }
   );
 }
+
+// Quick utility: call this in the console → exportRen('2023-08-07')
+function exportRen(dateStr) {
+  var glacierData = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js').initializeGlacierData();
+  var cmp = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
+  cmp.exportRenAlbedoSingleDate(dateStr, glacierData.outlines, glacierData.bounds, {
+    description: 'Albedo_' + dateStr.replace(/-/g, ''),
+    folder: 'GEE_Exports',
+    scale: 500
+  });
+  print('Task queued for', dateStr);
+}
+// Attach to global for easy console access
+exports.exportRen = exportRen;
