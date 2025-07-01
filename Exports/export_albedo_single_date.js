@@ -11,8 +11,8 @@
 // ---------------------------------------------------------------------------
 // Load helper modules
 // ---------------------------------------------------------------------------
-var cmp   = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
-var utils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
+var cmp   = require('users/tofunori/MOD09GA_REN_METHOD:modules/workflows/comparison.js');
+var utils = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
 
 // ---------------------------------------------------------------------------
 // User parameters

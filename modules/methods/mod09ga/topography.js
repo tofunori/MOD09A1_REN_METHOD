@@ -1,10 +1,10 @@
 /*
- * Topography‐correction helper for MOD09A1 method
+ * Topography‐correction helper for MOD09GA method
  * Copied from modules/methods/ren/topography.js.
  * Follows Equations 3a and 3b of Ren et al. (2021).
  */
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
 
 /**
  * Apply topographic correction to MODIS surface reflectance.

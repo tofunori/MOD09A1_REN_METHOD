@@ -12,8 +12,8 @@
 // MODULE IMPORTS
 // ============================================================================
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
-var qaHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3/qa.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var qaHelper = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mcd43a3/qa.js');
 
 // ============================================================================
 // QUALITY FILTERING CONFIGURATION

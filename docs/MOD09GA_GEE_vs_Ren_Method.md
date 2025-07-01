@@ -1,6 +1,6 @@
-# Comparaison détaillée entre la mise en œuvre GEE du **MOD09A1 Method** et les méthodologies de **Ren et al. 2021 (Anisotropy Parameterization)** et **Ren et al. 2023 (Changes in Glacier Albedo)**
+# Comparaison détaillée entre la mise en œuvre GEE du **MOD09GA Method** et les méthodologies de **Ren et al. 2021 (Anisotropy Parameterization)** et **Ren et al. 2023 (Changes in Glacier Albedo)**
 
-> Ce document sert de dossier technique à remettre à la direction de recherche.  Il dresse, étape par étape, la correspondance entre l’implémentation JavaScript (Google Earth Engine) du projet *MOD09A1_REN_METHOD* et les procédés décrits dans les deux articles de référence.  Chaque section comporte :
+> Ce document sert de dossier technique à remettre à la direction de recherche.  Il dresse, étape par étape, la correspondance entre l’implémentation JavaScript (Google Earth Engine) du projet *MOD09GA_REN_METHOD* et les procédés décrits dans les deux articles de référence.  Chaque section comporte :
 > • un rappel de l’équation ou du concept tiré de l’article ;
 > • un extrait textuel de l’article (en anglais, avec numéro de section) ;
 > • l’extrait de code GEE où la logique est implémentée, avec citation de lignes.
@@ -119,7 +119,7 @@ Extrait :
 
 ## 9. Conclusions
 
-La chaîne **MOD09A1 Method** dans le dépôt reproduit fidèlement :
+La chaîne **MOD09GA Method** dans le dépôt reproduit fidèlement :
 1.   les équations de correction topographique et d'anisotropie (Ren 2021) ;
 2.   les coefficients BRDF Table 4 neige / glace ;
 3.   la conversion NB→BB (Ren 2021 Eq. 8-9) et la logique NDSI (Ren 2023) ;

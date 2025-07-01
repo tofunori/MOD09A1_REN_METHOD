@@ -1,9 +1,9 @@
 /*
- * Broadband albedo computation helper for MOD09A1 method.
+ * Broadband albedo computation helper for MOD09GA method.
  * Copied from modules/methods/ren/albedo.js.
  */
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
 
 function computeBroadbandAlbedo(image) {
   var b1 = image.select('narrowband_b1');

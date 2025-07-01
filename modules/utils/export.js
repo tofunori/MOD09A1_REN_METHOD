@@ -11,7 +11,7 @@
 // MODULE IMPORTS
 // ============================================================================
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
 
 // ============================================================================
 // CORE EXPORT FUNCTIONS

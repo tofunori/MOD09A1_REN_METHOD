@@ -12,8 +12,8 @@
 // MODULE IMPORTS
 // ============================================================================
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
-var qaHelper = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1/qa.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var qaHelper = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod10a1/qa.js');
 
 // ============================================================================
 // QA CONFIGURATION (from MODIS_Albedo project)

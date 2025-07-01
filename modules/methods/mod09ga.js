@@ -1,9 +1,9 @@
 /**
- * MOD09A1 Method – canonical implementation of the Ren et al. glacier-albedo
+ * MOD09GA Method – canonical implementation of the Ren et al. glacier-albedo
  * workflow.
  *
  * This file replaces the previous façade.  It wires together the dedicated
- * helper modules under modules/methods/mod09a1/ and exposes the same public
+ * helper modules under modules/methods/mod09ga/ and exposes the same public
  * API that downstream code expects.
  *
  * Legacy code that still imports modules/methods/ren.js will continue to work
@@ -15,12 +15,12 @@
 // Module imports
 // ---------------------------------------------------------------------------
 
-var config          = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
-var topoHelper      = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1/topography.js');
-var brdfHelper      = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1/brdf.js');
-var albedoHelper    = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1/albedo.js');
-var qaHelper        = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1/qa.js');
-var classifyHelper  = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1/classify.js');
+var config          = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var topoHelper      = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/topography.js');
+var brdfHelper      = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/brdf.js');
+var albedoHelper    = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/albedo.js');
+var qaHelper        = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/qa.js');
+var classifyHelper  = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga/classify.js');
 
 // ---------------------------------------------------------------------------
 // Lightweight wrappers around helper functions (public API)
@@ -51,7 +51,7 @@ function computeBroadbandAlbedo(image) {
 // ---------------------------------------------------------------------------
 
 /**
- * Run the complete MOD09A1 processing chain for a single MODIS image.
+ * Run the complete MOD09GA processing chain for a single MODIS image.
  *
  * 1.  Apply QA mask.
  * 2.  Topographic correction.
@@ -68,7 +68,7 @@ function computeBroadbandAlbedo(image) {
  * @return {ee.Image} Processed image with broadband_albedo_ren and ancillary
  *                   bands.  The band name is kept for backwards compatibility.
  */
-function processMOD09A1Method(image, glacierOutlines, createGlacierMask) {
+function processMOD09GAMethod(image, glacierOutlines, createGlacierMask) {
   // 1) QA filtering
   var filtered = qualityFilter(image);
 
@@ -118,7 +118,7 @@ function processMOD09A1Method(image, glacierOutlines, createGlacierMask) {
 // Exports
 // ---------------------------------------------------------------------------
 
-exports.processMOD09A1Method           = processMOD09A1Method;
+exports.processMOD09GAMethod           = processMOD09GAMethod;
 exports.qualityFilter                  = qualityFilter;
 exports.topographyCorrection           = topographyCorrection;
 exports.applyBRDFAnisotropicCorrection = applyBRDFAnisotropicCorrection;

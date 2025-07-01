@@ -1,9 +1,9 @@
 /*
- * BRDF anisotropic‐correction helper for MOD09A1 method.
+ * BRDF anisotropic‐correction helper for MOD09GA method.
  * Copied from modules/methods/ren/brdf.js.
  */
 
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
 
 function applyBRDFAnisotropicCorrection(image, surfaceType) {
   var sensorZenithCorrected = image.select('SensorZenith_corrected').multiply(Math.PI / 180);

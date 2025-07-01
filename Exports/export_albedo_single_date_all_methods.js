@@ -17,11 +17,11 @@
 // ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
-var cmp      = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
-var utils    = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
-var cfg      = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
-var mod10    = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1.js');
-var mcd43    = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3.js');
+var cmp      = require('users/tofunori/MOD09GA_REN_METHOD:modules/workflows/comparison.js');
+var utils    = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
+var cfg      = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var mod10    = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod10a1.js');
+var mcd43    = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mcd43a3.js');
 
 // ---------------------------------------------------------------------------
 // User parameters (edit these)

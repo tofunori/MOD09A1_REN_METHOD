@@ -2,7 +2,7 @@
  * Full Comparison Workflow – All Three Methods
  *
  * Processes all three MODIS albedo methods with full CSV export:
- * - MOD09A1 Method (MOD09GA): Topographic and BRDF correction
+ * - MOD09GA Method: Topographic and BRDF correction
  * - MOD10A1: Snow albedo with advanced QA filtering  
  * - MCD43A3: BRDF/Albedo product with Collection 6.1 QA
  */
@@ -12,12 +12,12 @@
 // ============================================================================
 
 // global `ee` provided by Earth Engine runtime
-var config      = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
-var glacierUtils= require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
-var mod09a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod09a1.js');
-var mod10a1Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mod10a1.js');
-var mcd43a3Method = require('users/tofunori/MOD09A1_REN_METHOD:modules/methods/mcd43a3.js');
-var exportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/export.js');
+var config      = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
+var glacierUtils= require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
+var mod09gaMethod = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod09ga.js');
+var mod10a1Method = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mod10a1.js');
+var mcd43a3Method = require('users/tofunori/MOD09GA_REN_METHOD:modules/methods/mcd43a3.js');
+var exportUtils = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/export.js');
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -96,7 +96,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
 function processRenCollection(collection, glacierOutlines) {
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
-    return mod09a1Method.processMOD09A1Method(img, glacierOutlines, createGlacierMask);
+    return mod09gaMethod.processMOD09GAMethod(img, glacierOutlines, createGlacierMask);
   });
 }
 

@@ -13,9 +13,9 @@
 // MODULE IMPORTS
 // ============================================================================
 
-var comparisonWorkflow = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
-var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
-var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
+var comparisonWorkflow = require('users/tofunori/MOD09GA_REN_METHOD:modules/workflows/comparison.js');
+var glacierUtils = require('users/tofunori/MOD09GA_REN_METHOD:modules/utils/glacier.js');
+var config = require('users/tofunori/MOD09GA_REN_METHOD:modules/config.js');
 
 // ============================================================================
 // GLOBAL VARIABLES
@@ -44,7 +44,7 @@ function main() {
   
   print('🏗️ MODULAR MODIS ALBEDO COMPARISON FRAMEWORK');
   print('📊 Simple CSV Export System');
-  print('🔬 Methods: Ren (MOD09A1), MOD10A1, MCD43A3');
+  print('🔬 Methods: Ren (MOD09GA), MOD10A1, MCD43A3');
   print('🏔️ Processing 2017-2024 melt seasons (June 1 - September 30)');
   print('📊 Comprehensive 7-year glacier albedo comparison');
   print('');
