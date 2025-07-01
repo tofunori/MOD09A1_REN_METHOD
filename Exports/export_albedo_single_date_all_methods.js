@@ -62,20 +62,17 @@ function firstImage(colId) {
 // ---------------------------------------------------------------------------
 // 3) MOD10A1 processing & export
 // ---------------------------------------------------------------------------
-var mod10Img = firstImage(cfg.MODIS_COLLECTIONS.MOD10A1);
+var mod10Collection = ee.ImageCollection(cfg.MODIS_COLLECTIONS.MOD10A1)
+                       .filterDate(targetDate, ee.Date(targetDate).advance(1, 'day'))
+                       .filterBounds(region);
 
-// Guard: ensure data exists
-mod10Img.evaluate(function(val) {
-  if (!val) {
-    print('⚠️ No MOD10A1 data available on ' + targetDate);
-    return;
-  }
-
-  var processed = mod10.processMOD10A1(ee.Image(val), glacierOutlines, createGlacierMask)
-                       .select('broadband_albedo_mod10a1_masked');
+if (mod10Collection.size().gt(0).getInfo()) {
+  var mod10Img = mod10Collection.first();
+  var mod10Processed = mod10.processMOD10A1(mod10Img, glacierOutlines, createGlacierMask)
+                            .select('broadband_albedo_mod10a1_masked');
 
   Export.image.toDrive({
-    image: processed,
+    image: mod10Processed,
     description: 'AlbedoMOD10A1_' + targetDate.replace(/-/g, ''),
     folder: driveFolder,
     region: region,
@@ -85,24 +82,24 @@ mod10Img.evaluate(function(val) {
     fileFormat: 'GeoTIFF'
   });
   print('Task queued: AlbedoMOD10A1_' + targetDate);
-});
+} else {
+  print('⚠️ No MOD10A1 data available on ' + targetDate);
+}
 
 // ---------------------------------------------------------------------------
 // 4) MCD43A3 processing & export
 // ---------------------------------------------------------------------------
-var mcd43Img = firstImage(cfg.MODIS_COLLECTIONS.MCD43A3);
+var mcd43Collection = ee.ImageCollection(cfg.MODIS_COLLECTIONS.MCD43A3)
+                        .filterDate(targetDate, ee.Date(targetDate).advance(1, 'day'))
+                        .filterBounds(region);
 
-mcd43Img.evaluate(function(val) {
-  if (!val) {
-    print('⚠️ No MCD43A3 data available on ' + targetDate);
-    return;
-  }
-
-  var processed = mcd43.processMCD43A3(ee.Image(val), glacierOutlines, createGlacierMask)
-                       .select('broadband_albedo_mcd43a3_masked');
+if (mcd43Collection.size().gt(0).getInfo()) {
+  var mcd43Img = mcd43Collection.first();
+  var mcd43Processed = mcd43.processMCD43A3(mcd43Img, glacierOutlines, createGlacierMask)
+                             .select('broadband_albedo_mcd43a3_masked');
 
   Export.image.toDrive({
-    image: processed,
+    image: mcd43Processed,
     description: 'AlbedoMCD43A3_' + targetDate.replace(/-/g, ''),
     folder: driveFolder,
     region: region,
@@ -112,6 +109,8 @@ mcd43Img.evaluate(function(val) {
     fileFormat: 'GeoTIFF'
   });
   print('Task queued: AlbedoMCD43A3_' + targetDate);
-});
+} else {
+  print('⚠️ No MCD43A3 data available on ' + targetDate);
+}
 
 print('🚀 Three export tasks have been queued (check the Tasks tab).'); 
