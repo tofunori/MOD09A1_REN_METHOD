@@ -66,7 +66,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     var both = col; // MOD09GA + MYD09GA already filtered
 
     // Subset containing only Terra acquisitions
-    var terraOnly = both.filter(ee.Filter.eq('SATELLITE', 'Terra'));
+    var terraOnly = both.filter(ee.Filter.stringContains('system:id', 'MOD09GA'));
 
     // Server-side join: attach the matching Terra image (if any) to each record
     var joined = ee.Join.saveFirst('terra').apply({
