@@ -94,6 +94,10 @@ function getFilteredCollection(startDate, endDate, region, collection) {
  */
 function processRenCollection(collection, glacierOutlines) {
   var createGlacierMask = glacierUtils.createGlacierMask;
+  // Ensure every element is an ee.Image (distinct may return generic elements)
+  collection = collection.map(function(img) {
+    return ee.Image(img);
+  });
   return collection.map(function (img) {
     return mod09gaMethod.processMOD09GAMethod(img, glacierOutlines, createGlacierMask);
   });
