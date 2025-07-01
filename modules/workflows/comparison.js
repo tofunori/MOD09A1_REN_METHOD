@@ -68,6 +68,12 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // Per CLAUDE.md: use simple merge/sort as recommended in working solution
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
+    // Debug: check actual system properties
+    var firstImage = ee.Image(col.first());
+    print('Sample system:index:', firstImage.get('system:index'));
+    print('Sample system:id:', firstImage.get('system:id'));
+    print('All properties:', firstImage.propertyNames());
+    
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
     print('Terra count:', terra.size());
