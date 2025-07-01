@@ -271,7 +271,7 @@ function printDataCounts(results) {
       .aggregate_count('system:time_start')
       .evaluate(function(n) {
         print(label + ' observations: ' + n);
-      });
+    });
   };
 
   if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
