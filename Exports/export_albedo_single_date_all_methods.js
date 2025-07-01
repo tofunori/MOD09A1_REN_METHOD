@@ -68,11 +68,10 @@ var mod10Collection = ee.ImageCollection(cfg.MODIS_COLLECTIONS.MOD10A1)
 
 if (mod10Collection.size().gt(0).getInfo()) {
   var mod10Img = mod10Collection.first();
-  var mod10Processed = mod10.processMOD10A1(mod10Img, glacierOutlines, createGlacierMask)
-                            .select('broadband_albedo_mod10a1_masked');
+  var mod10Processed = mod10.processMOD10A1(mod10Img, glacierOutlines, createGlacierMask);
 
   Export.image.toDrive({
-    image: mod10Processed,
+    image: ee.Image(mod10Processed).select('broadband_albedo_mod10a1_masked'),
     description: 'AlbedoMOD10A1_' + targetDate.replace(/-/g, ''),
     folder: driveFolder,
     region: region,
@@ -95,11 +94,10 @@ var mcd43Collection = ee.ImageCollection(cfg.MODIS_COLLECTIONS.MCD43A3)
 
 if (mcd43Collection.size().gt(0).getInfo()) {
   var mcd43Img = mcd43Collection.first();
-  var mcd43Processed = mcd43.processMCD43A3(mcd43Img, glacierOutlines, createGlacierMask)
-                             .select('broadband_albedo_mcd43a3_masked');
+  var mcd43Processed = mcd43.processMCD43A3(mcd43Img, glacierOutlines, createGlacierMask);
 
   Export.image.toDrive({
-    image: mcd43Processed,
+    image: ee.Image(mcd43Processed).select('broadband_albedo_mcd43a3_masked'),
     description: 'AlbedoMCD43A3_' + targetDate.replace(/-/g, ''),
     folder: driveFolder,
     region: region,
