@@ -76,7 +76,7 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     // Sort by date then preference, keep first image per day
     col = tagged
             .sort('platform_pref')
-            .distinct('simple_date')
+            .distinct(['simple_date'])
             .sort('system:time_start'); // keep chronological order
   }
 
