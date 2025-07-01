@@ -61,10 +61,30 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
 
-  // TEMPORARILY DISABLE TERRA/AQUA JOIN TO TEST
-  // if (isDefaultTerraAquaMerge) {
-  //   // Complex join logic disabled for debugging
-  // }
+  // -------------------------------------------------------------------
+  // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
+  // -------------------------------------------------------------------
+  if (isDefaultTerraAquaMerge) {
+    // Simple approach: Terra priority with fallback to Aqua
+    var terra = col.filter(ee.Filter.stringStartsWith('system:id', 'MOD09GA'));
+    var aqua  = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
+    
+    // Create daily composites: prefer Terra, fallback to Aqua
+    var withDate = col.map(function(img) {
+      var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
+      var isTerra = ee.String(img.get('system:id')).slice(0, 7).compareTo('MOD09GA').eq(0);
+      return img.set({
+        'date_str': dateStr, 
+        'is_terra': isTerra
+      });
+    });
+    
+    // Sort by Terra priority (descending) then by time, keep first per date
+    col = withDate
+      .sort('is_terra', false)  // Terra first
+      .sort('system:time_start')  // Then earliest time
+      .distinct(['date_str']);  // One per date
+  }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
   // methods like .clip() are always available.
