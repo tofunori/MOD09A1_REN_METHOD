@@ -62,23 +62,32 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Flag platform preference: Terra (0) preferred over Aqua (1)
-    var tagged = col.map(function(img) {
+    // Simple approach: group by date, pick Terra if available, else Aqua
+    var withDate = col.map(function(img) {
       var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
       var id = ee.String(img.get('system:id'));
       var isTerra = id.slice(0, 7).compareTo('MOD09GA').eq(0);
-      return img.set({
-        'simple_date': dateStr,
-        'platform_pref': ee.Number(ee.Algorithms.If(isTerra, 0, 1))
-      });
+      return img.set('date_string', dateStr).set('is_terra', isTerra);
     });
-
-    // Ensure deterministic order: (date, platform_pref)
-    tagged = tagged.sort(['simple_date', 'platform_pref']);
-
-    col = tagged
-            .distinct(['simple_date'])
-            .sort('system:time_start'); // keep chronological order
+    
+    // Get unique dates
+    var dates = withDate.aggregate_array('date_string').distinct();
+    
+    // For each date, select Terra if available, otherwise Aqua
+    var dailyImages = dates.map(function(date) {
+      var dayImages = withDate.filter(ee.Filter.eq('date_string', date));
+      var terraImages = dayImages.filter(ee.Filter.eq('is_terra', true));
+      var aquaImages = dayImages.filter(ee.Filter.eq('is_terra', false));
+      
+      // Return Terra if available, otherwise first Aqua image
+      return ee.Algorithms.If(
+        terraImages.size().gt(0),
+        terraImages.first(),
+        aquaImages.first()
+      );
+    });
+    
+    col = ee.ImageCollection(dailyImages).sort('system:time_start');
   }
 
   return col;
