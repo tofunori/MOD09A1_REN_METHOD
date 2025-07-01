@@ -75,8 +75,13 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     // Sort so Terra (is_terra == 1) comes first within each day, then keep the
     // first image per date. This guarantees at most one image per day and
     // prioritises Terra automatically.
-    var daily = withDate.sort('is_terra', false)  // descending: 1 (Terra) before 0 (Aqua)
-                      .distinct('date_str');
+    var daily = withDate
+                  // Make Terra come first within each day
+                  .sort('is_terra', false) // descending
+                  // Then earliest time first (so if multiple Terra scenes, pick first)
+                  .sort('system:time_start')
+                  // Remove duplicates by date
+                  .distinct(['date_str']);
 
     col = daily.sort('system:time_start');
   }
