@@ -320,8 +320,13 @@ function calculateDayNumber(week, dayOfWeek) {
  */
 function formatDateString(year, month, day) {
   if (day <= 0) return '';
-  var monthStr = (month + 1).toString().padStart(2, '0');
-  var dayStr = day.toString().padStart(2, '0');
+  var monthStr = (month + 1).toString();
+  var dayStr = day.toString();
+  
+  // Manual padding since padStart is not available in GEE
+  if (monthStr.length === 1) monthStr = '0' + monthStr;
+  if (dayStr.length === 1) dayStr = '0' + dayStr;
+  
   return year + '-' + monthStr + '-' + dayStr;
 }
 

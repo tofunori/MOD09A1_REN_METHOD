@@ -105,10 +105,54 @@ function exportMonthData(year, month) {
   
   print('📤 Exporting glacier data for ' + year + '-' + (month + 1) + '...');
   
-  // This would implement month-wide export functionality
-  // For now, provide user guidance
-  print('💡 Use the calendar interface to select individual days for export');
+  var glacierData = calendarSystem.glacierData;
+  var methods = ['ren', 'mod10a1', 'mcd43a3'];
+  
+  // Use the comparison workflow to export monthly data
+  var report = comparisonWorkflow.generateMonthlyGlacierReport(
+    year, month + 1, methods, glacierData.outlines, glacierData.mask
+  );
+  
+  print('📊 Monthly Report:', report);
+  print('💡 Use the calendar interface to select individual days for detailed export');
   print('💡 Click "Export Day Data" button on selected days');
+  
+  return report;
+}
+
+/**
+ * Export full comparison CSV for date range
+ */
+function exportComparisonCSV(startDate, endDate, methods) {
+  if (!calendarSystem) {
+    print('❌ Calendar system not initialized');
+    return;
+  }
+  
+  methods = methods || {ren: true, mod10a1: true, mcd43a3: true};
+  var glacierData = calendarSystem.glacierData;
+  
+  print('📤 Starting CSV comparison export from ' + startDate + ' to ' + endDate + '...');
+  
+  comparisonWorkflow.runModularComparison(
+    startDate, endDate, methods, 
+    glacierData.outlines, glacierData.geometry,
+    function(results) {
+      print('✅ Processing complete, starting CSV export...');
+      comparisonWorkflow.exportComparisonResults(
+        startDate, endDate, results, glacierData.geometry,
+        function() {
+          print('✅ CSV export completed successfully');
+        },
+        function(error) {
+          print('❌ CSV export failed: ' + error);
+        }
+      );
+    },
+    function(error) {
+      print('❌ Comparison processing failed: ' + error);
+    }
+  );
 }
 
 
