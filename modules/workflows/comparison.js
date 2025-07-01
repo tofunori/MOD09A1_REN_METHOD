@@ -70,6 +70,16 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   if (isDefaultTerraAquaMerge) {
     var terra = col.filter(ee.Filter.stringStartsWith('system:index', 'MOD09GA'));
     var aqua = col.filter(ee.Filter.stringStartsWith('system:index', 'MYD09GA'));
+    print('Terra count:', terra.size());
+    print('Aqua count:', aqua.size());
+    
+    // Add is_terra property before merging
+    terra = terra.map(function(img) {
+      return img.set('is_terra', true);
+    });
+    aqua = aqua.map(function(img) {
+      return img.set('is_terra', false);
+    });
     
     // Simple approach per CLAUDE.md: just merge and sort
     col = terra.merge(aqua).sort('system:time_start');
