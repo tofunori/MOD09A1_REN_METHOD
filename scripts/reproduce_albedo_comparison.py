@@ -39,6 +39,7 @@ import seaborn as sns
 # Helper functions
 # ----------------------------
 
+
 def method_family(method: str) -> str:
     """Map sensor-specific method names to product family.
 
@@ -74,9 +75,10 @@ def collapse_terra_aqua(df: pd.DataFrame) -> pd.DataFrame:
 
     # For MOD09GA and MOD10A1 keep only the first (largest pixel_count)
     subset_fams = ["MOD09GA", "MOD10A1"]
-    keep_mask = (
-        ~df_sorted["family"].isin(subset_fams)  # always keep non-Ren fams
-        | ~df_sorted.duplicated(subset=["date", "family"], keep="first")
+    keep_mask = ~df_sorted["family"].isin(
+        subset_fams
+    ) | ~df_sorted.duplicated(  # always keep non-Ren fams
+        subset=["date", "family"], keep="first"
     )
     return df_sorted.loc[keep_mask].reset_index(drop=True)
 
@@ -102,9 +104,7 @@ def compute_error_metrics(
     """
 
     # Split into dictionary of DataFrames keyed by family
-    fam_groups = {
-        fam: fam_df.set_index("date") for fam, fam_df in df.groupby("family")
-    }
+    fam_groups = {fam: fam_df.set_index("date") for fam, fam_df in df.groupby("family")}
 
     if reference_family not in fam_groups:
         raise ValueError(f"Reference family '{reference_family}' not in data")
@@ -128,7 +128,7 @@ def compute_error_metrics(
                 "N": len(diff),
                 "bias": diff.mean(),
                 "mae": diff.abs().mean(),
-                "rmse": np.sqrt((diff ** 2).mean()),
+                "rmse": np.sqrt((diff**2).mean()),
                 "std_err": diff.std(),
                 "medae": np.median(np.abs(diff)),
                 "r": r,
@@ -143,6 +143,7 @@ def compute_error_metrics(
 # Main routine
 # ----------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="Reproduce Ren vs MCD43A4 comparison.")
     parser.add_argument(
@@ -151,7 +152,9 @@ def main():
         default=Path("data/MOD09GA_MOD10A1_MCD43A4_Comparaison.csv"),
         help="Input CSV file path (default: data/MOD09GA_MOD10A1_MCD43A4_Comparaison.csv)",
     )
-    parser.add_argument("--out", type=Path, default=Path("plots"), help="Directory for output plots")
+    parser.add_argument(
+        "--out", type=Path, default=Path("plots"), help="Directory for output plots"
+    )
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -175,7 +178,9 @@ def main():
     for (fam, month), sub in df_filtered.groupby(["family", "month"]):  # type: ignore[misc]
         if fam == "MCD43A3":
             continue
-        ref = df_filtered[(df_filtered["family"] == "MCD43A3") & (df_filtered["month"] == month)]
+        ref = df_filtered[
+            (df_filtered["family"] == "MCD43A3") & (df_filtered["month"] == month)
+        ]
         if ref.empty:
             continue
         merged = pd.merge(
@@ -194,7 +199,7 @@ def main():
                 "N": len(diff),
                 "bias": diff.mean(),
                 "mae": diff.abs().mean(),
-                "rmse": np.sqrt((diff ** 2).mean()),
+                "rmse": np.sqrt((diff**2).mean()),
             }
         )
     if monthly_rows:
@@ -203,12 +208,18 @@ def main():
         print("Monthly metrics saved to monthly_error_metrics.csv")
 
     # 16-day half-month metrics (Ren et al.)
-    df_filtered["halfmonth"] = df_filtered["date"].dt.year.astype(str) + "_" + ((df_filtered["date"].dt.dayofyear - 1) // 16 + 1).astype(str)
+    df_filtered["halfmonth"] = (
+        df_filtered["date"].dt.year.astype(str)
+        + "_"
+        + ((df_filtered["date"].dt.dayofyear - 1) // 16 + 1).astype(str)
+    )
     hm_rows = []
     for (fam, hm), sub in df_filtered.groupby(["family", "halfmonth"]):  # type: ignore[misc]
         if fam == "MCD43A3":
             continue
-        ref = df_filtered[(df_filtered["family"] == "MCD43A3") & (df_filtered["halfmonth"] == hm)]
+        ref = df_filtered[
+            (df_filtered["family"] == "MCD43A3") & (df_filtered["halfmonth"] == hm)
+        ]
         if ref.empty:
             continue
         merged = pd.merge(
@@ -228,7 +239,7 @@ def main():
                 "N": len(diff),
                 "bias": diff.mean(),
                 "mae": diff.abs().mean(),
-                "rmse": np.sqrt((diff ** 2).mean()),
+                "rmse": np.sqrt((diff**2).mean()),
             }
         )
     if hm_rows:
@@ -238,9 +249,9 @@ def main():
 
     # --- Residuals vs predictors -------------------------------------------
     if {"solar_zenith", "ndsi_mean"}.issubset(df_filtered.columns):
-        ref_map = (
-            df_filtered[df_filtered["family"] == "MCD43A3"].set_index("date")["albedo_mean"]
-        )
+        ref_map = df_filtered[df_filtered["family"] == "MCD43A3"].set_index("date")[
+            "albedo_mean"
+        ]
         for fam in ["MOD09GA", "MOD10A1"]:
             fam_df = df_filtered[df_filtered["family"] == fam].set_index("date")
             merged = fam_df.join(ref_map, rsuffix="_ref", how="inner")
@@ -248,7 +259,14 @@ def main():
 
             # Scatter vs solar zenith
             ax = sns.scatterplot(data=merged, x="solar_zenith", y="residual", alpha=0.4)
-            sns.regplot(data=merged, x="solar_zenith", y="residual", scatter=False, color="r", ax=ax)
+            sns.regplot(
+                data=merged,
+                x="solar_zenith",
+                y="residual",
+                scatter=False,
+                color="r",
+                ax=ax,
+            )
             ax.set_title(f"{fam} residual vs Solar Zenith")
             plt.tight_layout()
             plt.savefig(args.out / f"bias_vs_sza_{fam}.png", dpi=300)
@@ -256,7 +274,14 @@ def main():
 
             # Scatter vs NDSI
             ax = sns.scatterplot(data=merged, x="ndsi_mean", y="residual", alpha=0.4)
-            sns.regplot(data=merged, x="ndsi_mean", y="residual", scatter=False, color="b", ax=ax)
+            sns.regplot(
+                data=merged,
+                x="ndsi_mean",
+                y="residual",
+                scatter=False,
+                color="b",
+                ax=ax,
+            )
             ax.set_title(f"{fam} residual vs NDSI")
             plt.tight_layout()
             plt.savefig(args.out / f"bias_vs_ndsi_{fam}.png", dpi=300)
@@ -269,7 +294,9 @@ def main():
     for fam in ["MOD09GA", "MOD10A1"]:
         fam_df = df_filtered[df_filtered["family"] == fam].set_index("date")
         ref_df = df_filtered[df_filtered["family"] == "MCD43A3"].set_index("date")
-        merged = pd.concat([fam_df["albedo_mean"], ref_df["albedo_mean"]], axis=1, join="inner")
+        merged = pd.concat(
+            [fam_df["albedo_mean"], ref_df["albedo_mean"]], axis=1, join="inner"
+        )
         merged.columns = [fam, "MCD43A3"]
 
         if merged.empty:
@@ -305,4 +332,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
