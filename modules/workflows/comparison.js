@@ -65,27 +65,41 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    var withDate = col.map(function(img) {
-      var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      var id   = ee.String(img.get('system:id'));
-      var isTerra = id.slice(0, 7).compareTo('MOD09GA').eq(0).int();
-      return img.set({'date_str': dateStr, 'is_terra': isTerra});
+    // -----------------------------------------------------------------
+    // Join-based approach recommended by EE docs:
+    //   • keeps every element a real ee.Image (safe for .clip()).
+    //   • Terra wins automatically when present.
+    // -----------------------------------------------------------------
+
+    // Split Terra vs Aqua by ID prefix
+    var terra = col.filter(ee.Filter.stringStartsWith('system:id', 'MOD09GA'));
+    var aqua  = col.filter(ee.Filter.stringStartsWith('system:id', 'MYD09GA'));
+
+    // Join: attach the matching Terra (if any) to each timestamp
+    var joined = ee.Join.saveFirst('terra').apply({
+      primary: aqua.merge(terra), // both satellites
+      secondary: terra,
+      condition: ee.Filter.equals({
+        leftField: 'system:time_start',
+        rightField: 'system:time_start'
+      })
     });
 
-    // Sort so Terra (is_terra == 1) comes first within each day, then keep the
-    // first image per date. This guarantees at most one image per day and
-    // prioritises Terra automatically.
-    var daily = withDate
-                  // Make Terra come first within each day
-                  .sort('is_terra', false) // descending
-                  // Then earliest time first (so if multiple Terra scenes, pick first)
-                  .sort('system:time_start')
-                  // Remove duplicates by date
-                  .distinct(['date_str'])
-                  // Ensure all elements are proper ee.Image objects after distinct
-                  .map(function(img) { return ee.Image(img); });
+    // Pick Terra when present; else Aqua
+    var daily = ee.ImageCollection(joined).map(function(img) {
+      var t = ee.Image(img.get('terra'));
+      var out = ee.Image(ee.Algorithms.If(t, t, img));
 
-    col = daily.sort('system:time_start');
+      // Add helpful properties for downstream export
+      return out.set({
+        'is_terra': t ? 1 : 0,
+        'date_str': ee.Date(out.get('system:time_start')).format('YYYY-MM-dd')
+      });
+    });
+
+    // If multiple Terra (or Aqua-fallback) scenes share the same day (e.g., overlapping tiles),
+    // keep the first (earliest timestamp).
+    col = daily.sort('system:time_start').distinct(['date_str']);
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
