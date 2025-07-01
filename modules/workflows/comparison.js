@@ -62,32 +62,27 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Simple approach: group by date, pick Terra if available, else Aqua
-    var withDate = col.map(function(img) {
-      var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      var id = ee.String(img.get('system:id'));
-      var isTerra = id.slice(0, 7).compareTo('MOD09GA').eq(0);
-      return img.set('date_string', dateStr).set('is_terra', isTerra);
+    // Keep both Terra and Aqua images after the common filters
+    var both = col; // MOD09GA + MYD09GA already filtered
+
+    // Subset containing only Terra acquisitions
+    var terraOnly = both.filter(ee.Filter.eq('SATELLITE', 'Terra'));
+
+    // Server-side join: attach the matching Terra image (if any) to each record
+    var joined = ee.Join.saveFirst('terra').apply({
+      primary: both,
+      secondary: terraOnly,
+      condition: ee.Filter.equals({
+        leftField: 'system:time_start',
+        rightField: 'system:time_start'
+      })
     });
-    
-    // Get unique dates
-    var dates = withDate.aggregate_array('date_string').distinct();
-    
-    // For each date, select Terra if available, otherwise Aqua
-    var dailyImages = dates.map(function(date) {
-      var dayImages = withDate.filter(ee.Filter.eq('date_string', date));
-      var terraImages = dayImages.filter(ee.Filter.eq('is_terra', true));
-      var aquaImages = dayImages.filter(ee.Filter.eq('is_terra', false));
-      
-      // Return Terra if available, otherwise first Aqua image
-      return ee.Algorithms.If(
-        terraImages.size().gt(0),
-        terraImages.first(),
-        aquaImages.first()
-      );
-    });
-    
-    col = ee.ImageCollection(dailyImages).sort('system:time_start');
+
+    // For every timestamp pick Terra if present, otherwise Aqua
+    col = ee.ImageCollection(joined).map(function(img) {
+      var terra = ee.Image(img.get('terra'));
+      return ee.Image(ee.Algorithms.If(terra, terra, img));
+    }).sort('system:time_start');
   }
 
   return col;
