@@ -81,10 +81,28 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     print('Terra count:', terra.size());
     print('Aqua count:', aqua.size());
     
-    // Create a deduplicated collection favoring Terra
-    // Per CLAUDE.md: avoid distinct() - use alternative approach
-    col = terra.merge(aqua).sort('system:time_start');
-    print('After Terra/Aqua merge:', col.size());
+    // Memory-efficient deduplication: iterate through date range
+    var startDate = ee.Date(col.aggregate_min('system:time_start'));
+    var endDate = ee.Date(col.aggregate_max('system:time_start'));
+    var daysDiff = endDate.difference(startDate, 'day').round();
+    
+    // Create deduplicated collection by daily selection
+    var daysList = ee.List.sequence(0, daysDiff);
+    col = ee.ImageCollection.fromImages(
+      daysList.map(function(dayOffset) {
+        var currentDate = startDate.advance(dayOffset, 'day');
+        var nextDate = currentDate.advance(1, 'day');
+        
+        // Get images for this date
+        var dayTerra = terra.filter(ee.Filter.date(currentDate, nextDate));
+        var dayAqua = aqua.filter(ee.Filter.date(currentDate, nextDate));
+        
+        // Return Terra if available, otherwise Aqua
+        var hasTerra = dayTerra.size().gt(0);
+        return ee.Algorithms.If(hasTerra, dayTerra.first(), dayAqua.first());
+      }).filter(ee.Filter.notNull(['system:time_start']))
+    );
+    print('After Terra-priority deduplication:', col.size());
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
