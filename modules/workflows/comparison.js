@@ -212,8 +212,8 @@ function exportRenAlbedoSingleDate(date, glacierOutlines, region, options) {
     throw new Error('No MOD09GA/MYD09GA data available on ' + date);
   }
 
-  var processed = processRenCollection(col, glacierOutlines)
-                    .first()
+  var processed = ee.Image(processRenCollection(col, glacierOutlines)
+                    .first())
                     .select('broadband_albedo_ren_masked');
 
   var exportImg = processed.visualize({
@@ -251,8 +251,8 @@ function exportRenAlbedoSingleDateNative(date, glacierOutlines, region, options)
   }
   var nativeProj = first.projection();
 
-  var processed = processRenCollection(col, glacierOutlines)
-                   .first()
+  var processed = ee.Image(processRenCollection(col, glacierOutlines)
+                   .first())
                    .select('broadband_albedo_ren_masked');
 
   var exportParams = {
