@@ -281,7 +281,7 @@ function printDataCounts(results) {
     }
   };
 
-  if (results.ren)      safeCount(results.ren, 'MOD09A1 method');
+  if (results.ren)      safeCount(results.ren, 'MOD09GA method');
   if (results.mod10a1)  safeCount(results.mod10a1, 'MOD10A1 method');
   if (results.mcd43a3)  safeCount(results.mcd43a3, 'MCD43A3 method');
 }
