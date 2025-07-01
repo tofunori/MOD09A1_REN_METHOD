@@ -55,11 +55,13 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   }
 
   var col = buildCollection(collection);
+  print('Initial collection size:', col.size());
 
   // Apply temporal / spatial filters
   col = glacierUtils.applyStandardFiltering(
     col, startDate, endDate, region, config.PROCESSING_CONFIG.melt_season_only
   );
+  print('After standard filtering:', col.size());
 
   // -------------------------------------------------------------------
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
@@ -71,11 +73,13 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     
     // Simple approach per CLAUDE.md: just merge and sort
     col = terra.merge(aqua).sort('system:time_start');
+    print('After Terra/Aqua merge:', col.size());
   }
 
   // Ensure every element returned is explicitly an ee.Image so downstream
   // methods like .clip() are always available.
   col = col.map(function(img) { return ee.Image(img); });
+  print('Final collection size:', col.size());
 
   return col;
 }
