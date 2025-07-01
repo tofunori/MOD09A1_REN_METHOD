@@ -1,3 +1,0 @@
-method,date,year,month,day_of_year,albedo_mean,pixel_count,system_time_start,export_description,export_timestamp
-MOD10A1,2020-05-31,2020,5,152,0.110694,29,1590969600000,modular_albedo_comparison_20200601_to_20200605,2025-06-30T16:43:19.031947
-MOD10A1,2020-06-01,2020,6,153,0.164696,2,1591056000000,modular_albedo_comparison_20200601_to_20200605,2025-06-30T16:43:19.031947
