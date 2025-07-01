@@ -62,24 +62,21 @@ function getFilteredCollection(startDate, endDate, region, collection) {
   // NEW: one-image-per-day compositing (Terra priority, Aqua fallback)
   // -------------------------------------------------------------------
   if (isDefaultTerraAquaMerge) {
-    // Attach a simple date (yyyy-MM-dd) property to every image
-    var withDate = col.map(function (img) {
+    // Flag platform preference: Terra (0) preferred over Aqua (1)
+    var tagged = col.map(function(img) {
       var dateStr = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd');
-      return img.set('simple_date', dateStr);
+      var isTerra = ee.String(img.get('system:id')).contains('MOD09GA');
+      return img.set({
+        'simple_date': dateStr,
+        'platform_pref': ee.Number(ee.Algorithms.If(isTerra, 0, 1))
+      });
     });
 
-    // Get the list of distinct days in the filtered period
-    var distinctDates = ee.List(withDate.aggregate_array('simple_date')).distinct();
-
-    // Build a daily ImageCollection choosing Terra if available, else Aqua
-    col = ee.ImageCollection(distinctDates.map(function (d) {
-      d = ee.String(d);
-      var dayCol = withDate.filter(ee.Filter.eq('simple_date', d));
-      // Prefer Terra (MOD09GA) if present
-      var terraImg = dayCol.filter(ee.Filter.stringContains('system:id', 'MOD09GA')).first();
-      var chosen = ee.Image(ee.Algorithms.If(terraImg, terraImg, dayCol.first()));
-      return chosen.set('simple_date', d);
-    }));
+    // Sort by date then preference, keep first image per day
+    col = tagged
+            .sort('platform_pref')
+            .distinct('simple_date')
+            .sort('system:time_start'); // keep chronological order
   }
 
   return col;
