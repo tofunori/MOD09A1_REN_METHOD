@@ -22,7 +22,6 @@ var config = require('users/tofunori/MOD09A1_REN_METHOD:modules/config.js');
  * Includes mean, std, min, max, count for each method and date
  */
 function exportComparisonStats(results, region, description) {
-  print('📤 Exporting comprehensive statistics to CSV...');
   
   var allStats = ee.FeatureCollection([]);
   
@@ -184,8 +183,6 @@ function exportComparisonStats(results, region, description) {
     fileFormat: 'CSV'
   });
   
-  print('✅ CSV export initiated: ' + description);
-  print('📁 Check Google Drive folder: albedo_method_comparison');
   
   // Print data counts for verification
   printDataCounts(results);
@@ -195,29 +192,6 @@ function exportComparisonStats(results, region, description) {
  * Print data counts for verification
  */
 function printDataCounts(results) {
-  print('');
-  print('🔍 DATA VERIFICATION');
-  
-  // Print all methods with consistent approach
-  if (results.ren) {
-    print('MOD09GA method observations: 975');
-  } else {
-    print('MOD09GA method collection missing');
-  }
-  
-  if (results.mod10a1) {
-    print('MOD10A1 method observations: 975');
-  } else {
-    print('MOD10A1 method collection missing');
-  }
-  
-  if (results.mcd43a3) {
-    print('MCD43A3 method observations: 975');
-  } else {
-    print('MCD43A3 method collection missing');
-  }
-  
-  print('');
 }
 
 /**
@@ -273,7 +247,6 @@ function exportIndividualMethod(collection, bandName, methodName, region, descri
     fileFormat: 'CSV'
   });
   
-  print(methodName + ' export task initiated: ' + description + '_' + methodName);
 }
 
 // ============================================================================

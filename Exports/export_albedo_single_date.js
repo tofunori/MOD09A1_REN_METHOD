@@ -29,5 +29,3 @@ cmp.exportRenAlbedoSingleDate(targetDate, g.outlines, g.bounds, {
   folder: driveFolder,
   scale: 500                      // 500 m → ~0.0045° in EPSG:4326
 });
-
-print('Task queued: Albedo_' + targetDate); 

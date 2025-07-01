@@ -122,30 +122,23 @@ function runModularComparison(startDate, endDate, methods, glacierOutlines, regi
 
     // Process MOD09A1 method if selected (uses MOD09GA)
     if (methods.ren) {
-      print('🔬 Processing MOD09A1 method (MOD09GA)...');
       var filtered = getFilteredCollection(startDate, endDate, region);
-      // Cache count BEFORE heavy processing to avoid timeouts during debug prints
       resultsObj.ren_count = filtered.size();
       resultsObj.ren = processRenCollection(filtered, glacierOutlines);
     }
 
     // Process MOD10A1 method if selected (uses MOD10A1)
     if (methods.mod10a1) {
-      print('🔬 Processing MOD10A1 method...');
       resultsObj.mod10a1 = processMOD10A1Collection(startDate, endDate, region, glacierOutlines);
     }
 
     // Process MCD43A3 method if selected (uses MCD43A3)
     if (methods.mcd43a3) {
-      print('🔬 Processing MCD43A3 method...');
       resultsObj.mcd43a3 = processMCD43A3Collection(startDate, endDate, region, glacierOutlines);
     }
-
-    print('✅ All selected methods processed successfully');
     if (successCb) successCb(resultsObj);
     return resultsObj;
   } catch (err) {
-    print('❌ Error in runModularComparison: ' + err.toString());
     if (errorCb) errorCb(err.toString());
     throw err;
   }
@@ -158,10 +151,8 @@ function exportComparisonResults(startDate, endDate, results, region, successCb,
   try {
     var description = exportUtils.generateExportDescription('modular_albedo_comparison', startDate, endDate);
     exportUtils.exportComparisonStats(results, region, description);
-    print('✅ CSV export completed: ' + description);
     if (successCb) successCb();
   } catch (err) {
-    print('❌ CSV export failed: ' + err.toString());
     if (errorCb) errorCb(err.toString());
   }
 }
@@ -176,11 +167,8 @@ function runQAProfileComparison(startDate, endDate, glacierOutlines, region, suc
     var description = exportUtils.generateExportDescription('qa_profile_comparison', startDate, endDate);
     
     exportUtils.exportQAProfileComparison(filtered, glacierOutlines, createGlacierMask, region, description);
-    print('✅ QA Profile comparison export completed: ' + description);
-    
     if (successCb) successCb({ expectedOutputs: [description + '_qa_profile_comparison'] });
   } catch (err) {
-    print('❌ QA Profile comparison failed: ' + err.toString());
     if (errorCb) errorCb(err.toString());
   }
 }

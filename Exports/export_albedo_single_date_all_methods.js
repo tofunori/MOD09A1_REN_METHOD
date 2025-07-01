@@ -45,19 +45,7 @@ cmp.exportRenAlbedoSingleDate(targetDate, glacierOutlines, region, {
   folder:      driveFolder,
   scale:       500
 });
-print('Task queued: AlbedoRen_' + targetDate);
 
-// ---------------------------------------------------------------------------
-// 2) Helper – fetch first image for a collection on the target date
-// ---------------------------------------------------------------------------
-function firstImage(colId) {
-  var start = ee.Date(targetDate);
-  var end   = start.advance(1, 'day');
-  return ee.ImageCollection(colId)
-           .filterDate(start, end)
-           .filterBounds(region)
-           .first();
-}
 
 // ---------------------------------------------------------------------------
 // 3) MOD10A1 processing & export
@@ -80,13 +68,11 @@ if (mod10Collection.size().gt(0).getInfo()) {
     maxPixels: cfg.EXPORT_CONFIG.maxPixels_simple,
     fileFormat: 'GeoTIFF'
   });
-  print('Task queued: AlbedoMOD10A1_' + targetDate);
 } else {
-  print('⚠️ No MOD10A1 data available on ' + targetDate);
 }
 
 // ---------------------------------------------------------------------------
-// 4) MCD43A3 processing & export
+// 3) MCD43A3 processing & export
 // ---------------------------------------------------------------------------
 var mcd43Collection = ee.ImageCollection(cfg.MODIS_COLLECTIONS.MCD43A3)
                         .filterDate(targetDate, ee.Date(targetDate).advance(1, 'day'))
@@ -106,9 +92,4 @@ if (mcd43Collection.size().gt(0).getInfo()) {
     maxPixels: cfg.EXPORT_CONFIG.maxPixels_simple,
     fileFormat: 'GeoTIFF'
   });
-  print('Task queued: AlbedoMCD43A3_' + targetDate);
-} else {
-  print('⚠️ No MCD43A3 data available on ' + targetDate);
 }
-
-print('🚀 Three export tasks have been queued (check the Tasks tab).'); 
