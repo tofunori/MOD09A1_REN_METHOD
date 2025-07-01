@@ -80,13 +80,7 @@ function exportComparisonStats(results, region, description) {
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
     
-    // Deduplicate Ren method by date, prioritizing Terra (MOD09GA) over Aqua (MYD09GA)
-    print('Ren stats before deduplication:', renStats.size());
-    // Sort by date then method to ensure MOD09GA comes before MYD09GA
-    renStats = renStats.sort('date').sort('method');
-    // Keep first occurrence per date (Terra priority)
-    renStats = renStats.distinct('date');
-    print('Ren stats after deduplication:', renStats.size());
+    // Note: Deduplication handled at collection level, not here to avoid memory issues
     
     allStats = allStats.merge(renStats);
   }
@@ -136,11 +130,7 @@ function exportComparisonStats(results, region, description) {
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
     
-    // Deduplicate MOD10A1 method by date, prioritizing Terra (MOD10A1) over Aqua (MYD10A1)
-    // Sort by date then method to ensure MOD10A1 comes before MYD10A1
-    mod10Stats = mod10Stats.sort('date').sort('method');
-    // Keep first occurrence per date (Terra priority)
-    mod10Stats = mod10Stats.distinct('date');
+    // Note: Deduplication handled at collection level, not here to avoid memory issues
     
     allStats = allStats.merge(mod10Stats);
   }

@@ -81,7 +81,8 @@ function getFilteredCollection(startDate, endDate, region, collection) {
     print('Terra count:', terra.size());
     print('Aqua count:', aqua.size());
     
-    // Simple approach per CLAUDE.md: just merge and sort
+    // Create a deduplicated collection favoring Terra
+    // Per CLAUDE.md: avoid distinct() - use alternative approach
     col = terra.merge(aqua).sort('system:time_start');
     print('After Terra/Aqua merge:', col.size());
   }
