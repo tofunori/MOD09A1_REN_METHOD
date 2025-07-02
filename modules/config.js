@@ -17,6 +17,30 @@ var GLACIER_CONFIG = {scale: 30, abundance_threshold: 0.50, modis_scale: 500};
 var PROCESSING_CONFIG = {melt_season_only: true, apply_cloud_masking: true, debug_mode: false};
 var DEBUG_MODE = PROCESSING_CONFIG.debug_mode;
 var EXPORT_CONFIG = {scale: 463, scale_simple: 500, maxPixels_ren: 1e9, maxPixels_simple: 1e8, bestEffort: true, tileScale: 2};
+
+// Pixel-level export configuration
+var PIXEL_EXPORT_CONFIG = {
+  // Sampling parameters
+  maxPixelsPerImage: 1e6,  // Maximum pixels to sample per image (memory management)
+  tileScale: 4,            // Increased tile scale for pixel sampling
+  geometries: true,        // Include lat/lon coordinates
+  
+  // Quality control
+  validateCoordinates: true,    // Validate pixel coordinates
+  filterInvalidPixels: true,    // Remove pixels with invalid albedo values
+  
+  // Export format
+  fileFormat: 'CSV',           // Export format
+  folder: 'albedo_pixel_analysis',  // Google Drive folder
+  
+  // Performance settings
+  batchSize: 10,               // Number of images to process in batch
+  memoryOptimized: true,       // Use memory optimization strategies
+  
+  // Pixel ID system
+  useEnhancedPixelIds: false,  // Use enhanced h/v/row/col system vs simple row/col
+  includePixelMetadata: true   // Include elevation, NDSI, solar zenith for MOD09GA
+};
 exports.REFL_BANDS = REFL_BANDS;
 exports.TOPO_BANDS_ALL = TOPO_BANDS_ALL;
 exports.TOPO_BANDS_SNOW = TOPO_BANDS_SNOW;
@@ -35,6 +59,7 @@ exports.GLACIER_CONFIG = GLACIER_CONFIG;
 exports.PROCESSING_CONFIG = PROCESSING_CONFIG;
 exports.DEBUG_MODE = DEBUG_MODE;
 exports.EXPORT_CONFIG = EXPORT_CONFIG;
+exports.PIXEL_EXPORT_CONFIG = PIXEL_EXPORT_CONFIG;
 exports.ICE_COEFFICIENTS = iceCoefficients;
 exports.SNOW_COEFFICIENTS = snowCoefficients;
 var SNOW_BRDF_COEFFICIENTS = {
