@@ -143,33 +143,6 @@ function exportComparisonStats(results, region, description) {
       );
       
       var date = ee.Date(image.get('system:time_start'));
-
-      // --- Additional predictors -------------------------------------------------
-      // (1) Solar-zenith angle (degrees)
-      var szaDeg = image.select('SolarZenith').multiply(0.01);
-      var szaMean = szaDeg.reduceRegion({
-        reducer: ee.Reducer.mean(),
-        geometry: region,
-        scale: config.EXPORT_CONFIG.scale_simple,
-        maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
-        bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale: config.EXPORT_CONFIG.tileScale
-      }).get('SolarZenith');
-
-      // (2) Scene-mean NDSI (computed from MODIS bands 4 and 6)
-      var ndsiImg = image.expression(' (b4 - b6) / (b4 + b6) ', {
-        'b4': image.select('sur_refl_b04').multiply(0.0001),
-        'b6': image.select('sur_refl_b06').multiply(0.0001)
-      }).rename('NDSI');
-      var ndsiMean = ndsiImg.reduceRegion({
-        reducer: ee.Reducer.mean(),
-        geometry: region,
-        scale: config.EXPORT_CONFIG.scale_simple,
-        maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
-        bestEffort: config.EXPORT_CONFIG.bestEffort,
-        tileScale: config.EXPORT_CONFIG.tileScale
-      }).get('NDSI');
-
       return ee.Feature(null, {
         'albedo_mean': ee.Dictionary(stats).get('broadband_albedo_mod10a1_mean'),
         'albedo_std': ee.Dictionary(stats).get('broadband_albedo_mod10a1_stdDev'),
