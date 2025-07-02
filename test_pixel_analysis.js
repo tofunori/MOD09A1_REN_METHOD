@@ -425,6 +425,16 @@ print('  • getTestInfo() - Get environment information');
 print('  • resetTestEnvironment() - Reset test state');
 print('');
 print('🎯 Quick start: testSingleDate("2023-08-07")');
+print('');
+print('🚀 Auto-running single date test...');
+
+// Auto-run test on script execution
+try {
+  testSingleDate("2023-08-07");
+} catch (error) {
+  print('❌ Auto-test failed:', error);
+  print('💡 Try running functions manually if needed');
+}
 
 // ============================================================================
 // EXPORTS
