@@ -47,7 +47,7 @@ function testMonthlyPixelExport(date, region) {
     var allSamples = ee.FeatureCollection([]);
     
     // Process MOD09GA (Ren method)
-    if (results.ren && results.ren.size().gt(0)) {
+    if (results.ren) {
       print('📊 Processing MOD09GA pixels for month...');
       
       // Process each image in the collection
@@ -64,8 +64,8 @@ function testMonthlyPixelExport(date, region) {
         var CELLS = 2400;  // Pixels per tile at 500m resolution
         var CELL_SIZE = TILE_WIDTH / CELLS;  // 463.312716 meters (actual cell size)
         
-        // Get coordinates in official MODIS sinusoidal projection (SR-ORG:6974)
-        var modisProjection = ee.Projection('SR-ORG:6974');
+        // Get coordinates in native MODIS sinusoidal projection from the image
+        var modisProjection = renImage.projection();
         var coords = ee.Image.pixelCoordinates(modisProjection);
         var x = coords.select('x');
         var y = coords.select('y');
@@ -85,7 +85,7 @@ function testMonthlyPixelExport(date, region) {
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .int().rename('pixel_id');
+          .toDouble().rename('pixel_id');
         
         var imageWithCoords = renImage.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
@@ -117,7 +117,7 @@ function testMonthlyPixelExport(date, region) {
     }
     
     // Process MOD10A1
-    if (results.mod10a1 && results.mod10a1.size().gt(0)) {
+    if (results.mod10a1) {
       print('📊 Processing MOD10A1 pixels for month...');
       
       // Process each image in the collection
@@ -126,16 +126,16 @@ function testMonthlyPixelExport(date, region) {
         
         // Official NASA MODIS pixel identification system (identical to MOD09GA)
         
-        // NASA official constants (exact values from research)
+        // NASA official constants (exact corrected values)
         var EARTH_RADIUS = 6371007.181;
-        var EARTH_WIDTH = 2 * Math.PI * EARTH_RADIUS;
-        var TILE_WIDTH = EARTH_WIDTH / 36;
+        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
+        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters
         var HORIZONTAL_TILES = 36;
         var CELLS = 2400;
         var CELL_SIZE = TILE_WIDTH / CELLS;
         
-        // Get coordinates in official MODIS sinusoidal projection (SR-ORG:6974)
-        var modisProjection = ee.Projection('SR-ORG:6974');
+        // Get coordinates in native MODIS sinusoidal projection from the image
+        var modisProjection = mod10Image.projection();
         var coords = ee.Image.pixelCoordinates(modisProjection);
         var x = coords.select('x');
         var y = coords.select('y');
@@ -155,7 +155,7 @@ function testMonthlyPixelExport(date, region) {
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .int().rename('pixel_id');
+          .toDouble().rename('pixel_id');
         
         var imageWithCoords = mod10Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
@@ -187,7 +187,7 @@ function testMonthlyPixelExport(date, region) {
     }
     
     // Process MCD43A3
-    if (results.mcd43a3 && results.mcd43a3.size().gt(0)) {
+    if (results.mcd43a3) {
       print('📊 Processing MCD43A3 pixels for month...');
       
       // Process each image in the collection
@@ -196,16 +196,16 @@ function testMonthlyPixelExport(date, region) {
         
         // Official NASA MODIS pixel identification system (identical to MOD09GA)
         
-        // NASA official constants (exact values from research)
+        // NASA official constants (exact corrected values)
         var EARTH_RADIUS = 6371007.181;
-        var EARTH_WIDTH = 2 * Math.PI * EARTH_RADIUS;
-        var TILE_WIDTH = EARTH_WIDTH / 36;
+        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
+        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters
         var HORIZONTAL_TILES = 36;
         var CELLS = 2400;
         var CELL_SIZE = TILE_WIDTH / CELLS;
         
-        // Get coordinates in official MODIS sinusoidal projection (SR-ORG:6974)
-        var modisProjection = ee.Projection('SR-ORG:6974');
+        // Get coordinates in native MODIS sinusoidal projection from the image
+        var modisProjection = mcd43Image.projection();
         var coords = ee.Image.pixelCoordinates(modisProjection);
         var x = coords.select('x');
         var y = coords.select('y');
@@ -225,7 +225,7 @@ function testMonthlyPixelExport(date, region) {
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .int().rename('pixel_id');
+          .toDouble().rename('pixel_id');
         
         var imageWithCoords = mcd43Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
