@@ -109,9 +109,10 @@ function processMOD10A1Collection(startDate, endDate, region, glacierOutlines) {
   var collection = terraCol.merge(aquaCol).sort('system:time_start');
   
   // Ensure the required daily snow albedo band is available
-  collection = collection.filter(
-    ee.Filter.listContains('band_names', 'Snow_Albedo_Daily_Tile')
-  );
+  // Temporarily disabled to debug MOD10A1 export issue
+  // collection = collection.filter(
+  //   ee.Filter.listContains('band_names', 'Snow_Albedo_Daily_Tile')
+  // );
   
   var createGlacierMask = glacierUtils.createGlacierMask;
   return collection.map(function (img) {
