@@ -59,13 +59,13 @@ function testWeeklyPixelExportCorrected(date, region) {
       var renSamples = results.ren.map(function(renImage) {
         renImage = ee.Image(renImage);
         
-        // Fix projection and scale explicitly before calculating coordinates
-        var proj = renImage.select('broadband_albedo_ren_masked').projection().atScale(500);
-        var coords = ee.Image.pixelCoordinates(proj);
+        // Use direct pixel coordinates from MODIS sinusoidal projection
+        var projection = renImage.select('broadband_albedo_ren_masked').projection();
+        var coords = ee.Image.pixelCoordinates(projection);
         
-        // Convert meters to indices for stable IDs
-        var pixelRow = coords.select('y').divide(500).toInt().rename('pixel_row');
-        var pixelCol = coords.select('x').divide(500).toInt().rename('pixel_col');
+        // Convert meters to indices for stable IDs (divide by nominal scale)
+        var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
+        var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
         // Generate enhanced pixel coordinates with proper MODIS tiles
         var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(renImage);
@@ -116,13 +116,13 @@ function testWeeklyPixelExportCorrected(date, region) {
       var mod10Samples = results.mod10a1.map(function(mod10Image) {
         mod10Image = ee.Image(mod10Image);
         
-        // Fix projection and scale explicitly before calculating coordinates
-        var proj = mod10Image.select('broadband_albedo_mod10a1').projection().atScale(500);
-        var coords = ee.Image.pixelCoordinates(proj);
+        // Use direct pixel coordinates from MODIS sinusoidal projection
+        var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
+        var coords = ee.Image.pixelCoordinates(projection);
         
-        // Convert meters to indices for stable IDs
-        var pixelRow = coords.select('y').divide(500).toInt().rename('pixel_row');
-        var pixelCol = coords.select('x').divide(500).toInt().rename('pixel_col');
+        // Convert meters to indices for stable IDs (divide by nominal scale)
+        var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
+        var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
         // Generate enhanced pixel coordinates with proper MODIS tiles
         var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(mod10Image);
@@ -173,13 +173,13 @@ function testWeeklyPixelExportCorrected(date, region) {
       var mcd43Samples = results.mcd43a3.map(function(mcd43Image) {
         mcd43Image = ee.Image(mcd43Image);
         
-        // Fix projection and scale explicitly before calculating coordinates
-        var proj = mcd43Image.select('broadband_albedo_mcd43a3').projection().atScale(500);
-        var coords = ee.Image.pixelCoordinates(proj);
+        // Use direct pixel coordinates from MODIS sinusoidal projection
+        var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
+        var coords = ee.Image.pixelCoordinates(projection);
         
-        // Convert meters to indices for stable IDs
-        var pixelRow = coords.select('y').divide(500).toInt().rename('pixel_row');
-        var pixelCol = coords.select('x').divide(500).toInt().rename('pixel_col');
+        // Convert meters to indices for stable IDs (divide by nominal scale)
+        var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
+        var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
         // Generate enhanced pixel coordinates with proper MODIS tiles
         var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(mcd43Image);
