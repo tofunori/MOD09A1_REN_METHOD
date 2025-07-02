@@ -49,8 +49,7 @@ function testSimplePixelExport(date, region) {
       var renSamples = renImage.select('broadband_albedo_ren_masked').sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
-        numPixels: 500, // Smaller per method to avoid memory issues
-        geometries: true
+        geometries: true  // Remove numPixels to get ALL available pixels
       }).map(function(feature) {
         var coords = feature.geometry().coordinates();
         var date = ee.Date(renImage.get('system:time_start'));
@@ -76,8 +75,7 @@ function testSimplePixelExport(date, region) {
       var mod10Samples = mod10Image.select('broadband_albedo_mod10a1').sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
-        numPixels: 500,
-        geometries: true
+        geometries: true  // Remove numPixels to get ALL available pixels
       }).map(function(feature) {
         var coords = feature.geometry().coordinates();
         var date = ee.Date(mod10Image.get('system:time_start'));
@@ -103,8 +101,7 @@ function testSimplePixelExport(date, region) {
       var mcd43Samples = mcd43Image.select('broadband_albedo_mcd43a3').sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
-        numPixels: 500,
-        geometries: true
+        geometries: true  // Remove numPixels to get ALL available pixels
       }).map(function(feature) {
         var coords = feature.geometry().coordinates();
         var date = ee.Date(mcd43Image.get('system:time_start'));
@@ -125,13 +122,14 @@ function testSimplePixelExport(date, region) {
     // Export all methods combined
     Export.table.toDrive({
       collection: allSamples,
-      description: 'three_methods_pixel_test_' + date.replace(/-/g, ''),
-      folder: 'pixel_test_simple',
+      description: 'ALL_pixels_three_methods_' + date.replace(/-/g, ''),
+      folder: 'pixel_test_complete',
       fileFormat: 'CSV'
     });
     
-    print('🎉 All three methods pixel export initiated');
-    print('📁 Check Tasks tab for: three_methods_pixel_test_' + date.replace(/-/g, ''));
+    print('🎉 ALL PIXELS export for three methods initiated');
+    print('📁 Check Tasks tab for: ALL_pixels_three_methods_' + date.replace(/-/g, ''));
+    print('⚠️  This may be a large dataset - could take time to process');
     
     // Print sample counts
     allSamples.size().evaluate(function(count) {
