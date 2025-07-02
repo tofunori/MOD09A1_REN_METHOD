@@ -301,12 +301,18 @@ function createDateVisualizationWidget(glacierOutlines, region) {
     }
   });
   
-  var panel = ui.Panel([
-    ui.Label('Sélectionner une date:'),
-    dateSlider,
-    ui.Button('Clear layers', function() { Map.clear(); }),
-    ui.Label('Activez l\'Inspector pour voir les valeurs pixel')
-  ]);
+  var panel = ui.Panel({
+    widgets: [
+      ui.Label('Sélectionner une date:'),
+      dateSlider,
+      ui.Button('Clear layers', function() { Map.clear(); }),
+      ui.Label('Activez l\'Inspector pour voir les valeurs pixel')
+    ],
+    style: {
+      position: 'top-left',
+      width: '300px'
+    }
+  });
   
   Map.add(panel);
 }

@@ -10,11 +10,16 @@ function main() {
   if (isInitialized) return lastProcessingResults;
   
   glacierData = glacierUtils.initializeGlacierData();
-  var startDate = '2017-06-01';
-  var endDate = '2024-09-30';
-  var methods = {ren: true, mod10a1: true, mcd43a3: true};
   
-  exportComparisonCSV(startDate, endDate, methods);
+  // Activer la visualisation interactive automatiquement
+  comparisonWorkflow.createDateVisualizationWidget(glacierData.outlines, glacierData.bounds);
+  
+  // Optionnel : garder l'export batch existant (commenté par défaut)
+  // var startDate = '2017-06-01';
+  // var endDate = '2024-09-30';
+  // var methods = {ren: true, mod10a1: true, mcd43a3: true};
+  // exportComparisonCSV(startDate, endDate, methods);
+  
   isInitialized = true;
   return glacierData;
 }

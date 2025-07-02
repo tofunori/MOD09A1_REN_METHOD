@@ -1,24 +1,17 @@
 /**
- * Exemple d'utilisation de la visualisation interactive des 3 méthodes
+ * Instructions d'utilisation de la visualisation interactive des 3 méthodes
  * 
- * Ce script démontre comment utiliser le widget de sélection de date
- * pour comparer visuellement les variations spatiales des pixels d'albédo
- * entre les 3 méthodes : MOD09GA (Ren), MOD10A1, et MCD43A3
+ * IMPORTANT: La visualisation interactive est maintenant automatiquement 
+ * activée quand vous lancez main.js - plus besoin de lancer ce fichier séparément !
+ * 
+ * Ce fichier sert uniquement de documentation pour comprendre le fonctionnement.
  */
 
-// Imports
-var comparison = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
-var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
-
-// Initialiser les données glaciaires
-var glacierData = glacierUtils.initializeGlacierData();
-var glacierOutlines = glacierData.outlines;
-var region = glacierData.bounds;
-
-// Créer le widget de visualisation interactive
-comparison.createDateVisualizationWidget(glacierOutlines, region);
-
-// Instructions d'utilisation
+print('=== VISUALISATION INTERACTIVE ACTIVÉE AUTOMATIQUEMENT ===');
+print('');
+print('La visualisation interactive se lance automatiquement avec main.js');
+print('Le widget de sélection de date apparaît en haut à gauche');
+print('');
 print('=== Instructions d\'utilisation ===');
 print('1. Utilisez le slider pour sélectionner une date');
 print('2. Les 3 méthodes s\'affichent avec la même palette de couleurs');
@@ -31,3 +24,11 @@ print('   - NDSI : Indice de neige normalisé');
 print('   - solar_zenith_deg : Angle solaire en degrés');
 print('');
 print('Les pixels sont clippés au masque glaciaire (50% abundance)');
+print('');
+print('=== Utilisation manuelle (si nécessaire) ===');
+print('Si vous voulez lancer la visualisation manuellement :');
+print('');
+print('var comparison = require(\'users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js\');');
+print('var glacierUtils = require(\'users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js\');');
+print('var glacierData = glacierUtils.initializeGlacierData();');
+print('comparison.createDateVisualizationWidget(glacierData.outlines, glacierData.bounds);');
