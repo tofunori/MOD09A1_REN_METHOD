@@ -5,7 +5,7 @@
  * one full month (~30 days) instead of a single day. Uses direct MODIS sinusoidal 
  * pixel coordinates for unique pixel IDs and spatial matching between methods.
  * 
- * Uses: Geographic coordinates (lat*1000000 + lon) for stable spatial pixel_id
+ * Uses: Official NASA MODIS system (51HHHVVVRRRRCCCCC) for pixel_id
  */
 
 // ============================================================================
@@ -54,25 +54,42 @@ function testMonthlyPixelExport(date, region) {
       var renSamples = results.ren.map(function(renImage) {
         renImage = ee.Image(renImage);
         
-        // Use geographic coordinates for stable spatial pixel IDs
-        var geoCoords = ee.Image.pixelLonLat();
-        var lon = geoCoords.select('longitude');
-        var lat = geoCoords.select('latitude');
+        // Official NASA MODIS pixel identification system
+        var projection = renImage.select('broadband_albedo_ren_masked').projection();
+        var nominalScale = projection.nominalScale();
         
-        // Create stable pixel coordinates based on geographic location
-        // Multiply by 10000 to get sufficient precision and convert to int
-        var lonInt = lon.multiply(10000).round().int().rename('pixel_col');
-        var latInt = lat.multiply(10000).round().int().rename('pixel_row');
+        // Generate pixel coordinates in MODIS sinusoidal space
+        var coords = ee.Image.pixelCoordinates(projection);
+        var x = coords.select('x');
+        var y = coords.select('y');
         
-        // Create spatial pixel ID that's consistent across dates
-        // Use geographic coordinates to ensure same location = same ID
-        var pixelId = latInt.multiply(1000000).add(lonInt).rename('pixel_id');
+        // Official MODIS grid constants (NASA standards)
+        var MODIS_X_OFFSET = 20015109.354;  // Global X coverage offset
+        var MODIS_Y_OFFSET = 10007554.677;  // Global Y coverage offset  
+        var MODIS_TILE_SIZE = 1111950.5197; // Official MODIS tile size in meters
         
-        // Tile coordinates for reference (rounded lat/lon)
-        var lonRounded = lon.multiply(100).round().int().rename('tile_h');
-        var latRounded = lat.multiply(100).round().int().rename('tile_v');
+        // Calculate official MODIS tile indices (h0-h35, v0-v17)
+        var h = x.add(MODIS_X_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_h');
+        var v = y.add(MODIS_Y_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_v');
         
-        var imageWithCoords = renImage.addBands([lonRounded, latRounded, latInt, lonInt, pixelId]);
+        // Calculate within-tile pixel coordinates (0-2399 for 500m)
+        var xInTile = x.add(MODIS_X_OFFSET).mod(MODIS_TILE_SIZE);
+        var yInTile = y.add(MODIS_Y_OFFSET).mod(MODIS_TILE_SIZE);
+        var row = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+        var col = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+        
+        // Official NASA TileGrid ID format: 51HHHVVV
+        var tileGridId = h.multiply(1000).add(v).add(51000000).rename('tile_grid_id');
+        
+        // Official 15-digit NASA pixel ID: TileGridID + RowCol
+        // Format: 51HHHVVVRRRRCCCCC (guaranteed unique per spatial location)
+        var pixelId = tileGridId.multiply(100000000)
+          .add(row.multiply(10000))
+          .add(col)
+          .double()
+          .rename('pixel_id');
+        
+        var imageWithCoords = renImage.addBands([h, v, row, col, tileGridId, pixelId]);
         
         return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
@@ -109,22 +126,31 @@ function testMonthlyPixelExport(date, region) {
       var mod10Samples = results.mod10a1.map(function(mod10Image) {
         mod10Image = ee.Image(mod10Image);
         
-        // Use direct pixel coordinates from MODIS sinusoidal projection
+        // Official NASA MODIS pixel identification system (same as MOD09GA)
         var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
+        var nominalScale = projection.nominalScale();
         
-        // Generate direct pixel coordinates in MODIS sinusoidal space
         var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
+        var x = coords.select('x');
+        var y = coords.select('y');
         
-        // Create unique coordinate-based pixel ID using smaller multiplier to avoid precision issues
-        var pixelId = pixelRow.multiply(100000).add(pixelCol).int().rename('pixel_id');
+        // Official MODIS grid constants (NASA standards)
+        var MODIS_X_OFFSET = 20015109.354;
+        var MODIS_Y_OFFSET = 10007554.677;
+        var MODIS_TILE_SIZE = 1111950.5197;
         
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+        var h = x.add(MODIS_X_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_h');
+        var v = y.add(MODIS_Y_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_v');
         
-        var imageWithCoords = mod10Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+        var xInTile = x.add(MODIS_X_OFFSET).mod(MODIS_TILE_SIZE);
+        var yInTile = y.add(MODIS_Y_OFFSET).mod(MODIS_TILE_SIZE);
+        var row = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+        var col = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+        
+        var tileGridId = h.multiply(1000).add(v).add(51000000).rename('tile_grid_id');
+        var pixelId = tileGridId.multiply(100000000).add(row.multiply(10000)).add(col).double().rename('pixel_id');
+        
+        var imageWithCoords = mod10Image.addBands([h, v, row, col, tileGridId, pixelId]);
         
         return imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
@@ -161,22 +187,31 @@ function testMonthlyPixelExport(date, region) {
       var mcd43Samples = results.mcd43a3.map(function(mcd43Image) {
         mcd43Image = ee.Image(mcd43Image);
         
-        // Use direct pixel coordinates from MODIS sinusoidal projection
+        // Official NASA MODIS pixel identification system (same as MOD09GA)
         var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
+        var nominalScale = projection.nominalScale();
         
-        // Generate direct pixel coordinates in MODIS sinusoidal space
         var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
+        var x = coords.select('x');
+        var y = coords.select('y');
         
-        // Create unique coordinate-based pixel ID using smaller multiplier to avoid precision issues
-        var pixelId = pixelRow.multiply(100000).add(pixelCol).int().rename('pixel_id');
+        // Official MODIS grid constants (NASA standards)
+        var MODIS_X_OFFSET = 20015109.354;
+        var MODIS_Y_OFFSET = 10007554.677;
+        var MODIS_TILE_SIZE = 1111950.5197;
         
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+        var h = x.add(MODIS_X_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_h');
+        var v = y.add(MODIS_Y_OFFSET).divide(MODIS_TILE_SIZE).floor().int().rename('tile_v');
         
-        var imageWithCoords = mcd43Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+        var xInTile = x.add(MODIS_X_OFFSET).mod(MODIS_TILE_SIZE);
+        var yInTile = y.add(MODIS_Y_OFFSET).mod(MODIS_TILE_SIZE);
+        var row = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+        var col = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+        
+        var tileGridId = h.multiply(1000).add(v).add(51000000).rename('tile_grid_id');
+        var pixelId = tileGridId.multiply(100000000).add(row.multiply(10000)).add(col).double().rename('pixel_id');
+        
+        var imageWithCoords = mcd43Image.addBands([h, v, row, col, tileGridId, pixelId]);
         
         return imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
