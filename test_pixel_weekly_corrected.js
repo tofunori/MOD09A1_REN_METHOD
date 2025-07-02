@@ -60,7 +60,7 @@ function testWeeklyPixelExportCorrected(date, region) {
         renImage = ee.Image(renImage);
         
         // Fix projection and scale explicitly before calculating coordinates
-        var proj = ee.Image('MODIS/006/MOD09GA/2023_08_01').projection().atScale(500);
+        var proj = renImage.select('broadband_albedo_ren_masked').projection().atScale(500);
         var coords = ee.Image.pixelCoordinates(proj);
         
         // Convert meters to indices for stable IDs
@@ -117,7 +117,7 @@ function testWeeklyPixelExportCorrected(date, region) {
         mod10Image = ee.Image(mod10Image);
         
         // Fix projection and scale explicitly before calculating coordinates
-        var proj = ee.Image('MODIS/006/MOD10A1/2023_08_01').projection().atScale(500);
+        var proj = mod10Image.select('broadband_albedo_mod10a1').projection().atScale(500);
         var coords = ee.Image.pixelCoordinates(proj);
         
         // Convert meters to indices for stable IDs
@@ -174,7 +174,7 @@ function testWeeklyPixelExportCorrected(date, region) {
         mcd43Image = ee.Image(mcd43Image);
         
         // Fix projection and scale explicitly before calculating coordinates
-        var proj = ee.Image('MODIS/006/MCD43A3/2023_08_01').projection().atScale(500);
+        var proj = mcd43Image.select('broadband_albedo_mcd43a3').projection().atScale(500);
         var coords = ee.Image.pixelCoordinates(proj);
         
         // Convert meters to indices for stable IDs
