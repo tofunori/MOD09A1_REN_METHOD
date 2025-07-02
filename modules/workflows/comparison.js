@@ -293,7 +293,7 @@ function createDateVisualizationWidget(glacierOutlines, region) {
   var dateSlider = ui.DateSlider({
     start: '2017-01-01',
     end: '2024-12-31', 
-    value: '2020-06-15',
+    value: '2023-08-07',
     period: 1,
     onChange: function(dateRange) {
       var date = dateRange.start();

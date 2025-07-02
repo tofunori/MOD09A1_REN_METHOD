@@ -44,8 +44,20 @@ exports.exportPixelPairsIndices = function(results, region, description) {
         // --------------------------------------------------
         // Construct stacked image (daily, reference, col/row)
         // --------------------------------------------------
-        img.select('broadband_albedo_*')                // daily albedo (masked or base)
-           .rename('alb_daily')
+        (function(){
+          // Pick the appropriate daily albedo band (single band)
+          var band;
+          if (family === 'MOD09GA') {
+            band = ee.Image(ee.Algorithms.If(
+              img.bandNames().contains('broadband_albedo_ren_masked'),
+              img.select('broadband_albedo_ren_masked'),
+              img.select('broadband_albedo_ren')
+            ));
+          } else { // MOD10A1 family
+            band = img.select('broadband_albedo_mod10a1');
+          }
+          return band.rename('alb_daily');
+        })()
            .addBands(ref.select('broadband_albedo_mcd43a3').rename('alb_ref'))
            .addBands(ee.Image.pixelCoordinates(img.projection())
                        .rename(['col','row']))
