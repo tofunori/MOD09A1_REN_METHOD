@@ -1,11 +1,12 @@
 /**
- * Monthly Pixel Analysis Test - Fixed Coordinate System
+ * Monthly Pixel Analysis Test - Simplified Working System
  * 
  * This version uses the same pipeline as test_pixel_simple.js but processes
- * one full month (~30 days) instead of a single day. Uses direct MODIS sinusoidal 
+ * one full month (~30 days) instead of a single day. Uses simple, reliable 
  * pixel coordinates for unique pixel IDs and spatial matching between methods.
  * 
- * Uses: Exact NASA MODIS formulas: h=(x+πR)/T, v=(πR-y)/T, corrected constants
+ * Uses: Earth Engine native pixel coordinates for consistent, working pixel IDs
+ * Approach: Simplified system that prioritizes functionality over theoretical accuracy
  */
 
 // ============================================================================
@@ -15,6 +16,29 @@
 var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
 var originalComparison = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
 var pixelUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/pixel_id.js');
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Add simple, working pixel coordinates to an image
+ * Uses Earth Engine native coordinate system for reliability
+ */
+function addSimplePixelCoordinates(image) {
+  var projection = image.projection();
+  var coords = ee.Image.pixelCoordinates(projection);
+  
+  // Convert to integer pixel indices for consistency
+  var scale = projection.nominalScale();
+  var pixelRow = coords.select('y').divide(scale).floor().int().rename('pixel_row');
+  var pixelCol = coords.select('x').divide(scale).floor().int().rename('pixel_col');
+  
+  // Create unique pixel ID: row * 1000000 + col
+  var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+  
+  return image.addBands([pixelRow, pixelCol, pixelId]);
+}
 
 // ============================================================================
 // MONTHLY PIXEL EXPORT FUNCTION
@@ -54,42 +78,10 @@ function testMonthlyPixelExport(date, region) {
       var renSamples = results.ren.map(function(renImage) {
         renImage = ee.Image(renImage);
         
-        // Official NASA MODIS pixel identification system - Research-based implementation
+        // Add simple, working pixel coordinates
+        var imageWithCoords = addSimplePixelCoordinates(renImage);
         
-        // NASA official constants (exact corrected values)
-        var EARTH_RADIUS = 6371007.181;  // Authalic radius for WGS84 sphere
-        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
-        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters (exact NASA value)
-        var HORIZONTAL_TILES = 36;
-        var CELLS = 2400;  // Pixels per tile at 500m resolution
-        var CELL_SIZE = TILE_WIDTH / CELLS;  // 463.312716 meters (actual cell size)
-        
-        // Get coordinates in native MODIS sinusoidal projection from the image
-        var modisProjection = renImage.projection();
-        var coords = ee.Image.pixelCoordinates(modisProjection);
-        var x = coords.select('x');
-        var y = coords.select('y');
-        
-        // Calculate official MODIS tile indices using exact NASA formulas
-        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
-        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
-        
-        // Calculate within-tile pixel coordinates using exact NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
-        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
-        
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
-        
-        // Generate unique pixel ID using NASA hierarchical methodology
-        var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
-        var pixel_id = tile_id.multiply(CELLS * CELLS)
-          .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .toDouble().rename('pixel_id');
-        
-        var imageWithCoords = renImage.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
-        
-        return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+        return imageWithCoords.select(['broadband_albedo_ren_masked', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
           geometries: true
@@ -101,8 +93,6 @@ function testMonthlyPixelExport(date, region) {
             'albedo_value': feature.get('broadband_albedo_ren_masked'),
             'longitude': ee.List(coords).get(0),
             'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
             'pixel_id': feature.get('pixel_id'),
@@ -124,42 +114,10 @@ function testMonthlyPixelExport(date, region) {
       var mod10Samples = results.mod10a1.map(function(mod10Image) {
         mod10Image = ee.Image(mod10Image);
         
-        // Official NASA MODIS pixel identification system (identical to MOD09GA)
+        // Add simple, working pixel coordinates
+        var imageWithCoords = addSimplePixelCoordinates(mod10Image);
         
-        // NASA official constants (exact corrected values)
-        var EARTH_RADIUS = 6371007.181;
-        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
-        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters
-        var HORIZONTAL_TILES = 36;
-        var CELLS = 2400;
-        var CELL_SIZE = TILE_WIDTH / CELLS;
-        
-        // Get coordinates in native MODIS sinusoidal projection from the image
-        var modisProjection = mod10Image.projection();
-        var coords = ee.Image.pixelCoordinates(modisProjection);
-        var x = coords.select('x');
-        var y = coords.select('y');
-        
-        // Calculate official MODIS tile indices using exact NASA formulas
-        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
-        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
-        
-        // Calculate within-tile pixel coordinates using exact NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
-        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
-        
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
-        
-        // Generate unique pixel ID using NASA hierarchical methodology
-        var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
-        var pixel_id = tile_id.multiply(CELLS * CELLS)
-          .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .toDouble().rename('pixel_id');
-        
-        var imageWithCoords = mod10Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
-        
-        return imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+        return imageWithCoords.select(['broadband_albedo_mod10a1', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
           geometries: true
@@ -171,8 +129,6 @@ function testMonthlyPixelExport(date, region) {
             'albedo_value': feature.get('broadband_albedo_mod10a1'),
             'longitude': ee.List(coords).get(0),
             'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
             'pixel_id': feature.get('pixel_id'),
@@ -194,42 +150,10 @@ function testMonthlyPixelExport(date, region) {
       var mcd43Samples = results.mcd43a3.map(function(mcd43Image) {
         mcd43Image = ee.Image(mcd43Image);
         
-        // Official NASA MODIS pixel identification system (identical to MOD09GA)
+        // Add simple, working pixel coordinates
+        var imageWithCoords = addSimplePixelCoordinates(mcd43Image);
         
-        // NASA official constants (exact corrected values)
-        var EARTH_RADIUS = 6371007.181;
-        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
-        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters
-        var HORIZONTAL_TILES = 36;
-        var CELLS = 2400;
-        var CELL_SIZE = TILE_WIDTH / CELLS;
-        
-        // Get coordinates in native MODIS sinusoidal projection from the image
-        var modisProjection = mcd43Image.projection();
-        var coords = ee.Image.pixelCoordinates(modisProjection);
-        var x = coords.select('x');
-        var y = coords.select('y');
-        
-        // Calculate official MODIS tile indices using exact NASA formulas
-        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
-        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
-        
-        // Calculate within-tile pixel coordinates using exact NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
-        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
-        
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
-        
-        // Generate unique pixel ID using NASA hierarchical methodology
-        var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
-        var pixel_id = tile_id.multiply(CELLS * CELLS)
-          .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .toDouble().rename('pixel_id');
-        
-        var imageWithCoords = mcd43Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
-        
-        return imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+        return imageWithCoords.select(['broadband_albedo_mcd43a3', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
           geometries: true
@@ -241,8 +165,6 @@ function testMonthlyPixelExport(date, region) {
             'albedo_value': feature.get('broadband_albedo_mcd43a3'),
             'longitude': ee.List(coords).get(0),
             'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
             'pixel_id': feature.get('pixel_id'),
@@ -281,12 +203,72 @@ function testMonthlyPixelExport(date, region) {
 }
 
 // ============================================================================
+// SIMPLE TEST FUNCTION FOR VALIDATION
+// ============================================================================
+
+/**
+ * Test with a single day first to validate the approach
+ */
+function testSingleDayPixels(date, region) {
+  date = date || '2023-08-01';
+  
+  print('🔧 Testing single day pixel export for:', date);
+  
+  var startDate = ee.Date(date);
+  var endDate = startDate.advance(1, 'day');
+  var methods = {ren: true, mod10a1: false, mcd43a3: false}; // Test just one method first
+  
+  try {
+    var results = originalComparison.runModularComparison(
+      startDate, endDate, methods, 
+      glacierUtils.initializeGlacierData().outlines, 
+      region || glacierUtils.initializeGlacierData().geometry
+    );
+    
+    if (results.ren && results.ren.size().gt(0)) {
+      print('✅ Got MOD09GA results for single day');
+      
+      var testImage = ee.Image(results.ren.first());
+      var withCoords = addSimplePixelCoordinates(testImage);
+      
+      // Test with just a small sample first
+      var samples = withCoords.select(['broadband_albedo_ren_masked', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+        region: region || glacierUtils.initializeGlacierData().geometry,
+        scale: 500,
+        numPixels: 10 // Start very small
+      });
+      
+      print('🔍 Sample pixel data:');
+      samples.limit(5).evaluate(function(result) {
+        print('Sample features:', result);
+      });
+      
+      print('📊 Total sample count:');
+      samples.size().evaluate(function(count) {
+        print('Number of pixels sampled:', count);
+      });
+      
+    } else {
+      print('❌ No MOD09GA data available for this date');
+    }
+    
+  } catch (error) {
+    print('❌ Error in single day test:', error);
+  }
+}
+
+// ============================================================================
 // AUTO-RUN
 // ============================================================================
 
-print('🔧 Monthly Pixel Analysis Test Loaded');
-print('🎯 Auto-running monthly test...');
+print('🔧 Simplified Pixel Analysis Test Loaded');
+print('🎯 Starting with single day test...');
 
 // Initialize glacier data
 var glacierData = glacierUtils.initializeGlacierData();
-testMonthlyPixelExport('2023-08-01', glacierData.geometry);
+
+// Test single day first
+testSingleDayPixels('2023-08-01', glacierData.geometry);
+
+// Uncomment below to run monthly test after single day works
+// testMonthlyPixelExport('2023-08-01', glacierData.geometry);
