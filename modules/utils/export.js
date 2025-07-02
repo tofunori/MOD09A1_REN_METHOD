@@ -181,8 +181,6 @@ function exportComparisonStats(results, region, description) {
         'month': date.get('month'),
         'day_of_year': date.getRelative('day', 'year'),
         'method': ee.Algorithms.If(image.get('is_terra'), 'MOD10A1', 'MYD10A1'),
-        'solar_zenith': szaMean,
-        'ndsi_mean':    ndsiMean,
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
