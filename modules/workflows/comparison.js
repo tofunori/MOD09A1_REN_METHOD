@@ -283,6 +283,9 @@ function exportRenAlbedoSingleDateNative(date, glacierOutlines, region, options)
 // INTERACTIVE VISUALIZATION FUNCTIONS
 // ============================================================================
 
+// Variable globale pour stocker le panel
+var globalPanel = null;
+
 /**
  * Create date visualization widget with Inspector support
  */
@@ -297,15 +300,18 @@ function createDateVisualizationWidget(glacierOutlines, region) {
     period: 1,
     onChange: function(dateRange) {
       var date = dateRange.start();
-      visualizeThreeMethods(date, glacierOutlines, region, albedoPalette);
+      visualizeThreeMethods(date, glacierOutlines, region, albedoPalette, globalPanel);
     }
   });
   
-  var panel = ui.Panel({
+  globalPanel = ui.Panel({
     widgets: [
       ui.Label('Sélectionner une date:'),
       dateSlider,
-      ui.Button('Clear layers', function() { Map.clear(); }),
+      ui.Button('Clear layers', function() { 
+        Map.clear(); 
+        Map.add(globalPanel);
+      }),
       ui.Label('Activez l\'Inspector pour voir les valeurs pixel')
     ],
     style: {
@@ -314,14 +320,22 @@ function createDateVisualizationWidget(glacierOutlines, region) {
     }
   });
   
-  Map.add(panel);
+  Map.add(globalPanel);
+  
+  // Charger la date par défaut
+  visualizeThreeMethods(ee.Date('2023-08-07'), glacierOutlines, region, albedoPalette, globalPanel);
 }
 
 /**
  * Visualize three methods for selected date with Inspector support
  */
-function visualizeThreeMethods(date, glacierOutlines, region, palette) {
+function visualizeThreeMethods(date, glacierOutlines, region, palette, panel) {
   Map.clear();
+  
+  // Re-ajouter le panel après clear
+  if (panel) {
+    Map.add(panel);
+  }
   
   var results = runModularComparison(date, date.advance(1,'day'), 
     {ren: true, mod10a1: true, mcd43a3: true}, glacierOutlines, region);
