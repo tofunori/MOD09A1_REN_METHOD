@@ -1,2 +1,37 @@
+# PDFs and research papers
 changes-in-glacier-albedo-and-the-driving-factors-in-the-western-nyainqentanglha-mountains-from-2001-to-2020.pdf
 remotesensing-13-01714-v3 (1).pdf
+
+# Data files - exclude large CSV files and zone identifiers
+data/*.csv
+data/*.csv:Zone.Identifier
+
+# Image files - exclude plots and screenshots  
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Large files and temporary files
+comparison_three_methods.png
+test
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.local
