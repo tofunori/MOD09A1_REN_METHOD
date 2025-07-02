@@ -92,7 +92,13 @@ function exportComparisonStats(results, region, description) {
       }).get('NDSI');
 
       // (3) Mean elevation of valid pixels (DEM masked by image & glacier)
-      var demMasked = config.dem.updateMask(image.mask());
+      // Use a single-band validity mask derived from the image. The native
+      // image.mask() returns one mask band per image band (e.g. 67 for MOD09GA),
+      // which is incompatible with updateMask on a single-band DEM. Reducing
+      // the mask with `ee.Reducer.min()` collapses it to one band that is 1
+      // only where *all* image bands are valid.
+      var demValidMask = image.mask().reduce(ee.Reducer.min());
+      var demMasked = config.dem.updateMask(demValidMask);
       var elevMean = demMasked.reduceRegion({
         reducer: ee.Reducer.mean(),
         geometry: region,
