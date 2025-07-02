@@ -5,7 +5,7 @@
  * one full month (~30 days) instead of a single day. Uses direct MODIS sinusoidal 
  * pixel coordinates for unique pixel IDs and spatial matching between methods.
  * 
- * Uses: row*1000000+col for pixel_id and rounded lat/lon for tile coordinates
+ * Uses: Enhanced MODIS tile system (h*1e9 + v*1e8 + row*1e4 + col) for pixel_id
  */
 
 // ============================================================================
@@ -14,6 +14,7 @@
 
 var glacierUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/glacier.js');
 var originalComparison = require('users/tofunori/MOD09A1_REN_METHOD:modules/workflows/comparison.js');
+var pixelUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/pixel_id.js');
 
 // ============================================================================
 // MONTHLY PIXEL EXPORT FUNCTION
@@ -53,24 +54,11 @@ function testMonthlyPixelExport(date, region) {
       var renSamples = results.ren.map(function(renImage) {
         renImage = ee.Image(renImage);
         
-        // Use direct pixel coordinates from MODIS sinusoidal projection (simpler approach)
-        var projection = renImage.select('broadband_albedo_ren_masked').projection();
+        // Use enhanced MODIS tile-based pixel coordinate system
+        var coordsBands = pixelUtils.generateEnhancedPixelCoordinates(renImage);
+        var imageWithCoords = renImage.addBands(coordsBands);
         
-        // Generate direct pixel coordinates in MODIS sinusoidal space
-        var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
-        
-        // Create unique coordinate-based pixel ID using string concatenation
-        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
-        
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-        
-        var imageWithCoords = renImage.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-        
-        return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+        return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id_enhanced']).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
           geometries: true
@@ -86,7 +74,7 @@ function testMonthlyPixelExport(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
+            'pixel_id': feature.get('pixel_id_enhanced'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MOD09GA'
           });
@@ -113,8 +101,8 @@ function testMonthlyPixelExport(date, region) {
         var pixelRow = coords.select('y').int().rename('pixel_row');
         var pixelCol = coords.select('x').int().rename('pixel_col');
         
-        // Create unique coordinate-based pixel ID using string concatenation
-        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
+        // Create unique coordinate-based pixel ID using smaller multiplier to avoid precision issues
+        var pixelId = pixelRow.multiply(100000).add(pixelCol).int().rename('pixel_id');
         
         // Create simple tile coordinates (rounded lat/lon for spatial matching)
         var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
@@ -138,7 +126,7 @@ function testMonthlyPixelExport(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
+            'pixel_id': feature.get('pixel_id_enhanced'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MOD10A1'
           });
@@ -165,8 +153,8 @@ function testMonthlyPixelExport(date, region) {
         var pixelRow = coords.select('y').int().rename('pixel_row');
         var pixelCol = coords.select('x').int().rename('pixel_col');
         
-        // Create unique coordinate-based pixel ID using string concatenation
-        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
+        // Create unique coordinate-based pixel ID using smaller multiplier to avoid precision issues
+        var pixelId = pixelRow.multiply(100000).add(pixelCol).int().rename('pixel_id');
         
         // Create simple tile coordinates (rounded lat/lon for spatial matching)
         var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
@@ -190,7 +178,7 @@ function testMonthlyPixelExport(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
+            'pixel_id': feature.get('pixel_id_enhanced'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MCD43A3'
           });
