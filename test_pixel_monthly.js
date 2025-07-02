@@ -5,7 +5,7 @@
  * one full month (~30 days) instead of a single day. Uses direct MODIS sinusoidal 
  * pixel coordinates for unique pixel IDs and spatial matching between methods.
  * 
- * Uses: Official NASA MODIS methodology with exact constants and SR-ORG:6974 projection
+ * Uses: Exact NASA MODIS formulas: h=(x+πR)/T, v=(πR-y)/T, corrected constants
  */
 
 // ============================================================================
@@ -56,14 +56,13 @@ function testMonthlyPixelExport(date, region) {
         
         // Official NASA MODIS pixel identification system - Research-based implementation
         
-        // NASA official constants (exact values from research)
+        // NASA official constants (exact corrected values)
         var EARTH_RADIUS = 6371007.181;  // Authalic radius for WGS84 sphere
-        var EARTH_WIDTH = 2 * Math.PI * EARTH_RADIUS;  // 40,075,016.686 meters
-        var TILE_WIDTH = EARTH_WIDTH / 36;  // 1,113,194.908 meters (exact NASA value)
+        var HALF_CIRC = Math.PI * EARTH_RADIUS;  // πR = 20,015,109.354 meters
+        var TILE_WIDTH = 2 * HALF_CIRC / 36;  // 1,111,950.519 meters (exact NASA value)
         var HORIZONTAL_TILES = 36;
-        var VERTICAL_TILES = 18;
         var CELLS = 2400;  // Pixels per tile at 500m resolution
-        var CELL_SIZE = TILE_WIDTH / CELLS;  // 463.3127 meters (actual cell size)
+        var CELL_SIZE = TILE_WIDTH / CELLS;  // 463.312716 meters (actual cell size)
         
         // Get coordinates in official MODIS sinusoidal projection (SR-ORG:6974)
         var modisProjection = ee.Projection('SR-ORG:6974');
@@ -71,28 +70,22 @@ function testMonthlyPixelExport(date, region) {
         var x = coords.select('x');
         var y = coords.select('y');
         
-        // Calculate official MODIS tile indices using NASA formulas
-        var tile_h = x.add(EARTH_WIDTH / 2).divide(TILE_WIDTH).floor()
-          .max(0).min(35).int().rename('tile_h');
-        var tile_v = y.subtract(EARTH_WIDTH / 4).add(VERTICAL_TILES * TILE_WIDTH)
-          .multiply(-1).divide(TILE_WIDTH).floor()
-          .max(0).min(17).int().rename('tile_v');
+        // Calculate official MODIS tile indices using exact NASA formulas
+        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
+        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
         
-        // Calculate within-tile pixel coordinates using NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 2);
-        var tile_y_max = tile_v.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 4)
-          .subtract(VERTICAL_TILES * TILE_WIDTH).multiply(-1);
+        // Calculate within-tile pixel coordinates using exact NASA methodology
+        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
+        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
         
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_row');
+        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
+        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
         
         // Generate unique pixel ID using NASA hierarchical methodology
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .rename('pixel_id');
+          .int().rename('pixel_id');
         
         var imageWithCoords = renImage.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
@@ -138,7 +131,6 @@ function testMonthlyPixelExport(date, region) {
         var EARTH_WIDTH = 2 * Math.PI * EARTH_RADIUS;
         var TILE_WIDTH = EARTH_WIDTH / 36;
         var HORIZONTAL_TILES = 36;
-        var VERTICAL_TILES = 18;
         var CELLS = 2400;
         var CELL_SIZE = TILE_WIDTH / CELLS;
         
@@ -148,28 +140,22 @@ function testMonthlyPixelExport(date, region) {
         var x = coords.select('x');
         var y = coords.select('y');
         
-        // Calculate official MODIS tile indices using NASA formulas
-        var tile_h = x.add(EARTH_WIDTH / 2).divide(TILE_WIDTH).floor()
-          .max(0).min(35).int().rename('tile_h');
-        var tile_v = y.subtract(EARTH_WIDTH / 4).add(VERTICAL_TILES * TILE_WIDTH)
-          .multiply(-1).divide(TILE_WIDTH).floor()
-          .max(0).min(17).int().rename('tile_v');
+        // Calculate official MODIS tile indices using exact NASA formulas
+        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
+        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
         
-        // Calculate within-tile pixel coordinates using NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 2);
-        var tile_y_max = tile_v.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 4)
-          .subtract(VERTICAL_TILES * TILE_WIDTH).multiply(-1);
+        // Calculate within-tile pixel coordinates using exact NASA methodology
+        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
+        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
         
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_row');
+        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
+        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
         
         // Generate unique pixel ID using NASA hierarchical methodology
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .rename('pixel_id');
+          .int().rename('pixel_id');
         
         var imageWithCoords = mod10Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
@@ -215,7 +201,6 @@ function testMonthlyPixelExport(date, region) {
         var EARTH_WIDTH = 2 * Math.PI * EARTH_RADIUS;
         var TILE_WIDTH = EARTH_WIDTH / 36;
         var HORIZONTAL_TILES = 36;
-        var VERTICAL_TILES = 18;
         var CELLS = 2400;
         var CELL_SIZE = TILE_WIDTH / CELLS;
         
@@ -225,28 +210,22 @@ function testMonthlyPixelExport(date, region) {
         var x = coords.select('x');
         var y = coords.select('y');
         
-        // Calculate official MODIS tile indices using NASA formulas
-        var tile_h = x.add(EARTH_WIDTH / 2).divide(TILE_WIDTH).floor()
-          .max(0).min(35).int().rename('tile_h');
-        var tile_v = y.subtract(EARTH_WIDTH / 4).add(VERTICAL_TILES * TILE_WIDTH)
-          .multiply(-1).divide(TILE_WIDTH).floor()
-          .max(0).min(17).int().rename('tile_v');
+        // Calculate official MODIS tile indices using exact NASA formulas
+        var tile_h = x.add(HALF_CIRC).divide(TILE_WIDTH).floor().int().rename('tile_h');
+        var tile_v = HALF_CIRC.subtract(y).divide(TILE_WIDTH).floor().int().rename('tile_v');
         
-        // Calculate within-tile pixel coordinates using NASA methodology
-        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 2);
-        var tile_y_max = tile_v.multiply(TILE_WIDTH).subtract(EARTH_WIDTH / 4)
-          .subtract(VERTICAL_TILES * TILE_WIDTH).multiply(-1);
+        // Calculate within-tile pixel coordinates using exact NASA methodology
+        var tile_x_min = tile_h.multiply(TILE_WIDTH).subtract(HALF_CIRC);
+        var tile_y_max = HALF_CIRC.subtract(tile_v.multiply(TILE_WIDTH));
         
-        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_col');
-        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor()
-          .max(0).min(CELLS - 1).int().rename('pixel_row');
+        var pixel_col = x.subtract(tile_x_min).divide(CELL_SIZE).floor().int().rename('pixel_col');
+        var pixel_row = tile_y_max.subtract(y).divide(CELL_SIZE).floor().int().rename('pixel_row');
         
         // Generate unique pixel ID using NASA hierarchical methodology
         var tile_id = tile_v.multiply(HORIZONTAL_TILES).add(tile_h);
         var pixel_id = tile_id.multiply(CELLS * CELLS)
           .add(pixel_row.multiply(CELLS)).add(pixel_col)
-          .rename('pixel_id');
+          .int().rename('pixel_id');
         
         var imageWithCoords = mcd43Image.addBands([tile_h, tile_v, pixel_row, pixel_col, pixel_id]);
         
