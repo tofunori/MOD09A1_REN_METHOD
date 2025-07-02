@@ -80,51 +80,56 @@ function exportPixelComparisonStats(results, region, description) {
   // Process MOD09GA method (Ren)
   if (results.ren) {
     var renPixels = results.ren.map(function(image) {
-      var bandNames = image.bandNames();
-      var hasMaskedBand = bandNames.contains('broadband_albedo_ren_masked');
-      var hasBaseBand = bandNames.contains('broadband_albedo_ren');
-      var hasAnyAlbedoBand = ee.Algorithms.If(hasMaskedBand, true, hasBaseBand);
+      // Try to use masked band first, fallback to base band
+      var albedoBandToUse = 'broadband_albedo_ren_masked';
+      var bandsToSelect = [albedoBandToUse, 'pixel_row', 'pixel_col', 'pixel_id_numeric'];
       
-      return ee.FeatureCollection(ee.Algorithms.If(
-        hasAnyAlbedoBand,
-        // Sample pixels if albedo band exists
-        ee.Image(
-          ee.Algorithms.If(
-            hasMaskedBand,
-            image.select(['broadband_albedo_ren_masked', 'pixel_row', 'pixel_col', 'pixel_id_numeric']),
-            image.select(['broadband_albedo_ren', 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
-          )
-        ).sample({
+      return image.select(bandsToSelect).sample({
+        region: region,
+        scale: config.EXPORT_CONFIG.scale,
+        tileScale: config.EXPORT_CONFIG.tileScale,
+        geometries: true,
+        maxPixels: config.EXPORT_CONFIG.maxPixels_ren
+      }).map(function(feature) {
+        var coords = feature.geometry().coordinates();
+        var date = ee.Date(image.get('system:time_start'));
+        
+        return feature.set({
+          'albedo_value': feature.get(albedoBandToUse),
+          'pixel_row': feature.get('pixel_row'),
+          'pixel_col': feature.get('pixel_col'),
+          'pixel_id': feature.get('pixel_id_numeric'),
+          'longitude': ee.List(coords).get(0),
+          'latitude': ee.List(coords).get(1),
+          'date': date.format('YYYY-MM-dd'),
+          'year': date.get('year'),
+          'month': date.get('month'),
+          'day_of_year': date.getRelative('day', 'year'),
+          'method': ee.Algorithms.If(image.get('is_terra'), 'MOD09GA_Terra', 'MOD09GA_Aqua'),
+          'system:time_start': image.get('system:time_start')
+        });
+      });
+    }).flatten().filter(ee.Filter.notNull(['albedo_value']));
+    
+    allPixels = allPixels.merge(renPixels);
+  }
+  
+  // Process MOD10A1 method
+  if (results.mod10a1) {
+    var mod10Pixels = results.mod10a1.map(function(image) {
+      return image.select(['broadband_albedo_mod10a1', 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
+        .sample({
           region: region,
-          scale: config.EXPORT_CONFIG.scale,
+          scale: config.EXPORT_CONFIG.scale_simple,
           tileScale: config.EXPORT_CONFIG.tileScale,
           geometries: true,
-          maxPixels: config.EXPORT_CONFIG.maxPixels_ren
+          maxPixels: config.EXPORT_CONFIG.maxPixels_simple
         }).map(function(feature) {
           var coords = feature.geometry().coordinates();
           var date = ee.Date(image.get('system:time_start'));
           
-          // Extract albedo value (handle both masked and unmasked versions)
-          var albedoValue = ee.Algorithms.If(
-            hasMaskedBand,
-            feature.get('broadband_albedo_ren_masked'),
-            feature.get('broadband_albedo_ren')
-          );
-          
-          // Calculate additional predictors at pixel level
-          var szaDeg = image.select('SolarZenith').multiply(0.01)
-            .sample(feature.geometry(), config.EXPORT_CONFIG.scale).first().get('SolarZenith');
-          
-          var ndsiValue = image.expression('(b4 - b6) / (b4 + b6)', {
-            'b4': image.select('sur_refl_b04').multiply(0.0001),
-            'b6': image.select('sur_refl_b06').multiply(0.0001)
-          }).sample(feature.geometry(), config.EXPORT_CONFIG.scale).first().get('constant');
-          
-          var elevValue = config.dem.sample(feature.geometry(), config.EXPORT_CONFIG.scale)
-            .first().get('DSM');
-          
           return feature.set({
-            'albedo_value': albedoValue,
+            'albedo_value': feature.get('broadband_albedo_mod10a1'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
             'pixel_id': feature.get('pixel_id_numeric'),
@@ -134,61 +139,10 @@ function exportPixelComparisonStats(results, region, description) {
             'year': date.get('year'),
             'month': date.get('month'),
             'day_of_year': date.getRelative('day', 'year'),
-            'method': ee.Algorithms.If(image.get('is_terra'), 'MOD09GA_Terra', 'MOD09GA_Aqua'),
-            'solar_zenith': szaDeg,
-            'ndsi_value': ndsiValue,
-            'elevation': elevValue,
+            'method': ee.Algorithms.If(image.get('is_terra'), 'MOD10A1_Terra', 'MOD10A1_Aqua'),
             'system:time_start': image.get('system:time_start')
           });
-        }),
-        // Return empty collection if no albedo band
-        ee.FeatureCollection([])
-      ));
-    }).flatten().filter(ee.Filter.notNull(['albedo_value']));
-    
-    allPixels = allPixels.merge(renPixels);
-  }
-  
-  // Process MOD10A1 method
-  if (results.mod10a1) {
-    var mod10Pixels = results.mod10a1.map(function(image) {
-      var bandNames = image.bandNames();
-      var hasBand = bandNames.contains('broadband_albedo_mod10a1');
-      
-      return ee.FeatureCollection(ee.Algorithms.If(
-        hasBand,
-        image.select(['broadband_albedo_mod10a1', 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
-          .sample({
-            region: region,
-            scale: config.EXPORT_CONFIG.scale_simple,
-            tileScale: config.EXPORT_CONFIG.tileScale,
-            geometries: true,
-            maxPixels: config.EXPORT_CONFIG.maxPixels_simple
-          }).map(function(feature) {
-            var coords = feature.geometry().coordinates();
-            var date = ee.Date(image.get('system:time_start'));
-            
-            var elevValue = config.dem.sample(feature.geometry(), config.EXPORT_CONFIG.scale_simple)
-              .first().get('DSM');
-            
-            return feature.set({
-              'albedo_value': feature.get('broadband_albedo_mod10a1'),
-              'pixel_row': feature.get('pixel_row'),
-              'pixel_col': feature.get('pixel_col'),
-              'pixel_id': feature.get('pixel_id_numeric'),
-              'longitude': ee.List(coords).get(0),
-              'latitude': ee.List(coords).get(1),
-              'date': date.format('YYYY-MM-dd'),
-              'year': date.get('year'),
-              'month': date.get('month'),
-              'day_of_year': date.getRelative('day', 'year'),
-              'method': ee.Algorithms.If(image.get('is_terra'), 'MOD10A1_Terra', 'MOD10A1_Aqua'),
-              'elevation': elevValue,
-              'system:time_start': image.get('system:time_start')
-            });
-          }),
-        ee.FeatureCollection([])
-      ));
+        });
     }).flatten().filter(ee.Filter.notNull(['albedo_value']));
     
     allPixels = allPixels.merge(mod10Pixels);
@@ -197,43 +151,32 @@ function exportPixelComparisonStats(results, region, description) {
   // Process MCD43A3 method
   if (results.mcd43a3) {
     var mcd43Pixels = results.mcd43a3.map(function(image) {
-      var bandNames = image.bandNames();
-      var hasBand = bandNames.contains('broadband_albedo_mcd43a3');
-      
-      return ee.FeatureCollection(ee.Algorithms.If(
-        hasBand,
-        image.select(['broadband_albedo_mcd43a3', 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
-          .sample({
-            region: region,
-            scale: config.EXPORT_CONFIG.scale_simple,
-            tileScale: config.EXPORT_CONFIG.tileScale,
-            geometries: true,
-            maxPixels: config.EXPORT_CONFIG.maxPixels_simple
-          }).map(function(feature) {
-            var coords = feature.geometry().coordinates();
-            var date = ee.Date(image.get('system:time_start'));
-            
-            var elevValue = config.dem.sample(feature.geometry(), config.EXPORT_CONFIG.scale_simple)
-              .first().get('DSM');
-            
-            return feature.set({
-              'albedo_value': feature.get('broadband_albedo_mcd43a3'),
-              'pixel_row': feature.get('pixel_row'),
-              'pixel_col': feature.get('pixel_col'), 
-              'pixel_id': feature.get('pixel_id_numeric'),
-              'longitude': ee.List(coords).get(0),
-              'latitude': ee.List(coords).get(1),
-              'date': date.format('YYYY-MM-dd'),
-              'year': date.get('year'),
-              'month': date.get('month'),
-              'day_of_year': date.getRelative('day', 'year'),
-              'method': 'MCD43A3',
-              'elevation': elevValue,
-              'system:time_start': image.get('system:time_start')
-            });
-          }),
-        ee.FeatureCollection([])
-      ));
+      return image.select(['broadband_albedo_mcd43a3', 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
+        .sample({
+          region: region,
+          scale: config.EXPORT_CONFIG.scale_simple,
+          tileScale: config.EXPORT_CONFIG.tileScale,
+          geometries: true,
+          maxPixels: config.EXPORT_CONFIG.maxPixels_simple
+        }).map(function(feature) {
+          var coords = feature.geometry().coordinates();
+          var date = ee.Date(image.get('system:time_start'));
+          
+          return feature.set({
+            'albedo_value': feature.get('broadband_albedo_mcd43a3'),
+            'pixel_row': feature.get('pixel_row'),
+            'pixel_col': feature.get('pixel_col'), 
+            'pixel_id': feature.get('pixel_id_numeric'),
+            'longitude': ee.List(coords).get(0),
+            'latitude': ee.List(coords).get(1),
+            'date': date.format('YYYY-MM-dd'),
+            'year': date.get('year'),
+            'month': date.get('month'),
+            'day_of_year': date.getRelative('day', 'year'),
+            'method': 'MCD43A3',
+            'system:time_start': image.get('system:time_start')
+          });
+        });
     }).flatten().filter(ee.Filter.notNull(['albedo_value']));
     
     allPixels = allPixels.merge(mcd43Pixels);

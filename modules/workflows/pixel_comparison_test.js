@@ -196,8 +196,9 @@ function extractPixelSamples(image, region, methodName) {
   // Determine the albedo band name based on method
   var albedoBand;
   if (methodName === 'MOD09GA') {
-    albedoBand = image.bandNames().contains('broadband_albedo_ren_masked')
-      .getInfo() ? 'broadband_albedo_ren_masked' : 'broadband_albedo_ren';
+    // Use conditional to check for masked band
+    var hasMaskedBand = image.bandNames().contains('broadband_albedo_ren_masked');
+    albedoBand = ee.Algorithms.If(hasMaskedBand, 'broadband_albedo_ren_masked', 'broadband_albedo_ren');
   } else if (methodName === 'MOD10A1') {
     albedoBand = 'broadband_albedo_mod10a1';
   } else if (methodName === 'MCD43A3') {
@@ -206,56 +207,42 @@ function extractPixelSamples(image, region, methodName) {
     throw new Error('Unknown method: ' + methodName);
   }
 
-  // Check if albedo band exists
-  var hasBand = image.bandNames().contains(albedoBand);
+  // Create sampling bands list
+  var samplingBands = [albedoBand, 'pixel_row', 'pixel_col', 'pixel_id_numeric'];
   
-  return ee.FeatureCollection(ee.Algorithms.If(
-    hasBand,
-    // Sample pixels if band exists
-    image.select([albedoBand, 'pixel_row', 'pixel_col', 'pixel_id_numeric'])
-      .sample({
-        region: region,
-        scale: methodName === 'MOD09GA' ? config.EXPORT_CONFIG.scale : config.EXPORT_CONFIG.scale_simple,
-        tileScale: config.EXPORT_CONFIG.tileScale,
-        geometries: true  // Include lat/lon coordinates
-      })
-      .map(function(feature) {
-        var coords = feature.geometry().coordinates();
-        var date = ee.Date(image.get('system:time_start'));
-        
-        // Base properties
-        var props = {
-          'albedo_value': feature.get(albedoBand),
-          'pixel_row': feature.get('pixel_row'),
-          'pixel_col': feature.get('pixel_col'), 
-          'pixel_id': feature.get('pixel_id_numeric'),
-          'longitude': ee.List(coords).get(0),
-          'latitude': ee.List(coords).get(1),
-          'date': date.format('YYYY-MM-dd'),
-          'year': date.get('year'),
-          'month': date.get('month'),
-          'day_of_year': date.getRelative('day', 'year'),
-          'method': ee.Algorithms.If(image.get('is_terra'), methodName + '_Terra', methodName + '_Aqua'),
-          'system:time_start': image.get('system:time_start')
-        };
-        
-        // Add method-specific predictors for MOD09GA
-        if (methodName === 'MOD09GA') {
-          props = ee.Dictionary(props).combine(ee.Dictionary({
-            'solar_zenith': image.select('SolarZenith').multiply(0.01).sample(feature.geometry(), 500).first().get('SolarZenith'),
-            'ndsi_value': image.expression('(b4 - b6) / (b4 + b6)', {
-              'b4': image.select('sur_refl_b04').multiply(0.0001),
-              'b6': image.select('sur_refl_b06').multiply(0.0001)
-            }).sample(feature.geometry(), 500).first().get('constant'),
-            'elevation': config.dem.sample(feature.geometry(), 500).first().get('DSM')
-          }));
-        }
-        
-        return feature.set(props);
-      }),
-    // Return empty collection if band doesn't exist
-    ee.FeatureCollection([])
-  ));
+  // Sample pixels with error handling
+  var samples = image.select(samplingBands)
+    .sample({
+      region: region,
+      scale: methodName === 'MOD09GA' ? config.EXPORT_CONFIG.scale : config.EXPORT_CONFIG.scale_simple,
+      tileScale: config.EXPORT_CONFIG.tileScale,
+      geometries: true,
+      maxPixels: 1e6
+    })
+    .map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(image.get('system:time_start'));
+      
+      // Base properties
+      var props = {
+        'albedo_value': feature.get(albedoBand),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'), 
+        'pixel_id': feature.get('pixel_id_numeric'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'date': date.format('YYYY-MM-dd'),
+        'year': date.get('year'),
+        'month': date.get('month'),
+        'day_of_year': date.getRelative('day', 'year'),
+        'method': ee.Algorithms.If(image.get('is_terra'), methodName + '_Terra', methodName + '_Aqua'),
+        'system:time_start': image.get('system:time_start')
+      };
+      
+      return feature.set(props);
+    });
+  
+  return samples;
 }
 
 /**
@@ -275,34 +262,14 @@ function processMethodToPixels(collection, region, methodName) {
  * Run pixel-level comparison and export results
  */
 function runPixelComparisonExport(startDate, endDate, methods, glacierOutlines, region, description) {
+  // Get pixel-level results using the pixel export utility
+  var pixelExportUtils = require('users/tofunori/MOD09A1_REN_METHOD:modules/utils/pixel_export_test.js');
+  
   // Get pixel-level results
   var results = runPixelComparison(startDate, endDate, methods, glacierOutlines, region);
   
-  var allPixels = ee.FeatureCollection([]);
-  
-  // Process each method to pixel features
-  if (methods.ren && results.ren) {
-    var renPixels = processMethodToPixels(results.ren, region, 'MOD09GA');
-    allPixels = allPixels.merge(renPixels);
-  }
-  
-  if (methods.mod10a1 && results.mod10a1) {
-    var mod10a1Pixels = processMethodToPixels(results.mod10a1, region, 'MOD10A1');
-    allPixels = allPixels.merge(mod10a1Pixels);
-  }
-  
-  if (methods.mcd43a3 && results.mcd43a3) {
-    var mcd43a3Pixels = processMethodToPixels(results.mcd43a3, region, 'MCD43A3');
-    allPixels = allPixels.merge(mcd43a3Pixels);
-  }
-  
-  // Export pixel-level results
-  Export.table.toDrive({
-    collection: allPixels,
-    description: description + '_pixel_level',
-    folder: 'albedo_pixel_analysis',
-    fileFormat: 'CSV'
-  });
+  // Use the pixel export utility to handle the export
+  var allPixels = pixelExportUtils.exportPixelComparisonStats(results, region, description);
   
   return allPixels;
 }
