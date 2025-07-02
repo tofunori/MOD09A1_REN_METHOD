@@ -36,3 +36,5 @@ Thumbs.db
 .env
 .env.local
 comparison_three_methods.png
+plots/
+*.png

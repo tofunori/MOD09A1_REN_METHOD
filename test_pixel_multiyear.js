@@ -1,15 +1,15 @@
 /**
- * Multi-Year Pixel Analysis Test - Full Melt Season 2017-2024
+ * Multi-Year Pixel Analysis Test - Representative Day 2017-2024
  * 
  * This script extends the proven test_pixel_simple.js logic to process
- * the complete 2017-2024 melt season (June 1 to September 30) for all
+ * one representative day (August 7th) per year from 2017-2024 for all
  * three albedo methods without modifying the existing codebase.
  * 
  * Uses identical: Terra/Aqua handling, pixel coordinate system, and sampling logic
  * from the single-day test to ensure consistency and reliability.
  * 
- * Processing: ~8 years × ~120 days per melt season = ~960 processing days
- * Output: ONE BIG CSV file with all data from all years and methods
+ * Processing: 8 years × 1 day per year = 8 processing days
+ * Output: CSV file with representative pixels from all years and methods
  */
 
 // ============================================================================
@@ -413,14 +413,13 @@ function testSmallDateRange() {
 // AUTO-RUN WHEN SCRIPT IS EXECUTED
 // ============================================================================
 
-print('🚀 Starting Multi-Year Pixel Export for 2017-2024 Melt Season');
-print('📅 Processing ALL data into ONE BIG CSV file');
+print('🚀 Starting Multi-Year Pixel Export for 2017-2024 (Representative Days)');
+print('📅 Processing August 7th from each year (single day approach)');
 print('🔧 Using identical logic to test_pixel_simple.js');
 print('');
-print('📊 Expected output: ONE MASSIVE CSV file with all pixels from all years and methods');
-print('⚠️  The export will be VERY LARGE - ensure sufficient Google Drive space');
+print('📊 Expected output: CSV file with representative pixels from all years and methods');
 print('📁 Files will be saved to folder: ' + CONFIG.EXPORT_FOLDER);
-print('📄 Big CSV name: ALL_pixels_three_methods_2017_2024_melt_season.csv');
+print('📄 CSV name: ALL_pixels_three_methods_2017_2024_Aug7_sample.csv');
 print('');
 
 // AUTO-RUN the full multi-year export
