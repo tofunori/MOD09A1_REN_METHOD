@@ -84,13 +84,13 @@ function processAllMeltSeasonData(region) {
   // Export all combined data
   Export.table.toDrive({
     collection: allSamples,
-    description: 'ALL_pixels_three_methods_2017_2024_melt_season',
+    description: 'ALL_pixels_three_methods_2017_2024_Aug7_sample',
     folder: CONFIG.EXPORT_FOLDER,
     fileFormat: 'CSV',
     selectors: ['albedo_value', 'date', 'latitude', 'longitude', 'method', 'pixel_col', 'pixel_id', 'pixel_row', 'tile_h', 'tile_v', '.geo']
   });
   
-  print('🎉 Multi-year CSV export initiated');
+  print('🎉 Multi-year CSV export initiated (Aug 7th samples)');
   allSamples.size().evaluate(function(count) {
     print('📊 Total pixels from all years:', count);
   });
