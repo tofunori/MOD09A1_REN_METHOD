@@ -47,7 +47,8 @@ function testSimplePixelExport(date, region) {
       var renImage = ee.Image(results.ren.first());
       
       // Add MODIS pixel coordinates (row/col) like in MODIS_Albedo project
-      var projection = renImage.projection();
+      // Use albedo band projection to avoid mixed projection error
+      var projection = renImage.select('broadband_albedo_ren_masked').projection();
       var coords = ee.Image.pixelCoordinates(projection);
       var pixelRow = coords.select('y').int().rename('pixel_row');
       var pixelCol = coords.select('x').int().rename('pixel_col');
@@ -85,7 +86,8 @@ function testSimplePixelExport(date, region) {
       var mod10Image = ee.Image(results.mod10a1.first());
       
       // Add MODIS pixel coordinates (row/col) - same as MOD09GA
-      var projection = mod10Image.projection();
+      // Use albedo band projection to avoid mixed projection error
+      var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
       var coords = ee.Image.pixelCoordinates(projection);
       var pixelRow = coords.select('y').int().rename('pixel_row');
       var pixelCol = coords.select('x').int().rename('pixel_col');
@@ -122,8 +124,9 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MCD43A3 pixels...');
       var mcd43Image = ee.Image(results.mcd43a3.first());
       
-      // Add MODIS pixel coordinates (row/col) - same as MOD09GA and MOD10A1
-      var projection = mcd43Image.projection();
+      // Add MODIS pixel coordinates (row/col) - same as MOD09GA and MOD10A1  
+      // Use albedo band projection to avoid mixed projection error
+      var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
       var coords = ee.Image.pixelCoordinates(projection);
       var pixelRow = coords.select('y').int().rename('pixel_row');
       var pixelCol = coords.select('x').int().rename('pixel_col');
