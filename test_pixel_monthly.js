@@ -55,7 +55,8 @@ function testMonthlyPixelExport(date, region) {
         renImage = ee.Image(renImage);
         
         // Use enhanced MODIS tile-based pixel coordinate system
-        var coordsBands = pixelUtils.generateEnhancedPixelCoordinates(renImage);
+        var projection = renImage.select('broadband_albedo_ren_masked').projection();
+        var coordsBands = pixelUtils.generateEnhancedPixelCoordinates(renImage).reproject(projection);
         var imageWithCoords = renImage.addBands(coordsBands);
         
         return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id_enhanced']).sample({
