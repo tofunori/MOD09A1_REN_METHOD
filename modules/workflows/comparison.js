@@ -359,6 +359,9 @@ function visualizeThreeMethods(date, glacierOutlines, region, palette) {
   // Masquer avec le glacier
   compositeImage = compositeImage.updateMask(glacierMask);
   
+  // Ajouter le contour du glacier EN PREMIER (sera sous les autres layers)
+  Map.addLayer(glacierOutlines, {color: 'red', fillColor: 'rgba(0,0,0,0)'}, 'Glacier outline');
+  
   // Ajouter les layers visuels
   Map.addLayer(results.ren.first().select('broadband_albedo_ren_masked'), vizParams, 'MOD09GA (Ren)');
   Map.addLayer(results.mod10a1.first().select('broadband_albedo_mod10a1').updateMask(glacierMask), vizParams, 'MOD10A1');
@@ -366,10 +369,6 @@ function visualizeThreeMethods(date, glacierOutlines, region, palette) {
   
   // Ajouter l'image composite invisible pour l'Inspector
   Map.addLayer(compositeImage, {}, 'Pixel Info (Inspector)', false);
-  
-  // Ajouter le contour du glacier EN DERNIER (apparaît en bas de la liste)
-  // avec seulement le contour sans remplissage
-  Map.addLayer(glacierOutlines, {color: 'red', fillColor: 'rgba(0,0,0,0)'}, 'Glacier outline');
   
   Map.centerObject(region, 12);
   
