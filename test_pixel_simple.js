@@ -46,17 +46,47 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MOD09GA pixels...');
       var renImage = ee.Image(results.ren.first());
       
-      // Add MODIS pixel coordinates (row/col) like in MODIS_Albedo project
-      // Use albedo band projection to avoid mixed projection error
+      // Add MODIS pixel coordinates using proper tile-based system (like MODIS_Albedo project)
       var projection = renImage.select('broadband_albedo_ren_masked').projection();
+      var nominalScale = projection.nominalScale();
+      
+      // Generate pixel coordinates in MODIS sinusoidal space
       var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      var x = coords.select('x');
+      var y = coords.select('y');
       
-      var imageWithCoords = renImage.addBands([pixelRow, pixelCol, pixelId]);
+      // MODIS grid constants (from MODIS_Albedo project)
+      var TILE_SIZE_METERS = 1111950.51966;
+      var X_OFFSET = 20015109.354;
+      var Y_OFFSET = 10007554.677;
       
-      var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      // Handle negative coordinates by applying offsets
+      var xShifted = x.add(X_OFFSET);
+      var yShifted = y.add(Y_OFFSET);
+      
+      // Calculate MODIS tile indices (h = horizontal, v = vertical)
+      var h = xShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_h');
+      var v = yShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_v');
+      
+      // Calculate within-tile pixel coordinates
+      var xInTile = xShifted.mod(TILE_SIZE_METERS);
+      var yInTile = yShifted.mod(TILE_SIZE_METERS);
+      
+      var pixelRow = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+      var pixelCol = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+      
+      // Create proper pixel ID using tile-based system (no overflow)
+      // Format: h*1e9 + v*1e8 + row*1e4 + col
+      var pixelId = h.multiply(1e9)
+        .add(v.multiply(1e8))
+        .add(pixelRow.multiply(1e4))
+        .add(pixelCol)
+        .double()  // Use double precision to prevent overflow
+        .rename('pixel_id');
+      
+      var imageWithCoords = renImage.addBands([h, v, pixelRow, pixelCol, pixelId]);
+      
+      var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -68,6 +98,8 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_ren_masked'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'tile_h': feature.get('tile_h'),
+          'tile_v': feature.get('tile_v'),
           'pixel_row': feature.get('pixel_row'),
           'pixel_col': feature.get('pixel_col'),
           'pixel_id': feature.get('pixel_id'),
@@ -85,17 +117,46 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MOD10A1 pixels...');
       var mod10Image = ee.Image(results.mod10a1.first());
       
-      // Add MODIS pixel coordinates (row/col) - same as MOD09GA
-      // Use albedo band projection to avoid mixed projection error
+      // Add MODIS pixel coordinates using proper tile-based system
       var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
+      var nominalScale = projection.nominalScale();
+      
+      // Generate pixel coordinates in MODIS sinusoidal space
       var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      var x = coords.select('x');
+      var y = coords.select('y');
       
-      var imageWithCoords = mod10Image.addBands([pixelRow, pixelCol, pixelId]);
+      // MODIS grid constants
+      var TILE_SIZE_METERS = 1111950.51966;
+      var X_OFFSET = 20015109.354;
+      var Y_OFFSET = 10007554.677;
       
-      var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      // Handle negative coordinates by applying offsets
+      var xShifted = x.add(X_OFFSET);
+      var yShifted = y.add(Y_OFFSET);
+      
+      // Calculate MODIS tile indices
+      var h = xShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_h');
+      var v = yShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_v');
+      
+      // Calculate within-tile pixel coordinates
+      var xInTile = xShifted.mod(TILE_SIZE_METERS);
+      var yInTile = yShifted.mod(TILE_SIZE_METERS);
+      
+      var pixelRow = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+      var pixelCol = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+      
+      // Create proper pixel ID (no overflow)
+      var pixelId = h.multiply(1e9)
+        .add(v.multiply(1e8))
+        .add(pixelRow.multiply(1e4))
+        .add(pixelCol)
+        .double()
+        .rename('pixel_id');
+      
+      var imageWithCoords = mod10Image.addBands([h, v, pixelRow, pixelCol, pixelId]);
+      
+      var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -107,6 +168,8 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_mod10a1'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'tile_h': feature.get('tile_h'),
+          'tile_v': feature.get('tile_v'),
           'pixel_row': feature.get('pixel_row'),
           'pixel_col': feature.get('pixel_col'),
           'pixel_id': feature.get('pixel_id'),
@@ -124,17 +187,46 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MCD43A3 pixels...');
       var mcd43Image = ee.Image(results.mcd43a3.first());
       
-      // Add MODIS pixel coordinates (row/col) - same as MOD09GA and MOD10A1  
-      // Use albedo band projection to avoid mixed projection error
+      // Add MODIS pixel coordinates using proper tile-based system
       var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
+      var nominalScale = projection.nominalScale();
+      
+      // Generate pixel coordinates in MODIS sinusoidal space
       var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      var x = coords.select('x');
+      var y = coords.select('y');
       
-      var imageWithCoords = mcd43Image.addBands([pixelRow, pixelCol, pixelId]);
+      // MODIS grid constants
+      var TILE_SIZE_METERS = 1111950.51966;
+      var X_OFFSET = 20015109.354;
+      var Y_OFFSET = 10007554.677;
       
-      var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      // Handle negative coordinates by applying offsets
+      var xShifted = x.add(X_OFFSET);
+      var yShifted = y.add(Y_OFFSET);
+      
+      // Calculate MODIS tile indices
+      var h = xShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_h');
+      var v = yShifted.divide(TILE_SIZE_METERS).floor().int().rename('tile_v');
+      
+      // Calculate within-tile pixel coordinates
+      var xInTile = xShifted.mod(TILE_SIZE_METERS);
+      var yInTile = yShifted.mod(TILE_SIZE_METERS);
+      
+      var pixelRow = yInTile.divide(nominalScale).floor().int().rename('pixel_row');
+      var pixelCol = xInTile.divide(nominalScale).floor().int().rename('pixel_col');
+      
+      // Create proper pixel ID (no overflow)
+      var pixelId = h.multiply(1e9)
+        .add(v.multiply(1e8))
+        .add(pixelRow.multiply(1e4))
+        .add(pixelCol)
+        .double()
+        .rename('pixel_id');
+      
+      var imageWithCoords = mcd43Image.addBands([h, v, pixelRow, pixelCol, pixelId]);
+      
+      var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -146,6 +238,8 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_mcd43a3'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'tile_h': feature.get('tile_h'),
+          'tile_v': feature.get('tile_v'),
           'pixel_row': feature.get('pixel_row'),
           'pixel_col': feature.get('pixel_col'),
           'pixel_id': feature.get('pixel_id'),
