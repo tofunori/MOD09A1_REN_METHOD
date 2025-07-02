@@ -91,6 +91,17 @@ function exportComparisonStats(results, region, description) {
         tileScale: config.EXPORT_CONFIG.tileScale
       }).get('NDSI');
 
+      // (3) Mean elevation of valid pixels (DEM masked by image & glacier)
+      var demMasked = config.dem.updateMask(image.mask());
+      var elevMean = demMasked.reduceRegion({
+        reducer: ee.Reducer.mean(),
+        geometry: region,
+        scale: config.EXPORT_CONFIG.scale,
+        maxPixels: config.EXPORT_CONFIG.maxPixels_ren,
+        bestEffort: config.EXPORT_CONFIG.bestEffort,
+        tileScale: config.EXPORT_CONFIG.tileScale
+      }).get('DSM');
+
       return ee.Feature(null, {
         'albedo_mean':  statsDict.get('albedo_mean', null),
         'albedo_std':   statsDict.get('albedo_stdDev', null),
@@ -104,6 +115,7 @@ function exportComparisonStats(results, region, description) {
         'method':       ee.Algorithms.If(image.get('is_terra'), 'MOD09GA', 'MYD09GA'),
         'solar_zenith': szaMean,
         'ndsi_mean':    ndsiMean,
+        'mean_elev':    elevMean,
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -284,6 +296,77 @@ function exportIndividualMethod(collection, bandName, methodName, region, descri
   
 }
 
+/**
+ * Export per-pixel pairs (daily product vs MCD43A3) for MOD09GA and MOD10A1
+ * Produces a large CSV/TFRecord where each row = 1 valid glacier pixel.
+ */
+function exportPixelPairs(results, region, description) {
+  var pairs = ee.FeatureCollection([]);
+
+  // Helper to find the reference image with identical timestamp
+  function findRef(img, mcd43Col) {
+    var ts = ee.Number(img.get('system:time_start'));
+    return ee.Image(ee.Algorithms.If(
+      mcd43Col.filter(ee.Filter.eq('system:time_start', ts)).size().gt(0),
+      mcd43Col.filter(ee.Filter.eq('system:time_start', ts)).first(),
+      null
+    ));
+  }
+
+  var refCol = results.mcd43a3;
+  if (!refCol) {
+    throw new Error('MCD43A3 collection must be present for pixel pair export.');
+  }
+
+  function addPairs(collection, family) {
+    var fc = collection.map(function(img) {
+      var ref = findRef(img, refCol);
+      return ee.FeatureCollection(ee.Algorithms.If(ref,
+        img.addBands(ref.select('broadband_albedo_mcd43a3').rename('alb_ref'))
+          .sample({
+            region: region,
+            scale: config.EXPORT_CONFIG.scale,
+            tileScale: config.EXPORT_CONFIG.tileScale,
+            geometries: false
+          })
+          .map(function(ft){
+            var base = {
+              'family': family,
+              'date': ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'),
+              'is_terra': img.get('is_terra')
+            };
+            // Attach predictors only for MOD09GA family
+            var enriched = ee.Dictionary(base);
+            if (family === 'MOD09GA') {
+              enriched = enriched.set({
+                'solar_zenith': img.get('solar_zenith'),
+                'ndsi_mean':    img.get('ndsi_mean'),
+                'mean_elev':    img.get('mean_elev')
+              });
+            }
+            return ft.set(enriched).rename(['alb_daily','alb_ref']);
+          }),
+        ee.FeatureCollection([])
+      ));
+    }).flatten();
+    return fc;
+  }
+
+  if (results.ren) {
+    pairs = pairs.merge(addPairs(results.ren, 'MOD09GA'));
+  }
+  if (results.mod10a1) {
+    pairs = pairs.merge(addPairs(results.mod10a1, 'MOD10A1'));
+  }
+
+  Export.table.toDrive({
+    collection: pairs,
+    description: description + '_pixel_pairs',
+    folder: 'albedo_pixel_pairs',
+    fileFormat: 'CSV'
+  });
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -292,3 +375,4 @@ exports.exportComparisonStats = exportComparisonStats;
 exports.printDataCounts = printDataCounts;
 exports.generateExportDescription = generateExportDescription;
 exports.exportIndividualMethod = exportIndividualMethod;
+exports.exportPixelPairs = exportPixelPairs;
