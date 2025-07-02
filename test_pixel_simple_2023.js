@@ -46,125 +46,121 @@ try {
   );
   
   var allSamples = ee.FeatureCollection([]);
-  var meltSeasonFilter = ee.Filter.calendarRange(6, 9, 'month');
   
-  // Process MOD09GA
+  // Process MOD09GA (use single image approach like working script)
   if (results.ren && results.ren.size().gt(0)) {
     print('📊 Processing MOD09GA pixels...');
-    var renCollection = results.ren.filter(meltSeasonFilter);
-    var renSamples = renCollection.map(function(renImage) {
-      var projection = renImage.select('broadband_albedo_ren_masked').projection();
-      var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-      var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-      var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-      var imageWithCoords = renImage.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-      
-      return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-        region: glacierData.geometry,
-        scale: CONFIG.SCALE,
-        geometries: true,
-        tileScale: CONFIG.TILE_SCALE,
-        bestEffort: CONFIG.BEST_EFFORT
-      }).map(function(feature) {
-        var coords = feature.geometry().coordinates();
-        var date = ee.Date(renImage.get('system:time_start'));
-        return feature.set({
-          'albedo_value': feature.get('broadband_albedo_ren_masked'),
-          'longitude': ee.List(coords).get(0),
-          'latitude': ee.List(coords).get(1),
-          'tile_h': feature.get('tile_h'),
-          'tile_v': feature.get('tile_v'),
-          'pixel_row': feature.get('pixel_row'),
-          'pixel_col': feature.get('pixel_col'),
-          'pixel_id': feature.get('pixel_id'),
-          'date': date.format('YYYY-MM-dd'),
-          'method': 'MOD09GA'
-        });
+    var renImage = ee.Image(results.ren.first());
+    
+    var projection = renImage.select('broadband_albedo_ren_masked').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = renImage.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierData.geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(renImage.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_ren_masked'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MOD09GA'
       });
-    }).flatten();
+    });
     allSamples = allSamples.merge(renSamples);
   }
   
-  // Process MOD10A1
+  // Process MOD10A1 (use single image approach like working script)
   if (results.mod10a1 && results.mod10a1.size().gt(0)) {
     print('📊 Processing MOD10A1 pixels...');
-    var mod10Collection = results.mod10a1.filter(meltSeasonFilter);
-    var mod10Samples = mod10Collection.map(function(mod10Image) {
-      var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
-      var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-      var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-      var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-      var imageWithCoords = mod10Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-      
-      return imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-        region: glacierData.geometry,
-        scale: CONFIG.SCALE,
-        geometries: true,
-        tileScale: CONFIG.TILE_SCALE,
-        bestEffort: CONFIG.BEST_EFFORT
-      }).map(function(feature) {
-        var coords = feature.geometry().coordinates();
-        var date = ee.Date(mod10Image.get('system:time_start'));
-        return feature.set({
-          'albedo_value': feature.get('broadband_albedo_mod10a1'),
-          'longitude': ee.List(coords).get(0),
-          'latitude': ee.List(coords).get(1),
-          'tile_h': feature.get('tile_h'),
-          'tile_v': feature.get('tile_v'),
-          'pixel_row': feature.get('pixel_row'),
-          'pixel_col': feature.get('pixel_col'),
-          'pixel_id': feature.get('pixel_id'),
-          'date': date.format('YYYY-MM-dd'),
-          'method': 'MOD10A1'
-        });
+    var mod10Image = ee.Image(results.mod10a1.first());
+    
+    var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = mod10Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierData.geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(mod10Image.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_mod10a1'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MOD10A1'
       });
-    }).flatten();
+    });
     allSamples = allSamples.merge(mod10Samples);
   }
   
-  // Process MCD43A3
+  // Process MCD43A3 (use single image approach like working script)
   if (results.mcd43a3 && results.mcd43a3.size().gt(0)) {
     print('📊 Processing MCD43A3 pixels...');
-    var mcd43Collection = results.mcd43a3.filter(meltSeasonFilter);
-    var mcd43Samples = mcd43Collection.map(function(mcd43Image) {
-      var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
-      var coords = ee.Image.pixelCoordinates(projection);
-      var pixelRow = coords.select('y').int().rename('pixel_row');
-      var pixelCol = coords.select('x').int().rename('pixel_col');
-      var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-      var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-      var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-      var imageWithCoords = mcd43Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-      
-      return imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-        region: glacierData.geometry,
-        scale: CONFIG.SCALE,
-        geometries: true,
-        tileScale: CONFIG.TILE_SCALE,
-        bestEffort: CONFIG.BEST_EFFORT
-      }).map(function(feature) {
-        var coords = feature.geometry().coordinates();
-        var date = ee.Date(mcd43Image.get('system:time_start'));
-        return feature.set({
-          'albedo_value': feature.get('broadband_albedo_mcd43a3'),
-          'longitude': ee.List(coords).get(0),
-          'latitude': ee.List(coords).get(1),
-          'tile_h': feature.get('tile_h'),
-          'tile_v': feature.get('tile_v'),
-          'pixel_row': feature.get('pixel_row'),
-          'pixel_col': feature.get('pixel_col'),
-          'pixel_id': feature.get('pixel_id'),
-          'date': date.format('YYYY-MM-dd'),
-          'method': 'MCD43A3'
-        });
+    var mcd43Image = ee.Image(results.mcd43a3.first());
+    
+    var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = mcd43Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierData.geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(mcd43Image.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_mcd43a3'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MCD43A3'
       });
-    }).flatten();
+    });
     allSamples = allSamples.merge(mcd43Samples);
   }
   

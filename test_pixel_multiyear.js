@@ -40,232 +40,180 @@ var CONFIG = {
 // ============================================================================
 
 /**
- * Process all melt season data in one go
+ * Process melt season data year by year to avoid resource exhaustion
  */
 function processAllMeltSeasonData(region) {
-  print('🔧 Processing ALL melt season data for 2017-2024');
+  print('🔧 Processing melt season data for 2017-2024 (year by year approach)');
   
-  // Create date range for entire melt season period
-  var startDate = ee.Date.fromYMD(CONFIG.START_YEAR, CONFIG.MELT_SEASON_START_MONTH, 1);
-  var endDate = ee.Date.fromYMD(CONFIG.END_YEAR, CONFIG.MELT_SEASON_END_MONTH, 30);
+  var methods = {ren: true, mod10a1: true, mcd43a3: true};
+  var allSamples = ee.FeatureCollection([]);
   
-  print('📅 Date range:', startDate.format('YYYY-MM-dd').getInfo(), 'to', endDate.format('YYYY-MM-dd').getInfo());
-  
-  var methods = {ren: true, mod10a1: true, mcd43a3: true}; // All three methods
-  
-  try {
-    // Use the EXACT same logic as test_pixel_simple.js but for full date range
-    var results = originalComparison.runModularComparison(
-      startDate, endDate, methods, 
-      glacierUtils.initializeGlacierData().outlines, 
-      region || glacierUtils.initializeGlacierData().geometry
-    );
+  // Process one year at a time to avoid Earth Engine resource limits
+  for (var year = CONFIG.START_YEAR; year <= CONFIG.END_YEAR; year++) {
+    print('📅 Processing year:', year);
     
-    print('✅ Got results from original workflow for full period');
+    var startDate = ee.Date.fromYMD(year, CONFIG.MELT_SEASON_START_MONTH, 1);
+    var endDate = ee.Date.fromYMD(year, CONFIG.MELT_SEASON_END_MONTH, 30);
     
-    var allSamples = ee.FeatureCollection([]);
-    
-    // Apply melt season filter to all collections
-    var meltSeasonFilter = ee.Filter.calendarRange(CONFIG.MELT_SEASON_START_MONTH, CONFIG.MELT_SEASON_END_MONTH, 'month');
-    
-    // Process MOD09GA (Ren method) - IDENTICAL to test_pixel_simple.js but for all years
-    if (results.ren && results.ren.size().gt(0)) {
-      print('📊 Processing MOD09GA pixels for all years...');
+    try {
+      var results = originalComparison.runModularComparison(
+        startDate, endDate, methods, 
+        glacierUtils.initializeGlacierData().outlines, 
+        region || glacierUtils.initializeGlacierData().geometry
+      );
       
-      var renCollection = results.ren.filter(meltSeasonFilter);
+      // Process using single image approach like the working script
+      var yearSamples = processYearData(results, year);
+      allSamples = allSamples.merge(yearSamples);
       
-      print('📊 MOD09GA collection size after melt season filter:', renCollection.size().getInfo());
+      print('✅ Year', year, 'processed successfully');
       
-      // Process each image in the collection
-      var renSamples = renCollection.map(function(renImage) {
-        // Use direct pixel coordinates from MODIS sinusoidal projection (same as test_pixel_simple.js)
-        var projection = renImage.select('broadband_albedo_ren_masked').projection();
-        
-        // Generate direct pixel coordinates in MODIS sinusoidal space
-        var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
-        
-        // Create simple coordinate-based pixel ID (same formula as test_pixel_simple.js)
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-        
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-        
-        var imageWithCoords = renImage.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-        
-        var samples = imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-          region: region || glacierUtils.initializeGlacierData().geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
-        }).map(function(feature) {
-          var coords = feature.geometry().coordinates();
-          var date = ee.Date(renImage.get('system:time_start'));
-          
-          return feature.set({
-            'albedo_value': feature.get('broadband_albedo_ren_masked'),
-            'longitude': ee.List(coords).get(0),
-            'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
-            'pixel_row': feature.get('pixel_row'),
-            'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
-            'date': date.format('YYYY-MM-dd'),
-            'method': 'MOD09GA'
-          });
-        });
-        
-        return samples;
-      }).flatten();
-      
-      allSamples = allSamples.merge(renSamples);
-      print('✅ MOD09GA pixels processed for all years');
+    } catch (yearError) {
+      print('❌ Error processing year', year, ':', yearError);
     }
-    
-    // Process MOD10A1 - IDENTICAL to test_pixel_simple.js but for all years
-    if (results.mod10a1 && results.mod10a1.size().gt(0)) {
-      print('📊 Processing MOD10A1 pixels for all years...');
-      
-      var mod10Collection = results.mod10a1.filter(meltSeasonFilter);
-      
-      print('📊 MOD10A1 collection size after melt season filter:', mod10Collection.size().getInfo());
-      
-      // Process each image in the collection
-      var mod10Samples = mod10Collection.map(function(mod10Image) {
-        // Use direct pixel coordinates from MODIS sinusoidal projection
-        var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
-        
-        // Generate direct pixel coordinates in MODIS sinusoidal space
-        var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
-        
-        // Create simple coordinate-based pixel ID
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-        
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-        
-        var imageWithCoords = mod10Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-        
-        var samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-          region: region || glacierUtils.initializeGlacierData().geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
-        }).map(function(feature) {
-          var coords = feature.geometry().coordinates();
-          var date = ee.Date(mod10Image.get('system:time_start'));
-          
-          return feature.set({
-            'albedo_value': feature.get('broadband_albedo_mod10a1'),
-            'longitude': ee.List(coords).get(0),
-            'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
-            'pixel_row': feature.get('pixel_row'),
-            'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
-            'date': date.format('YYYY-MM-dd'),
-            'method': 'MOD10A1'
-          });
-        });
-        
-        return samples;
-      }).flatten();
-      
-      allSamples = allSamples.merge(mod10Samples);
-      print('✅ MOD10A1 pixels processed for all years');
-    }
-    
-    // Process MCD43A3 - IDENTICAL to test_pixel_simple.js but for all years
-    if (results.mcd43a3 && results.mcd43a3.size().gt(0)) {
-      print('📊 Processing MCD43A3 pixels for all years...');
-      
-      var mcd43Collection = results.mcd43a3.filter(meltSeasonFilter);
-      
-      print('📊 MCD43A3 collection size after melt season filter:', mcd43Collection.size().getInfo());
-      
-      // Process each image in the collection
-      var mcd43Samples = mcd43Collection.map(function(mcd43Image) {
-        // Use direct pixel coordinates from MODIS sinusoidal projection
-        var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
-        
-        // Generate direct pixel coordinates in MODIS sinusoidal space
-        var coords = ee.Image.pixelCoordinates(projection);
-        var pixelRow = coords.select('y').int().rename('pixel_row');
-        var pixelCol = coords.select('x').int().rename('pixel_col');
-        
-        // Create simple coordinate-based pixel ID
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
-        
-        // Create simple tile coordinates (rounded lat/lon for spatial matching)
-        var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
-        var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
-        
-        var imageWithCoords = mcd43Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
-        
-        var samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
-          region: region || glacierUtils.initializeGlacierData().geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
-        }).map(function(feature) {
-          var coords = feature.geometry().coordinates();
-          var date = ee.Date(mcd43Image.get('system:time_start'));
-          
-          return feature.set({
-            'albedo_value': feature.get('broadband_albedo_mcd43a3'),
-            'longitude': ee.List(coords).get(0),
-            'latitude': ee.List(coords).get(1),
-            'tile_h': feature.get('tile_h'),
-            'tile_v': feature.get('tile_v'),
-            'pixel_row': feature.get('pixel_row'),
-            'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id'),
-            'date': date.format('YYYY-MM-dd'),
-            'method': 'MCD43A3'
-          });
-        });
-        
-        return samples;
-      }).flatten();
-      
-      allSamples = allSamples.merge(mcd43Samples);
-      print('✅ MCD43A3 pixels processed for all years');
-    }
-    
-    // Export ONE BIG CSV with all data
-    Export.table.toDrive({
-      collection: allSamples,
-      description: 'ALL_pixels_three_methods_2017_2024_melt_season',
-      folder: CONFIG.EXPORT_FOLDER,
-      fileFormat: 'CSV',
-      selectors: ['albedo_value', 'broadband_albedo_ren_masked', 'date', 'latitude', 'longitude', 'method', 'pixel_col', 'pixel_id', 'pixel_row', 'tile_h', 'tile_v', '.geo']
-    });
-    
-    print('🎉 BIG CSV EXPORT INITIATED');
-    print('📁 Check Tasks tab for: ALL_pixels_three_methods_2017_2024_melt_season');
-    print('⚠️  This will be a VERY LARGE file - monitor Google Drive space');
-    
-    // Print sample counts
-    allSamples.size().evaluate(function(count) {
-      print('📊 Total pixels sampled from all methods and years:', count);
-    });
-    
-    return true;
-    
-  } catch (error) {
-    print('❌ Error processing all data:', error);
-    return false;
   }
+  
+  // Export all combined data
+  Export.table.toDrive({
+    collection: allSamples,
+    description: 'ALL_pixels_three_methods_2017_2024_melt_season',
+    folder: CONFIG.EXPORT_FOLDER,
+    fileFormat: 'CSV',
+    selectors: ['albedo_value', 'date', 'latitude', 'longitude', 'method', 'pixel_col', 'pixel_id', 'pixel_row', 'tile_h', 'tile_v', '.geo']
+  });
+  
+  print('🎉 Multi-year CSV export initiated');
+  allSamples.size().evaluate(function(count) {
+    print('📊 Total pixels from all years:', count);
+  });
+  
+  return true;
+}
+
+/**
+ * Process data for a single year using the working single-image approach
+ */
+function processYearData(results, year) {
+  var yearSamples = ee.FeatureCollection([]);
+    
+  // Process MOD09GA (use single image approach like working script)
+  if (results.ren && results.ren.size().gt(0)) {
+    print('📊 Processing MOD09GA pixels for year', year);
+    var renImage = ee.Image(results.ren.first());
+    
+    var projection = renImage.select('broadband_albedo_ren_masked').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = renImage.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierUtils.initializeGlacierData().geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(renImage.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_ren_masked'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),  
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MOD09GA'
+      });
+    });
+    yearSamples = yearSamples.merge(renSamples);
+  }
+    
+  // Process MOD10A1 (use single image approach like working script)
+  if (results.mod10a1 && results.mod10a1.size().gt(0)) {
+    print('📊 Processing MOD10A1 pixels for year', year);
+    var mod10Image = ee.Image(results.mod10a1.first());
+    
+    var projection = mod10Image.select('broadband_albedo_mod10a1').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = mod10Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierUtils.initializeGlacierData().geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(mod10Image.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_mod10a1'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MOD10A1'
+      });
+    });
+    yearSamples = yearSamples.merge(mod10Samples);
+  }
+    
+  // Process MCD43A3 (use single image approach like working script)
+  if (results.mcd43a3 && results.mcd43a3.size().gt(0)) {
+    print('📊 Processing MCD43A3 pixels for year', year);
+    var mcd43Image = ee.Image(results.mcd43a3.first());
+    
+    var projection = mcd43Image.select('broadband_albedo_mcd43a3').projection();
+    var coords = ee.Image.pixelCoordinates(projection);
+    var pixelRow = coords.select('y').int().rename('pixel_row');
+    var pixelCol = coords.select('x').int().rename('pixel_col');
+    var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+    var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
+    var latRounded = ee.Image.pixelLonLat().select('latitude').multiply(100).round().int().rename('tile_v');
+    var imageWithCoords = mcd43Image.addBands([lonRounded, latRounded, pixelRow, pixelCol, pixelId]);
+    
+    var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
+      region: glacierUtils.initializeGlacierData().geometry,
+      scale: CONFIG.SCALE,
+      geometries: true,
+      tileScale: CONFIG.TILE_SCALE,
+      bestEffort: CONFIG.BEST_EFFORT
+    }).map(function(feature) {
+      var coords = feature.geometry().coordinates();
+      var date = ee.Date(mcd43Image.get('system:time_start'));
+      return feature.set({
+        'albedo_value': feature.get('broadband_albedo_mcd43a3'),
+        'longitude': ee.List(coords).get(0),
+        'latitude': ee.List(coords).get(1),
+        'tile_h': feature.get('tile_h'),
+        'tile_v': feature.get('tile_v'),
+        'pixel_row': feature.get('pixel_row'),
+        'pixel_col': feature.get('pixel_col'),
+        'pixel_id': feature.get('pixel_id'),
+        'date': date.format('YYYY-MM-dd'),
+        'method': 'MCD43A3'
+      });
+    });
+    yearSamples = yearSamples.merge(mcd43Samples);
+  }
+  
+  return yearSamples;
 }
 
 // ============================================================================
