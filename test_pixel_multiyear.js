@@ -40,20 +40,22 @@ var CONFIG = {
 // ============================================================================
 
 /**
- * Process melt season data year by year to avoid resource exhaustion
+ * Process single representative day per year to avoid resource exhaustion
  */
 function processAllMeltSeasonData(region) {
-  print('🔧 Processing melt season data for 2017-2024 (year by year approach)');
+  print('🔧 Processing one day per year for 2017-2024 (single day approach)');
   
   var methods = {ren: true, mod10a1: true, mcd43a3: true};
   var allSamples = ee.FeatureCollection([]);
   
-  // Process one year at a time to avoid Earth Engine resource limits
+  // Process one representative day per year (like the working script)
   for (var year = CONFIG.START_YEAR; year <= CONFIG.END_YEAR; year++) {
     print('📅 Processing year:', year);
     
-    var startDate = ee.Date.fromYMD(year, CONFIG.MELT_SEASON_START_MONTH, 1);
-    var endDate = ee.Date.fromYMD(year, CONFIG.MELT_SEASON_END_MONTH, 30);
+    // Use a single representative day in peak melt season (August 7th)
+    var testDate = ee.Date.fromYMD(year, 8, 7);
+    var startDate = testDate;
+    var endDate = testDate.advance(1, 'day');
     
     try {
       var results = originalComparison.runModularComparison(
@@ -62,11 +64,17 @@ function processAllMeltSeasonData(region) {
         region || glacierUtils.initializeGlacierData().geometry
       );
       
-      // Process using single image approach like the working script
-      var yearSamples = processYearData(results, year);
-      allSamples = allSamples.merge(yearSamples);
+      print('✅ Got results for year', year);
       
-      print('✅ Year', year, 'processed successfully');
+      // Check if we have valid results before processing
+      if (results && results.ren && results.ren.size().gt(0).getInfo()) {
+        // Process using single image approach like the working script
+        var yearSamples = processYearData(results, year);
+        allSamples = allSamples.merge(yearSamples);
+        print('✅ Year', year, 'processed successfully');
+      } else {
+        print('⚠️  No data available for year', year);
+      }
       
     } catch (yearError) {
       print('❌ Error processing year', year, ':', yearError);
