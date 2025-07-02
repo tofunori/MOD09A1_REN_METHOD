@@ -59,7 +59,7 @@ function testSimplePixelExport(date, region) {
         var samples = firstImage.select(albedoBand).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
-          maxPixels: 1000, // Start small
+          numPixels: 1000, // Start small
           geometries: true
         }).map(function(feature) {
           var coords = feature.geometry().coordinates();
