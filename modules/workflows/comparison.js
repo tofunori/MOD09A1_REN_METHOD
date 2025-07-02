@@ -367,7 +367,10 @@ function visualizeThreeMethods(date, glacierOutlines, region, palette) {
   // Ajouter l'image composite invisible pour l'Inspector
   Map.addLayer(compositeImage, {}, 'Pixel Info (Inspector)', false);
   
-  Map.addLayer(glacierOutlines, {color: 'black'}, 'Glacier outline');
+  // Ajouter le contour du glacier EN DERNIER (apparaît en bas de la liste)
+  // avec seulement le contour sans remplissage
+  Map.addLayer(glacierOutlines, {color: 'black', fillColor: '00000000'}, 'Glacier outline');
+  
   Map.centerObject(region, 12);
   
   print('Date:', date.format('YYYY-MM-dd').getInfo());
