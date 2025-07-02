@@ -48,14 +48,27 @@ function processAllMeltSeasonData(region) {
   var methods = {ren: true, mod10a1: true, mcd43a3: true};
   var allSamples = ee.FeatureCollection([]);
   
-  // Process one representative day per year (like the working script)
+  // Process multiple candidate days per year to get the best data coverage
   for (var year = CONFIG.START_YEAR; year <= CONFIG.END_YEAR; year++) {
     print('📅 Processing year:', year);
     
-    // Use a single representative day in peak melt season (August 7th)
-    var testDate = ee.Date.fromYMD(year, 8, 7);
-    var startDate = testDate;
-    var endDate = testDate.advance(1, 'day');
+    // Try multiple dates in peak melt season to find the best data availability
+    var candidateDates = [
+      ee.Date.fromYMD(year, 8, 7),   // Aug 7 (original)
+      ee.Date.fromYMD(year, 8, 1),   // Aug 1
+      ee.Date.fromYMD(year, 8, 15),  // Aug 15
+      ee.Date.fromYMD(year, 7, 15),  // Jul 15
+      ee.Date.fromYMD(year, 7, 1)    // Jul 1
+    ];
+    
+    var bestSamples = ee.FeatureCollection([]);
+    var maxPixels = 0;
+    
+    // Try each candidate date and pick the one with most pixels
+    for (var d = 0; d < candidateDates.length; d++) {
+      var testDate = candidateDates[d];
+      var startDate = testDate;
+      var endDate = testDate.advance(1, 'day');
     
     try {
       var results = originalComparison.runModularComparison(
@@ -71,6 +84,12 @@ function processAllMeltSeasonData(region) {
         // Process using single image approach like the working script
         var yearSamples = processYearData(results, year);
         allSamples = allSamples.merge(yearSamples);
+        
+        // Check how many pixels we got for this year
+        yearSamples.size().evaluate(function(yearCount) {
+          print('📊 Year', year, 'pixel count:', yearCount);
+        });
+        
         print('✅ Year', year, 'processed successfully');
       } else {
         print('⚠️  No data available for year', year);
@@ -120,10 +139,8 @@ function processYearData(results, year) {
     
     var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
       region: glacierUtils.initializeGlacierData().geometry,
-      scale: CONFIG.SCALE,
-      geometries: true,
-      tileScale: CONFIG.TILE_SCALE,
-      bestEffort: CONFIG.BEST_EFFORT
+      scale: 500,
+      geometries: true
     }).map(function(feature) {
       var coords = feature.geometry().coordinates();
       var date = ee.Date(renImage.get('system:time_start'));
@@ -159,10 +176,8 @@ function processYearData(results, year) {
     
     var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
       region: glacierUtils.initializeGlacierData().geometry,
-      scale: CONFIG.SCALE,
-      geometries: true,
-      tileScale: CONFIG.TILE_SCALE,
-      bestEffort: CONFIG.BEST_EFFORT
+      scale: 500,
+      geometries: true
     }).map(function(feature) {
       var coords = feature.geometry().coordinates();
       var date = ee.Date(mod10Image.get('system:time_start'));
@@ -198,10 +213,8 @@ function processYearData(results, year) {
     
     var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
       region: glacierUtils.initializeGlacierData().geometry,
-      scale: CONFIG.SCALE,
-      geometries: true,
-      tileScale: CONFIG.TILE_SCALE,
-      bestEffort: CONFIG.BEST_EFFORT
+      scale: 500,
+      geometries: true
     }).map(function(feature) {
       var coords = feature.geometry().coordinates();
       var date = ee.Date(mcd43Image.get('system:time_start'));
@@ -220,6 +233,11 @@ function processYearData(results, year) {
     });
     yearSamples = yearSamples.merge(mcd43Samples);
   }
+  
+  // Debug: Check how many samples we have for this year
+  yearSamples.size().evaluate(function(totalYearPixels) {
+    print('🎯 Total pixels for year', year, ':', totalYearPixels);
+  });
   
   return yearSamples;
 }
@@ -291,10 +309,8 @@ function testSmallDateRange() {
         
         return imageWithCoords.select(['broadband_albedo_ren_masked', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: glacierData.geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
+          scale: 500,
+          geometries: true
         }).map(function(feature) {
           var coords = feature.geometry().coordinates();
           var date = ee.Date(renImage.get('system:time_start'));
@@ -330,10 +346,8 @@ function testSmallDateRange() {
         
         return imageWithCoords.select(['broadband_albedo_mod10a1', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: glacierData.geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
+          scale: 500,
+          geometries: true
         }).map(function(feature) {
           var coords = feature.geometry().coordinates();
           var date = ee.Date(mod10Image.get('system:time_start'));
@@ -368,10 +382,8 @@ function testSmallDateRange() {
         
         return imageWithCoords.select(['broadband_albedo_mcd43a3', 'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
           region: glacierData.geometry,
-          scale: CONFIG.SCALE,
-          geometries: true,
-          tileScale: CONFIG.TILE_SCALE,
-          bestEffort: CONFIG.BEST_EFFORT
+          scale: 500,
+          geometries: true
         }).map(function(feature) {
           var coords = feature.geometry().coordinates();
           var date = ee.Date(mcd43Image.get('system:time_start'));
