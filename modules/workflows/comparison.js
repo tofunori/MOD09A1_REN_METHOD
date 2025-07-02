@@ -280,6 +280,95 @@ function exportRenAlbedoSingleDateNative(date, glacierOutlines, region, options)
 
 
 // ============================================================================
+// INTERACTIVE VISUALIZATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Create date visualization widget with Inspector support
+ */
+function createDateVisualizationWidget(glacierOutlines, region) {
+  var albedoPalette = ['8c2d04','cc4c02','ec7014','fe9929','fed98e','ffffbf',
+                       'c7e9b4','7fcdbb','41b6c4','2c7fb8','253494'];
+  
+  var dateSlider = ui.DateSlider({
+    start: '2017-01-01',
+    end: '2024-12-31', 
+    value: '2020-06-15',
+    period: 1,
+    onChange: function(dateRange) {
+      var date = dateRange.start();
+      visualizeThreeMethods(date, glacierOutlines, region, albedoPalette);
+    }
+  });
+  
+  var panel = ui.Panel([
+    ui.Label('Sélectionner une date:'),
+    dateSlider,
+    ui.Button('Clear layers', function() { Map.clear(); }),
+    ui.Label('Activez l\'Inspector pour voir les valeurs pixel')
+  ]);
+  
+  Map.add(panel);
+}
+
+/**
+ * Visualize three methods for selected date with Inspector support
+ */
+function visualizeThreeMethods(date, glacierOutlines, region, palette) {
+  Map.clear();
+  
+  var results = runModularComparison(date, date.advance(1,'day'), 
+    {ren: true, mod10a1: true, mcd43a3: true}, glacierOutlines, region);
+  
+  var glacierMask = glacierUtils.createGlacierMask(glacierOutlines);
+  var vizParams = {min: 0, max: 1, palette: palette};
+  
+  // Créer une image composite avec toutes les bandes pour l'Inspector
+  var compositeImage = ee.Image([]);
+  
+  if (results.ren.size().gt(0)) {
+    var renImg = results.ren.first();
+    compositeImage = compositeImage.addBands(renImg.select('broadband_albedo_ren_masked').rename('MOD09GA_albedo'));
+    compositeImage = compositeImage.addBands(renImg.select('SolarZenith').multiply(0.01).rename('solar_zenith_deg'));
+    // Calculer NDSI
+    var ndsi = renImg.expression('(b4 - b6) / (b4 + b6)', {
+      'b4': renImg.select('sur_refl_b04').multiply(0.0001),
+      'b6': renImg.select('sur_refl_b06').multiply(0.0001)
+    }).rename('NDSI');
+    compositeImage = compositeImage.addBands(ndsi);
+  }
+  
+  if (results.mod10a1.size().gt(0)) {
+    compositeImage = compositeImage.addBands(
+      results.mod10a1.first().select('broadband_albedo_mod10a1').rename('MOD10A1_albedo')
+    );
+  }
+  
+  if (results.mcd43a3.size().gt(0)) {
+    compositeImage = compositeImage.addBands(
+      results.mcd43a3.first().select('broadband_albedo_mcd43a3').rename('MCD43A3_albedo')
+    );
+  }
+  
+  // Masquer avec le glacier
+  compositeImage = compositeImage.updateMask(glacierMask);
+  
+  // Ajouter les layers visuels
+  Map.addLayer(results.ren.first().select('broadband_albedo_ren_masked'), vizParams, 'MOD09GA (Ren)');
+  Map.addLayer(results.mod10a1.first().select('broadband_albedo_mod10a1').updateMask(glacierMask), vizParams, 'MOD10A1');
+  Map.addLayer(results.mcd43a3.first().select('broadband_albedo_mcd43a3').updateMask(glacierMask), vizParams, 'MCD43A3');
+  
+  // Ajouter l'image composite invisible pour l'Inspector
+  Map.addLayer(compositeImage, {}, 'Pixel Info (Inspector)', false);
+  
+  Map.addLayer(glacierOutlines, {color: 'black'}, 'Glacier outline');
+  Map.centerObject(region, 12);
+  
+  print('Date:', date.format('YYYY-MM-dd').getInfo());
+  print('Activez l\'Inspector et cliquez sur un pixel pour voir toutes les valeurs');
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -287,4 +376,6 @@ exports.runModularComparison     = runModularComparison;
 exports.exportComparisonResults  = exportComparisonResults;
 exports.runQAProfileComparison   = runQAProfileComparison;
 exports.exportRenAlbedoSingleDate = exportRenAlbedoSingleDate;
-exports.exportRenAlbedoSingleDateNative = exportRenAlbedoSingleDateNative; 
+exports.exportRenAlbedoSingleDateNative = exportRenAlbedoSingleDateNative;
+exports.createDateVisualizationWidget = createDateVisualizationWidget;
+exports.visualizeThreeMethods = visualizeThreeMethods; 

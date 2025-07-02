@@ -172,6 +172,18 @@ function exportComparisonStats(results, region, description) {
         'month': date.get('month'),
         'day_of_year': date.getRelative('day', 'year'),
         'method': ee.Algorithms.If(image.get('is_terra'), 'MOD10A1', 'MYD10A1'),
+        'mean_elev': (function() {
+          var demValidMask = image.mask().reduce(ee.Reducer.min());
+          var demMasked = config.dem.updateMask(demValidMask);
+          return demMasked.reduceRegion({
+            reducer: ee.Reducer.mean(),
+            geometry: region,
+            scale: config.EXPORT_CONFIG.scale_simple,
+            maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
+            bestEffort: config.EXPORT_CONFIG.bestEffort,
+            tileScale: config.EXPORT_CONFIG.tileScale
+          }).get('DSM');
+        })(),
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
@@ -222,6 +234,18 @@ function exportComparisonStats(results, region, description) {
         'month': date.get('month'),
         'day_of_year': date.getRelative('day', 'year'),
         'method': 'MCD43A3',
+        'mean_elev': (function() {
+          var demValidMask = image.mask().reduce(ee.Reducer.min());
+          var demMasked = config.dem.updateMask(demValidMask);
+          return demMasked.reduceRegion({
+            reducer: ee.Reducer.mean(),
+            geometry: region,
+            scale: config.EXPORT_CONFIG.scale_simple,
+            maxPixels: config.EXPORT_CONFIG.maxPixels_simple,
+            bestEffort: config.EXPORT_CONFIG.bestEffort,
+            tileScale: config.EXPORT_CONFIG.tileScale
+          }).get('DSM');
+        })(),
         'system:time_start': image.get('system:time_start')
       });
     }).filter(ee.Filter.notNull(['albedo_mean']));
