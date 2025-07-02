@@ -27,7 +27,7 @@ function testSimplePixelExport(date, region) {
   
   var startDate = ee.Date(date);
   var endDate = startDate.advance(1, 'day');
-  var methods = {ren: true, mod10a1: false, mcd43a3: false}; // Start with just MOD09GA
+  var methods = {ren: true, mod10a1: true, mcd43a3: true}; // Test all three methods
   
   try {
     // Use the original comparison workflow to get processed results
@@ -39,62 +39,104 @@ function testSimplePixelExport(date, region) {
     
     print('✅ Got results from original workflow');
     
-    // Now try to sample pixels from the MOD09GA results
+    var allSamples = ee.FeatureCollection([]);
+    
+    // Process MOD09GA (Ren method)
     if (results.ren && results.ren.size().gt(0)) {
-      var firstImage = ee.Image(results.ren.first());
+      print('📊 Processing MOD09GA pixels...');
+      var renImage = ee.Image(results.ren.first());
       
-      print('📊 Sampling pixels from first MOD09GA image...');
-      
-      // Check what bands are available
-      firstImage.bandNames().evaluate(function(bands) {
-        print('Available bands:', bands);
+      var renSamples = renImage.select('broadband_albedo_ren_masked').sample({
+        region: region || glacierUtils.initializeGlacierData().geometry,
+        scale: 500,
+        numPixels: 500, // Smaller per method to avoid memory issues
+        geometries: true
+      }).map(function(feature) {
+        var coords = feature.geometry().coordinates();
+        var date = ee.Date(renImage.get('system:time_start'));
         
-        // Try to sample just the albedo band and basic coordinates
-        var albedoBand = bands.indexOf('broadband_albedo_ren_masked') >= 0 ? 
-          'broadband_albedo_ren_masked' : 'broadband_albedo_ren';
-        
-        print('Using albedo band:', albedoBand);
-        
-        // Sample pixels with minimal metadata
-        var samples = firstImage.select(albedoBand).sample({
-          region: region || glacierUtils.initializeGlacierData().geometry,
-          scale: 500,
-          numPixels: 1000, // Start small
-          geometries: true
-        }).map(function(feature) {
-          var coords = feature.geometry().coordinates();
-          var date = ee.Date(firstImage.get('system:time_start'));
-          
-          return feature.set({
-            'albedo_value': feature.get(albedoBand),
-            'longitude': ee.List(coords).get(0),
-            'latitude': ee.List(coords).get(1),
-            'date': date.format('YYYY-MM-dd'),
-            'method': 'MOD09GA'
-          });
+        return feature.set({
+          'albedo_value': feature.get('broadband_albedo_ren_masked'),
+          'longitude': ee.List(coords).get(0),
+          'latitude': ee.List(coords).get(1),
+          'date': date.format('YYYY-MM-dd'),
+          'method': 'MOD09GA'
         });
-        
-        // Try to export
-        Export.table.toDrive({
-          collection: samples,
-          description: 'simple_pixel_test_' + date.replace(/-/g, ''),
-          folder: 'pixel_test_simple',
-          fileFormat: 'CSV'
-        });
-        
-        print('✅ Simple pixel export initiated');
-        print('📁 Check Tasks tab and Google Drive folder "pixel_test_simple"');
-        
-        // Print sample count
-        samples.size().evaluate(function(count) {
-          print('📊 Number of pixels sampled:', count);
-        });
-        
       });
       
-    } else {
-      print('❌ No MOD09GA results found for', date);
+      allSamples = allSamples.merge(renSamples);
+      print('✅ MOD09GA pixels processed');
     }
+    
+    // Process MOD10A1
+    if (results.mod10a1 && results.mod10a1.size().gt(0)) {
+      print('📊 Processing MOD10A1 pixels...');
+      var mod10Image = ee.Image(results.mod10a1.first());
+      
+      var mod10Samples = mod10Image.select('broadband_albedo_mod10a1').sample({
+        region: region || glacierUtils.initializeGlacierData().geometry,
+        scale: 500,
+        numPixels: 500,
+        geometries: true
+      }).map(function(feature) {
+        var coords = feature.geometry().coordinates();
+        var date = ee.Date(mod10Image.get('system:time_start'));
+        
+        return feature.set({
+          'albedo_value': feature.get('broadband_albedo_mod10a1'),
+          'longitude': ee.List(coords).get(0),
+          'latitude': ee.List(coords).get(1),
+          'date': date.format('YYYY-MM-dd'),
+          'method': 'MOD10A1'
+        });
+      });
+      
+      allSamples = allSamples.merge(mod10Samples);
+      print('✅ MOD10A1 pixels processed');
+    }
+    
+    // Process MCD43A3
+    if (results.mcd43a3 && results.mcd43a3.size().gt(0)) {
+      print('📊 Processing MCD43A3 pixels...');
+      var mcd43Image = ee.Image(results.mcd43a3.first());
+      
+      var mcd43Samples = mcd43Image.select('broadband_albedo_mcd43a3').sample({
+        region: region || glacierUtils.initializeGlacierData().geometry,
+        scale: 500,
+        numPixels: 500,
+        geometries: true
+      }).map(function(feature) {
+        var coords = feature.geometry().coordinates();
+        var date = ee.Date(mcd43Image.get('system:time_start'));
+        
+        return feature.set({
+          'albedo_value': feature.get('broadband_albedo_mcd43a3'),
+          'longitude': ee.List(coords).get(0),
+          'latitude': ee.List(coords).get(1),
+          'date': date.format('YYYY-MM-dd'),
+          'method': 'MCD43A3'
+        });
+      });
+      
+      allSamples = allSamples.merge(mcd43Samples);
+      print('✅ MCD43A3 pixels processed');
+    }
+    
+    // Export all methods combined
+    Export.table.toDrive({
+      collection: allSamples,
+      description: 'three_methods_pixel_test_' + date.replace(/-/g, ''),
+      folder: 'pixel_test_simple',
+      fileFormat: 'CSV'
+    });
+    
+    print('🎉 All three methods pixel export initiated');
+    print('📁 Check Tasks tab for: three_methods_pixel_test_' + date.replace(/-/g, ''));
+    
+    // Print sample counts
+    allSamples.size().evaluate(function(count) {
+      print('📊 Total pixels sampled from all methods:', count);
+    });
     
   } catch (error) {
     print('❌ Error in simple pixel test:', error);
