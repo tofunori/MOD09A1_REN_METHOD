@@ -46,7 +46,16 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MOD09GA pixels...');
       var renImage = ee.Image(results.ren.first());
       
-      var renSamples = renImage.select('broadband_albedo_ren_masked').sample({
+      // Add MODIS pixel coordinates (row/col) like in MODIS_Albedo project
+      var projection = renImage.projection();
+      var coords = ee.Image.pixelCoordinates(projection);
+      var pixelRow = coords.select('y').int().rename('pixel_row');
+      var pixelCol = coords.select('x').int().rename('pixel_col');
+      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      
+      var imageWithCoords = renImage.addBands([pixelRow, pixelCol, pixelId]);
+      
+      var renSamples = imageWithCoords.select(['broadband_albedo_ren_masked', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -58,6 +67,9 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_ren_masked'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'pixel_row': feature.get('pixel_row'),
+          'pixel_col': feature.get('pixel_col'),
+          'pixel_id': feature.get('pixel_id'),
           'date': date.format('YYYY-MM-dd'),
           'method': 'MOD09GA'
         });
@@ -72,7 +84,16 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MOD10A1 pixels...');
       var mod10Image = ee.Image(results.mod10a1.first());
       
-      var mod10Samples = mod10Image.select('broadband_albedo_mod10a1').sample({
+      // Add MODIS pixel coordinates (row/col) - same as MOD09GA
+      var projection = mod10Image.projection();
+      var coords = ee.Image.pixelCoordinates(projection);
+      var pixelRow = coords.select('y').int().rename('pixel_row');
+      var pixelCol = coords.select('x').int().rename('pixel_col');
+      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      
+      var imageWithCoords = mod10Image.addBands([pixelRow, pixelCol, pixelId]);
+      
+      var mod10Samples = imageWithCoords.select(['broadband_albedo_mod10a1', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -84,6 +105,9 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_mod10a1'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'pixel_row': feature.get('pixel_row'),
+          'pixel_col': feature.get('pixel_col'),
+          'pixel_id': feature.get('pixel_id'),
           'date': date.format('YYYY-MM-dd'),
           'method': 'MOD10A1'
         });
@@ -98,7 +122,16 @@ function testSimplePixelExport(date, region) {
       print('📊 Processing MCD43A3 pixels...');
       var mcd43Image = ee.Image(results.mcd43a3.first());
       
-      var mcd43Samples = mcd43Image.select('broadband_albedo_mcd43a3').sample({
+      // Add MODIS pixel coordinates (row/col) - same as MOD09GA and MOD10A1
+      var projection = mcd43Image.projection();
+      var coords = ee.Image.pixelCoordinates(projection);
+      var pixelRow = coords.select('y').int().rename('pixel_row');
+      var pixelCol = coords.select('x').int().rename('pixel_col');
+      var pixelId = pixelRow.multiply(1000000).add(pixelCol).int().rename('pixel_id');
+      
+      var imageWithCoords = mcd43Image.addBands([pixelRow, pixelCol, pixelId]);
+      
+      var mcd43Samples = imageWithCoords.select(['broadband_albedo_mcd43a3', 'pixel_row', 'pixel_col', 'pixel_id']).sample({
         region: region || glacierUtils.initializeGlacierData().geometry,
         scale: 500,
         geometries: true  // Remove numPixels to get ALL available pixels
@@ -110,6 +143,9 @@ function testSimplePixelExport(date, region) {
           'albedo_value': feature.get('broadband_albedo_mcd43a3'),
           'longitude': ee.List(coords).get(0),
           'latitude': ee.List(coords).get(1),
+          'pixel_row': feature.get('pixel_row'),
+          'pixel_col': feature.get('pixel_col'),
+          'pixel_id': feature.get('pixel_id'),
           'date': date.format('YYYY-MM-dd'),
           'method': 'MCD43A3'
         });
