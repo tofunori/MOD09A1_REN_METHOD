@@ -61,8 +61,8 @@ function testMonthlyPixelExport(date, region) {
         var pixelRow = coords.select('y').int().rename('pixel_row');
         var pixelCol = coords.select('x').int().rename('pixel_col');
         
-        // Create simple coordinate-based pixel ID
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+        // Create unique coordinate-based pixel ID using string concatenation
+        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
         
         // Create simple tile coordinates (rounded lat/lon for spatial matching)
         var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
@@ -113,8 +113,8 @@ function testMonthlyPixelExport(date, region) {
         var pixelRow = coords.select('y').int().rename('pixel_row');
         var pixelCol = coords.select('x').int().rename('pixel_col');
         
-        // Create simple coordinate-based pixel ID
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+        // Create unique coordinate-based pixel ID using string concatenation
+        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
         
         // Create simple tile coordinates (rounded lat/lon for spatial matching)
         var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
@@ -165,8 +165,8 @@ function testMonthlyPixelExport(date, region) {
         var pixelRow = coords.select('y').int().rename('pixel_row');
         var pixelCol = coords.select('x').int().rename('pixel_col');
         
-        // Create simple coordinate-based pixel ID
-        var pixelId = pixelRow.multiply(1000000).add(pixelCol).double().rename('pixel_id');
+        // Create unique coordinate-based pixel ID using string concatenation
+        var pixelId = pixelRow.format('%d').cat('_').cat(pixelCol.format('%d')).rename('pixel_id');
         
         // Create simple tile coordinates (rounded lat/lon for spatial matching)
         var lonRounded = ee.Image.pixelLonLat().select('longitude').multiply(100).round().int().rename('tile_h');
