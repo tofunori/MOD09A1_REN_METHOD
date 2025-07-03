@@ -67,20 +67,25 @@ function testWeeklyPixelExportCorrected(date, region) {
         var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
         var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
-        // Generate enhanced pixel coordinates with proper MODIS tiles
-        var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(renImage);
+        // Create enhanced pixel ID: row * 1e6 + col for stability
+        var pixelId = pixelRow.multiply(1e6).add(pixelCol).toInt64().rename('pixel_id');
+        
+        // Create tile coordinates for spatial matching (rounded lat/lon)
+        var lonLat = ee.Image.pixelLonLat();
+        var tileH = lonLat.select('longitude').multiply(100).round().toInt().rename('tile_h');
+        var tileV = lonLat.select('latitude').multiply(100).round().toInt().rename('tile_v');
         
         var imageWithCoords = renImage.addBands([
-          enhancedCoords.select('tile_h'),
-          enhancedCoords.select('tile_v'),
+          tileH,
+          tileV,
           pixelRow,
           pixelCol,
-          enhancedCoords.select('pixel_id_enhanced')
+          pixelId
         ]);
         
         return imageWithCoords.select([
           'broadband_albedo_ren_masked', 
-          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id_enhanced'
+          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id'
         ]).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
@@ -97,7 +102,7 @@ function testWeeklyPixelExportCorrected(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id_enhanced'),
+            'pixel_id': feature.get('pixel_id'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MOD09GA'
           });
@@ -124,20 +129,25 @@ function testWeeklyPixelExportCorrected(date, region) {
         var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
         var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
-        // Generate enhanced pixel coordinates with proper MODIS tiles
-        var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(mod10Image);
+        // Create enhanced pixel ID: row * 1e6 + col for stability
+        var pixelId = pixelRow.multiply(1e6).add(pixelCol).toInt64().rename('pixel_id');
+        
+        // Create tile coordinates for spatial matching (rounded lat/lon)
+        var lonLat = ee.Image.pixelLonLat();
+        var tileH = lonLat.select('longitude').multiply(100).round().toInt().rename('tile_h');
+        var tileV = lonLat.select('latitude').multiply(100).round().toInt().rename('tile_v');
         
         var imageWithCoords = mod10Image.addBands([
-          enhancedCoords.select('tile_h'),
-          enhancedCoords.select('tile_v'),
+          tileH,
+          tileV,
           pixelRow,
           pixelCol,
-          enhancedCoords.select('pixel_id_enhanced')
+          pixelId
         ]);
         
         return imageWithCoords.select([
           'broadband_albedo_mod10a1', 
-          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id_enhanced'
+          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id'
         ]).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
@@ -154,7 +164,7 @@ function testWeeklyPixelExportCorrected(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id_enhanced'),
+            'pixel_id': feature.get('pixel_id'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MOD10A1'
           });
@@ -181,20 +191,25 @@ function testWeeklyPixelExportCorrected(date, region) {
         var pixelRow = coords.select('y').divide(projection.nominalScale()).toInt().rename('pixel_row');
         var pixelCol = coords.select('x').divide(projection.nominalScale()).toInt().rename('pixel_col');
         
-        // Generate enhanced pixel coordinates with proper MODIS tiles
-        var enhancedCoords = pixelIdUtils.generateEnhancedPixelCoordinates(mcd43Image);
+        // Create enhanced pixel ID: row * 1e6 + col for stability
+        var pixelId = pixelRow.multiply(1e6).add(pixelCol).toInt64().rename('pixel_id');
+        
+        // Create tile coordinates for spatial matching (rounded lat/lon)
+        var lonLat = ee.Image.pixelLonLat();
+        var tileH = lonLat.select('longitude').multiply(100).round().toInt().rename('tile_h');
+        var tileV = lonLat.select('latitude').multiply(100).round().toInt().rename('tile_v');
         
         var imageWithCoords = mcd43Image.addBands([
-          enhancedCoords.select('tile_h'),
-          enhancedCoords.select('tile_v'),
+          tileH,
+          tileV,
           pixelRow,
           pixelCol,
-          enhancedCoords.select('pixel_id_enhanced')
+          pixelId
         ]);
         
         return imageWithCoords.select([
           'broadband_albedo_mcd43a3', 
-          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id_enhanced'
+          'tile_h', 'tile_v', 'pixel_row', 'pixel_col', 'pixel_id'
         ]).sample({
           region: region || glacierUtils.initializeGlacierData().geometry,
           scale: 500,
@@ -211,7 +226,7 @@ function testWeeklyPixelExportCorrected(date, region) {
             'tile_v': feature.get('tile_v'),
             'pixel_row': feature.get('pixel_row'),
             'pixel_col': feature.get('pixel_col'),
-            'pixel_id': feature.get('pixel_id_enhanced'),
+            'pixel_id': feature.get('pixel_id'),
             'date': date.format('YYYY-MM-dd'),
             'method': 'MCD43A3'
           });

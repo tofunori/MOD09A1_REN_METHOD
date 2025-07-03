@@ -5,7 +5,7 @@ import seaborn as sns
 from scipy import stats
 
 # Lire le fichier CSV
-df = pd.read_csv("/home/tofunori/Projects/MOD09A1_REN_METHOD/data/MONTHLY_pixels_three_methods_20230801_to_20230831.csv")
+df = pd.read_csv("data/weekly_pixels_test.csv")
 
 # Afficher les informations de base
 print("Dataset shape:", df.shape)
